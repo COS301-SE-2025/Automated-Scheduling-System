@@ -7,7 +7,7 @@ employees.
 
 ## Getting Started
 
-Copy environment example for vite port
+Copy environment example
 ```bash
 cp .env.example .env
 ```
