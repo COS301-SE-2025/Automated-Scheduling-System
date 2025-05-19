@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import FormContainer from '../ui/FormContainer';
 import FormInput from '../ui/FormInput';
 import FormButton from '../ui/FormButton';
@@ -9,15 +10,19 @@ const SignupForm: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const navigate = useNavigate();
 
     const handleSubmit = (event: React.FormEvent) => {
         event.preventDefault();
-        // TODO: Implement actual signup logic
+        // Validate passwords
         if (password !== confirmPassword) {
             alert("Passwords don't match!");
             return;
         }
         console.log('Signup attempt with:', { name, email, password });
+        
+        //redirect to login, will change later
+        navigate('/login');
     };
 
     return (

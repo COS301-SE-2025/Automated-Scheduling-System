@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import FormContainer from '../ui/FormContainer';
 import FormInput from '../ui/FormInput';
 import FormButton from '../ui/FormButton';
@@ -7,11 +8,14 @@ import FormLink from '../ui/FormLink';
 const LoginForm: React.FC = () => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const navigate = useNavigate();
 
     const handleSubmit = (event: React.FormEvent) => {
         event.preventDefault();
-        // TODO: Implement actual login logic (e.g., API call)
         console.log('Login attempt with:', { email, password });
+        
+        //go to not found page, will change later
+        navigate('/nonexistent-route');
     };
 
     return (

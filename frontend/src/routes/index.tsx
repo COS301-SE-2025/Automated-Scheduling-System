@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from '../pages/LoginPage';
 import SignupPage from '../pages/SignupPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
+import NotFoundPage from '../pages/NotFoundPage';
 
 const AppRoutes: React.FC = () => {
     return (
@@ -16,7 +17,7 @@ const AppRoutes: React.FC = () => {
             <Route path="/" element={<Navigate to="/login" replace />} />
 
             {/* Catch-all for 404 Not Found */}
-            {/* <Route path="*" element={<NotFoundPage />} /> */}
+            <Route path="*" element={<NotFoundPage />} />
         </Routes>
     );
 };
