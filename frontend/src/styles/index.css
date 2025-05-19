@@ -5,11 +5,10 @@
 @tailwind utilities;
 
 body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  font-family: "Source Sans Pro", sans-serif;
-  background-color: #ededed;
-  color: #243966;
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    font-family: "Source Sans Pro", sans-serif;
+    background-color: #ededed;
+    color: #243966;
 }
-
