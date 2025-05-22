@@ -8,7 +8,7 @@ interface FormLinkProps {
 
 const FormLink: React.FC<FormLinkProps> = ({ to, children }) => {
     return (
-        <Link to={to} className="font-medium text-custom-secondary hover:text-custom-third hover:underline">
+        <Link to={to} className="font-medium text-custom-secondary dark:text-dark-third hover:text-custom-third hover:underline">
             {children}
         </Link>
     );
