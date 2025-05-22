@@ -7,14 +7,14 @@ const ThemeToggle: React.FC = () => {
   return (
     <button
       onClick={toggleDarkMode}
-      className="fixed bottom-6 right-6 p-3 rounded-full bg-gray-200 dark:bg-gray-800 shadow-lg transition-all duration-300 hover:scale-110 focus:outline-none"
+      className="fixed bottom-6 right-6 p-3 rounded-full dark:bg-gray-200 bg-gray-800 shadow-lg transition-all duration-300 hover:scale-110 focus:outline-none"
       aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
     >
       {darkMode ? (
         // Sun icon for dark mode
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          className="h-6 w-6 text-yellow-400"
+          className="h-6 w-6 text-yellow-600"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
