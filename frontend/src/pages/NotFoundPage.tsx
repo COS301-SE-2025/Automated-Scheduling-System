@@ -2,6 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import FormButton from '../components/ui/FormButton';
 import MessageBox from '../components/ui/MessageBox';
+import ThemeToggle from '../components/ui/ThemeToggle';
 
 const NotFoundPage: React.FC = () => {
   const navigate = useNavigate();
@@ -11,15 +12,15 @@ const NotFoundPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-custom-background py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-custom-background dark:bg-dark-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="mb-8 text-center">
-        <h2 className="text-xl font-semibold text-custom-secondary">
+        <h2 className="text-xl font-semibold text-custom-secondary dark:text-dark-third">
           DISCON Specialists
         </h2>
-        <h1 className="mt-2 text-4xl font-bold tracking-tight text-custom-primary">
+        <h1 className="mt-2 text-4xl font-bold tracking-tight text-custom-primary dark:text-dark-primary">
           404 - Page Not Found
         </h1>
-        <p className="mt-2 text-md text-custom-third">
+        <p className="mt-2 text-md text-custom-third dark:text-dark-account-text">
           Looks like you've wandered into the digital wilderness!
         </p>
       </div>
@@ -37,6 +38,7 @@ const NotFoundPage: React.FC = () => {
           </FormButton>
         </div>
       </MessageBox>
+      <ThemeToggle />
     </div>
   );
 };
