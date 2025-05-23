@@ -76,12 +76,12 @@ const UsersLayout: React.FC<UsersLayoutProps> = ({ children }) => {
                 Admin Dashboard
               </h1>
               <div className="flex items-center space-x-4">
-                <button
+                {/* <button
                   onClick={toggleDarkMode}
                   className="p-2 rounded-full text-custom-primary dark:text-dark-primary hover:bg-gray-100 dark:hover:bg-gray-700"
                 >
                   {darkMode ? '🌙' : '☀️'}
-                </button>
+                </button> */}
                 <button
                   onClick={handleLogout}
                   className="px-3 py-1 rounded text-custom-primary dark:text-dark-primary hover:bg-gray-100 dark:hover:bg-gray-700"
