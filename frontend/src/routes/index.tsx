@@ -4,6 +4,7 @@ import LoginPage from '../pages/LoginPage';
 import SignupPage from '../pages/SignupPage';
 import ForgotPasswordPage from '../pages/ForgotPasswordPage';
 import NotFoundPage from '../pages/NotFoundPage';
+import UsersPage from '../pages/UsersPage';
 import DashboardPage from '../pages/DashboardPage';
 import { useAuth } from '../hooks/useAuth';
 
@@ -63,7 +64,7 @@ const AppRoutes: React.FC = () => {
             <Route element={<ProtectedRouteElement />}>
                 {/* Example using DashboardLayout */}
                 <Route path="/dashboard" element={<DashboardPage />} />
-                
+                <Route path="/users" element={<UsersPage />} />
             </Route>
             
             {/* Default route handler */}
