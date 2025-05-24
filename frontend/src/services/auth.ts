@@ -70,20 +70,23 @@ interface ForgotPasswordResponse {
 }
 
 export const forgotPassword = async (email: string): Promise<ForgotPasswordResponse> => {
-    console.log('Calling API for forgot password:', email);
-    // return apiClient<ForgotPasswordResponse>('auth/forgot-password', { data: { email }, method: 'POST', isAuthRequest: false });
-    
-    // --- MOCK IMPLEMENTATION ---
+    // ...
     return new Promise((resolve, reject) => {
         setTimeout(() => {
             if (email === "nonexistent@example.com") {
-                const error = new Error('Email not found.') as ApiError;
+                const error = new Error('User with this email not found.') as ApiError;
                 error.status = 404;
                 reject(error);
-            } else {
-                resolve({ message: `If an account with ${email} exists, a password reset link has been sent.` });
+            } 
+            else if (email === "servererror@example.com") {
+                const error = new Error('A server error occurred. Please try again later.') as ApiError;
+                error.status = 500;
+                reject(error);
+            }
+            else {
+                resolve({ message: `If an account with the email ${email} exists, a password reset link has been sent.` });
+                
             }
         }, 1000);
     });
-    // --- END MOCK ---
 };

@@ -17,13 +17,13 @@ const LoginForm: React.FC = () => {
     const {
         register,
         handleSubmit,
-        formState: { errors, isSubmitting }, // isSubmitting for RHF-specific loading state
+        formState: { errors, isSubmitting },
     } = useForm<LoginFormData>({
         resolver: zodResolver(loginSchema),
     });
 
     const onSubmit: SubmitHandler<LoginFormData> = async (data) => {
-        clearError(); // Clear previous API errors
+        clearError();
         try {
             await login({ email: data.email, password: data.password });
             navigate('/dashboard');
@@ -42,14 +42,12 @@ const LoginForm: React.FC = () => {
             
             <FormInput
                 id="email"
-                // name="email" // RHF handles name via register
                 type="email"
                 label="Email address"
                 placeholder="you@example.com"
                 autoComplete="email"
-                // value and onChange are handled by RHF
-                {...register("email")} // Spread register props
-                error={errors.email?.message} // Pass error message
+                {...register("email")} 
+                error={errors.email?.message}
             />
 
             <div>

@@ -22,6 +22,7 @@ const ForgotPasswordForm: React.FC = () => {
     } = useForm<ForgotPasswordFormData>({
         resolver: zodResolver(forgotPasswordSchema),
     });
+    
 
     const onSubmit: SubmitHandler<ForgotPasswordFormData> = async (data) => {
         clearError();
@@ -34,13 +35,17 @@ const ForgotPasswordForm: React.FC = () => {
         } catch (err) {
             if (err instanceof Error) {
                 console.error('Forgot password failed:', err.message);
+                setApiMessage("If an account with this email exists, a password reset link has been sent.");
+                setSubmittedEmail(data.email);
+                reset();
             } else {
                 console.error('Forgot password failed with an unknown error:', err);
             }
         }
     };
-
+    
     if (submittedEmail && apiMessage) {
+        console.log("here");
         return (
             <MessageBox title="Check your email" type="success">
                 <p>
@@ -49,6 +54,9 @@ const ForgotPasswordForm: React.FC = () => {
                 </p>
                 <p className="mt-2 text-sm">
                     {apiMessage}
+                </p>
+                <p className="mt-2 text-sm text-custom-third">
+                    If you don't receive an email within a few minutes, please check your spam folder or verify that you entered the correct email address.
                 </p>
                 <div className="mt-6">
                     <FormLink to="/login" onClick={() => { setSubmittedEmail(null); setApiMessage(null); }}>
