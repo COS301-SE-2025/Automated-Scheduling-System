@@ -1,48 +1,64 @@
-import React, { useState } from 'react';
+import React from 'react'; // Removed useState
 import { useNavigate } from 'react-router-dom';
+import { useForm, type SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { loginSchema, type LoginFormData } from '../../utils/validation'; // Import schema and type
 import FormContainer from '../ui/FormContainer';
 import FormInput from '../ui/FormInput';
 import FormButton from '../ui/FormButton';
 import FormLink from '../ui/FormLink';
+import { useAuth } from '../../hooks/useAuth';
+import MessageBox from '../ui/MessageBox';
 
 const LoginForm: React.FC = () => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
+    const { login, isLoading: authIsLoading, error: authError, clearError } = useAuth();
     const navigate = useNavigate();
 
-    const handleSubmit = (event: React.FormEvent) => {
-        event.preventDefault();
-        console.log('Login attempt with:', { email, password });
-        
-        //go to not found page, will change later
-        navigate('/nonexistent-route');
+    const {
+        register,
+        handleSubmit,
+        formState: { errors, isSubmitting },
+    } = useForm<LoginFormData>({
+        resolver: zodResolver(loginSchema),
+    });
+
+    const onSubmit: SubmitHandler<LoginFormData> = async (data) => {
+        clearError();
+        try {
+            await login({ email: data.email, password: data.password });
+            navigate('/dashboard');
+        } catch (err) {
+            if (err instanceof Error) {
+                console.error('Login failed:', err.message);
+            } else {
+                console.error('Login failed with an unknown error:', err);
+            }
+        }
     };
 
     return (
-        <FormContainer onSubmit={handleSubmit}>
+        <FormContainer onSubmit={handleSubmit(onSubmit)}>
+            {authError && <MessageBox type="error" title="Login Failed">{authError}</MessageBox>}
+            
             <FormInput
                 id="email"
-                name="email"
                 type="email"
                 label="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                required
                 autoComplete="email"
+                {...register("email")} 
+                error={errors.email?.message}
             />
 
             <div>
                 <FormInput
                     id="password"
-                    name="password"
                     type="password"
                     label="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    required
                     autoComplete="current-password"
+                    {...register("password")}
+                    error={errors.password?.message}
                 />
                 <div className="text-right mt-1">
                     <FormLink to="/forgot-password">
@@ -52,8 +68,8 @@ const LoginForm: React.FC = () => {
             </div>
 
             <div>
-                <FormButton type="submit">
-                    Sign in
+                <FormButton type="submit" disabled={isSubmitting || authIsLoading}>
+                    {isSubmitting || authIsLoading ? 'Signing in...' : 'Sign in'}
                 </FormButton>
             </div>
             <div className="text-center">

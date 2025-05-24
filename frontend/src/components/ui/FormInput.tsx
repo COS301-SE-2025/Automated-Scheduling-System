@@ -1,82 +1,39 @@
-import React, { useEffect, useRef } from 'react';
-import { useTheme } from '../../contexts/ThemeContext';
+import React from 'react';
 
-interface FormInputProps {
-    id: string;
-    name: string;
-    type: string;
-    label: string;
-    value: string;
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    placeholder?: string;
-    required?: boolean;
-    autoComplete?: string;
+interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label: string;
+  id: string;
+  error?: string;
 }
 
 const FormInput: React.FC<FormInputProps> = ({
-    id,
-    name,
-    type,
-    label,
-    value,
-    onChange,
-    placeholder,
-    required = false,
-    autoComplete,
+  label,
+  id,
+  type = 'text',
+  error, 
+  className,
+  ...props 
 }) => {
-    const inputRef = useRef<HTMLInputElement>(null);
-    const { darkMode } = useTheme();
+  const baseInputClasses = "block w-full rounded-md border-0 py-2 px-3 text-custom-text dark:text-dark-text bg-custom-background dark:bg-dark-input placeholder:text-custom-placeholder dark:placeholder-dark-placeholder shadow-sm ring-1 ring-inset ring-custom-border dark:ring-dark-border focus:ring-2 focus:ring-inset focus:ring-custom-primary dark:focus:ring-dark-primary sm:text-sm sm:leading-6";
+  const errorInputClasses = "ring-red-500 dark:ring-red-500 focus:ring-red-500 dark:focus:ring-red-500";
 
-    useEffect(() => {
-        if (inputRef.current) {
-            const styleEl = document.createElement('style');
-            const inputId = `#${id}`;
-            
-            const boxShadowColor = darkMode ? '#3b3b3b' : '#f9fafb';
-            const textColor = darkMode ? 'white' : '#111827';
-            const caretColor = darkMode ? 'white' : '#111827';
-            
-            styleEl.innerHTML = `
-                ${inputId}:-webkit-autofill,
-                ${inputId}:-webkit-autofill:hover,
-                ${inputId}:-webkit-autofill:focus,
-                ${inputId}:-webkit-autofill:active {
-                    -webkit-box-shadow: 0 0 0 30px ${boxShadowColor} inset !important;
-                    -webkit-text-fill-color: ${textColor} !important;
-                    transition: background-color 5000s ease-in-out 0s;
-                    caret-color: ${caretColor};
-                }
-            `;
-            
-            document.head.appendChild(styleEl);
-            
-            return () => {
-                document.head.removeChild(styleEl);
-            };
-        }
-    }, [id, darkMode]); 
 
-    return (
-        <div>
-            <label htmlFor={id} className="block text-sm font-semibold text-custom-primary dark:text-dark-secondary">
-                {label}
-            </label>
-            <div className="mt-1">
-                <input
-                    ref={inputRef}
-                    id={id}
-                    name={name}
-                    type={type}
-                    autoComplete={autoComplete}
-                    required={required}
-                    value={value}
-                    onChange={onChange}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-custom-secondary focus:border-custom-secondary sm:text-sm text-gray-900 dark:text-white dark:bg-dark-input dark:border-gray-600"
-                    placeholder={placeholder}
-                />
-            </div>
-        </div>
-    );
+  return (
+    <div className="mb-4">
+      <label htmlFor={id} className="block text-sm font-medium leading-6 text-custom-text dark:text-dark-text">
+        {label}
+      </label>
+      <div className="mt-1">
+        <input
+          id={id}
+          type={type}
+          className={`${baseInputClasses} ${error ? errorInputClasses : ''} ${className || ''}`}
+          {...props}
+        />
+      </div>
+      {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
+    </div>
+  );
 };
 
 export default FormInput;
