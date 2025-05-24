@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
+import { useSearchParams } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { forgotPasswordSchema, type ForgotPasswordFormData } from '../../utils/validation';
 import FormContainer from '../ui/FormContainer';
@@ -10,9 +11,13 @@ import MessageBox from '../ui/MessageBox';
 import { useAuth } from '../../hooks/useAuth';
 
 const ForgotPasswordForm: React.FC = () => {
-    const [submittedEmail, setSubmittedEmail] = useState<string | null>(null);
-    const [apiMessage, setApiMessage] = useState<string | null>(null);
+    const [searchParams, setSearchParams] = useSearchParams();
+
     const { forgotPassword, isLoading: authIsLoading, error: authError, clearError } = useAuth();
+
+    const submittedEmail = searchParams.get('email');
+    const successMessage = searchParams.get('message');
+    const isSuccess = submittedEmail && successMessage;
 
     const {
         register,
@@ -22,30 +27,49 @@ const ForgotPasswordForm: React.FC = () => {
     } = useForm<ForgotPasswordFormData>({
         resolver: zodResolver(forgotPasswordSchema),
     });
-    
+
+
+    useEffect(() => {
+        if (authError && isSuccess) {
+            setSearchParams({});
+        }
+    }, [authError, isSuccess, setSearchParams]);
 
     const onSubmit: SubmitHandler<ForgotPasswordFormData> = async (data) => {
         clearError();
-        setApiMessage(null);
+
         try {
             const response = await forgotPassword(data.email);
-            setApiMessage(response.message);
-            setSubmittedEmail(data.email);
+
+            setSearchParams({
+                email: data.email,
+                message: response.message || "Reset link sent successfully"
+            });
             reset();
         } catch (err) {
             if (err instanceof Error) {
                 console.error('Forgot password failed:', err.message);
-                setApiMessage("If an account with this email exists, a password reset link has been sent.");
-                setSubmittedEmail(data.email);
+
+                setSearchParams({
+                    email: data.email,
+                    message: "If an account with this email exists, a password reset link has been sent."
+                });
                 reset();
             } else {
                 console.error('Forgot password failed with an unknown error:', err);
             }
         }
     };
-    
-    if (submittedEmail && apiMessage) {
-        console.log("here");
+
+    const handleBackToLogin = () => {
+        setSearchParams({});
+    };
+
+    const handleBackToForgotPassword = () => {
+        setSearchParams({});
+    };
+
+    if (isSuccess) {
         return (
             <MessageBox title="Check your email" type="success">
                 <p>
@@ -53,13 +77,18 @@ const ForgotPasswordForm: React.FC = () => {
                     Please check your inbox and follow the instructions.
                 </p>
                 <p className="mt-2 text-sm">
-                    {apiMessage}
+                    {successMessage}
                 </p>
                 <p className="mt-2 text-sm text-custom-third">
                     If you don't receive an email within a few minutes, please check your spam folder or verify that you entered the correct email address.
                 </p>
                 <div className="mt-6">
-                    <FormLink to="/login" onClick={() => { setSubmittedEmail(null); setApiMessage(null); }}>
+                    <FormLink to="/forgot-password" onClick={handleBackToForgotPassword}>
+                        Return to forgot password
+                    </FormLink>
+                </div>
+                <div className="mt-6">
+                    <FormLink to="/login" onClick={handleBackToLogin}>
                         Return to login
                     </FormLink>
                 </div>
