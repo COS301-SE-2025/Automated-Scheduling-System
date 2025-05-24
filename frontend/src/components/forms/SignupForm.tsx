@@ -1,83 +1,88 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useForm, type SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { signupSchema, type SignupFormData } from '../../utils/validation';
 import FormContainer from '../ui/FormContainer';
 import FormInput from '../ui/FormInput';
 import FormButton from '../ui/FormButton';
 import FormLink from '../ui/FormLink';
+import { useAuth } from '../../hooks/useAuth';
+import MessageBox from '../ui/MessageBox';
 
 const SignupForm: React.FC = () => {
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
+    const { signup, isLoading: authIsLoading, error: authError, clearError } = useAuth();
     const navigate = useNavigate();
 
-    const handleSubmit = (event: React.FormEvent) => {
-        event.preventDefault();
-        // Validate passwords
-        if (password !== confirmPassword) {
-            alert("Passwords don't match!");
-            return;
+    const {
+        register,
+        handleSubmit,
+        formState: { errors, isSubmitting },
+    } = useForm<SignupFormData>({
+        resolver: zodResolver(signupSchema),
+    });
+
+    const onSubmit: SubmitHandler<SignupFormData> = async (data) => {
+        clearError();
+        try {
+            await signup(data);
+            navigate('/dashboard');
+        } catch (err) {
+            if (err instanceof Error) {
+                console.error('Signup failed:', err.message);
+            } else {
+                console.error('Signup failed with an unknown error:', err);
+            }
         }
-        console.log('Signup attempt with:', { name, email, password });
-        
-        //redirect to login, will change later
-        navigate('/login');
     };
 
     return (
-        <FormContainer onSubmit={handleSubmit}>
+        <FormContainer onSubmit={handleSubmit(onSubmit)}>
+            {authError && <MessageBox type="error" title="Signup Failed">{authError}</MessageBox>}
+
             <FormInput
                 id="name"
-                name="name"
                 type="text"
                 label="Full Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
                 placeholder="John Doe"
-                required
                 autoComplete="name"
+                {...register("name")}
+                error={errors.name?.message}
             />
 
             <FormInput
                 id="email"
-                name="email"
                 type="email"
                 label="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                required
                 autoComplete="email"
+                {...register("email")}
+                error={errors.email?.message}
             />
 
             <FormInput
                 id="password"
-                name="password"
                 type="password"
                 label="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                required
                 autoComplete="new-password"
+                {...register("password")}
+                error={errors.password?.message}
             />
 
             <FormInput
                 id="confirm-password"
-                name="confirm-password"
                 type="password"
                 label="Confirm Password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
-                required
                 autoComplete="new-password"
+                {...register("confirmPassword")}
+                error={errors.confirmPassword?.message}
             />
 
             <div>
-                <FormButton type="submit">
-                    Sign up
+                <FormButton type="submit" disabled={isSubmitting || authIsLoading}>
+                    {isSubmitting || authIsLoading ? 'Signing up...' : 'Sign up'}
                 </FormButton>
             </div>
             <div className="text-center">
