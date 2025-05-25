@@ -17,3 +17,100 @@ body {
     background-color: #1c1f21;
     color: #9dbee0;
 }
+
+.fc .fc-button-primary {
+    @apply bg-custom-secondary hover:bg-custom-third text-white dark:bg-dark-secondary dark:hover:bg-dark-third !important;
+    @apply rounded-md px-3 py-1.5 text-sm font-semibold !important; /* Modernized button style */
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.fc .fc-button-primary:disabled {
+    @apply bg-gray-300 dark:bg-gray-700 !important;
+}
+
+.fc .fc-button-group > .fc-button {
+    @apply m-0 !important; /* Remove extra margin between grouped buttons */
+}
+
+.fc .fc-today-button {
+    @apply capitalize !important; /* 'today' instead of 'TODAY' */
+}
+
+/* Example: Style the calendar header */
+.fc .fc-toolbar-title {
+    @apply text-xl font-semibold text-custom-primary dark:text-dark-primary !important;
+}
+
+.fc .fc-toolbar.fc-header-toolbar {
+    @apply mb-3 !important; /* Add some space below the header */
+}
+
+/* Example: Style for calendar days */
+.fc .fc-daygrid-day-frame {
+    /* @apply rounded-lg transition-all duration-200 ease-in-out; */ /* Removing rounded frames for a flatter look like GCal */
+    @apply p-1 transition-all duration-200 ease-in-out !important; /* Add some padding inside day cell */
+    min-height: 6em; /* Ensure day cells have enough height */
+}
+
+.fc .fc-daygrid-day:hover .fc-daygrid-day-frame {
+    @apply bg-custom-accent-hover dark:bg-dark-accent-hover !important; /* Subtle hover */
+    /* box-shadow: none !important; */ /* Removing shadow for flatter look */
+}
+
+.fc .fc-day-today .fc-daygrid-day-frame {
+    @apply bg-custom-accent dark:bg-dark-accent !important; /* Keep your today color */
+    /* border-top: 2px solid var(--fc-today-bg-color, #yourTodayHighlightColor); */ /* GCal style today highlight - adjust color */
+}
+
+.fc .fc-day-today .fc-daygrid-day-number {
+    @apply bg-custom-secondary text-white rounded-full px-1.5 py-0.5 text-xs dark:bg-dark-secondary !important; /* GCal style today number */
+}
+
+/* Example: Style for events - will be mostly handled by eventContent for GCal look */
+.fc .fc-event {
+    /* Basic reset, most styling will be in eventContent */
+    @apply shadow-none border-none text-sm !important;
+    /* Default background will be set in eventContent based on event properties if needed */
+}
+
+/* Remove default blue border on selected/clicked day */
+.fc .fc-daygrid-day.fc-day-selected .fc-daygrid-day-frame,
+.fc .fc-daygrid-day.fc-day-clicked .fc-daygrid-day-frame {
+  background-color: inherit !important; /* Or your desired selection color */
+}
+
+/* You might need to adjust text colors for day numbers, headers, etc. */
+.fc th,
+.fc .fc-col-header-cell-cushion /* For day headers like Mon, Tue */
+ {
+    @apply text-custom-text dark:text-dark-text py-2 font-medium text-xs uppercase tracking-wider !important;
+}
+
+.fc .fc-daygrid-day-number {
+    @apply text-custom-text dark:text-dark-text text-xs p-1 !important;
+}
+
+/* Ensure the calendar container itself allows for dark mode background */
+.fc {
+    @apply bg-transparent !important; /* Make FullCalendar's own background transparent to inherit from parent */
+}
+
+/* Table borders for a cleaner look like Google Calendar */
+.fc-theme-standard td,
+.fc-theme-standard th {
+    @apply border-gray-200 dark:border-gray-700 !important;
+}
+
+/* Timegrid specific styling for a cleaner look */
+.fc .fc-timegrid-slot-label {
+    @apply text-xs text-custom-third dark:text-dark-third !important;
+}
+
+.fc .fc-timegrid-axis-cushion {
+    @apply text-xs text-custom-third dark:text-dark-third !important;
+}
+
+.fc .fc-timegrid-event .fc-event-main {
+    @apply p-1 !important; /* Padding inside timegrid events */
+}
