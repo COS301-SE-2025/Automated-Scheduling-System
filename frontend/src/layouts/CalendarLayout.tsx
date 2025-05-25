@@ -11,21 +11,20 @@ const navItems: NavItem[] = [
     { path: '/settings', label: 'Settings' },
 ];
 
-interface DashboardLayoutProps {
-  children: React.ReactNode;
+interface CalendarLayoutProps {
+    children: React.ReactNode;
 }
 
-const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
-  return (
-    <Layout
-      pageTitle="Dashboard"
-      navItems={navItems}
-      companyName="DISCON Specialists"
-    >
-        {children}
-      
-    </Layout>
-  );
+const CalendarLayout: React.FC<CalendarLayoutProps> = ({ children }) => {
+    return (
+        <Layout
+            pageTitle="Calendar"
+            navItems={navItems}
+            companyName="DISCON Specialists"
+        >
+            {children}
+        </Layout>
+    );
 };
 
-export default DashboardLayout;
+export default CalendarLayout;
