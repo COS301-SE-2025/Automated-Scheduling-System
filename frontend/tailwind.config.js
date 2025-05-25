@@ -13,6 +13,9 @@ export default {
         'custom-secondary': '#00bac8', // Secondary
         'custom-third': '#0078a6',     // Third
         'custom-fourth': '#e3feff',    // Fourth
+        'custom-accent': '#e0f2fe',
+        'custom-accent-hover': '#f0f0f0',
+        'custom-text': '#1f2937',
         // Dark mode colors
         'dark': {
           'background': '#1c1f21',
@@ -23,7 +26,10 @@ export default {
           'third': '#3df9ff',         
           'signin': '#18284a',        
           'account-text': '#57d5ff',  
-          'signup': '#3df9ff',        
+          'signup': '#3df9ff',
+          'accent': '#0c4a6e',
+          'accent-hover': '#2a2d2f',
+          'text': '#e5e7eb',        
         }
       },
       fontFamily: {
