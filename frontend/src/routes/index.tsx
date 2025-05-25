@@ -6,6 +6,9 @@ import ForgotPasswordPage from '../pages/ForgotPasswordPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import UsersPage from '../pages/UsersPage';
 import DashboardPage from '../pages/DashboardPage';
+import CalendarPage from '../pages/CalendarPage';
+import EventsPage from '../pages/EventsPage';
+import RulesPage from '../pages/RulesPage';
 import { useAuth } from '../hooks/useAuth';
 
 const ProtectedRouteElement: React.FC = () => {
@@ -53,7 +56,7 @@ const AppRoutes: React.FC = () => {
 
     return (
         <Routes>
-            {/* Public routs */}
+            {/* Public routes */}
             <Route element={<PublicAuthRouteElement />}>
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
@@ -62,9 +65,11 @@ const AppRoutes: React.FC = () => {
 
             {/* Protected Routes */}
             <Route element={<ProtectedRouteElement />}>
-                {/* Example using DashboardLayout */}
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/users" element={<UsersPage />} />
+                <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/events" element={<EventsPage />} />
+                <Route path="/rules" element={<RulesPage />} />
             </Route>
             
             {/* Default route handler */}

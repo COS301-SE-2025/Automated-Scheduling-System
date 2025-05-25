@@ -11,21 +11,20 @@ const navItems: NavItem[] = [
     { path: '/settings', label: 'Settings' },
 ];
 
-interface DashboardLayoutProps {
-  children: React.ReactNode;
+interface EventsLayoutProps {
+    children: React.ReactNode;
 }
 
-const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
-  return (
-    <Layout
-      pageTitle="Dashboard"
-      navItems={navItems}
-      companyName="DISCON Specialists"
-    >
-        {children}
-      
-    </Layout>
-  );
+const EventsLayout: React.FC<EventsLayoutProps> = ({ children }) => {
+    return (
+        <Layout
+            pageTitle="Events"
+            navItems={navItems}
+            companyName="DISCON Specialists"
+        >
+            {children}
+        </Layout>
+    );
 };
 
-export default DashboardLayout;
+export default EventsLayout;

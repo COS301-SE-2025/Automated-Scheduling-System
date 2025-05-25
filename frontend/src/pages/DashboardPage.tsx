@@ -3,18 +3,13 @@ import React from 'react';
 import { useAuth } from '../hooks/useAuth';
 
 const DashboardPage: React.FC = () => {
-    const { user, logout } = useAuth();
+    const { user } = useAuth(); // `logout` function is no longer called directly from here
     return (
         <DashboardLayout>
             <div>
                 <h1 className="text-2xl font-semibold">Welcome to your Dashboard, {user?.name || 'User'}!</h1>
                 <p>This is a protected area.</p>
-                <button 
-                    onClick={logout} 
-                    className="mt-4 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
-                >
-                    Logout
-                </button>
+                {/* The logout button is now part of the Header component in DashboardLayout */}
             </div>
         </DashboardLayout>
     );
