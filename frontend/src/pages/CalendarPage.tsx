@@ -1,5 +1,5 @@
 import CalendarLayout from '../layouts/CalendarLayout';
-import React, { useState } from 'react'; // Added useState
+import React, { useState } from 'react'; 
 import { useAuth } from '../hooks/useAuth';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -9,7 +9,7 @@ import type { EventContentArg, DateSelectArg, EventClickArg } from '@fullcalenda
 import type { DateClickArg } from '@fullcalendar/interaction';
 import { PlusCircle } from 'lucide-react'; 
 
-// Need to move the pop up menu to the components folder eventually 
+// Need to move the EventFormModalProps (pop up menu) to the components folder eventually 
 interface EventFormModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -198,10 +198,79 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
     );
 };
 
+// Also need to move EventModal and it's props to a separte compomnent file.
+interface EventDetailModalProps {
+    isOpen: boolean;
+    onClose: () => void;
+    event: EventClickArg['event'] | null; 
+}
+
+const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, event }) => {
+    if (!isOpen || !event) return null;
+
+    const { title, start, end, allDay, extendedProps } = event;
+    const eventType = extendedProps?.eventType || 'N/A';
+    const relevantParties = extendedProps?.relevantParties || 'N/A';
+
+    const formatDateTime = (date: Date | null, isAllDay: boolean, isEnd: boolean = false) => {
+        if (!date) return 'N/A';
+        if (isAllDay) {
+            const d = new Date(date);
+            if (isEnd) d.setDate(d.getDate() -1); 
+            return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+        return date.toLocaleString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+            <div className="bg-custom-background dark:bg-dark-div p-6 rounded-lg shadow-xl w-full max-w-md">
+                <h2 className="text-xl font-semibold mb-4 text-custom-text dark:text-dark-text">Event Details</h2>
+                <div className="space-y-3">
+                    <div>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Title</p>
+                        <p className="text-custom-text dark:text-dark-text">{title}</p>
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Start</p>
+                        <p className="text-custom-text dark:text-dark-text">{formatDateTime(start, allDay)}</p>
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">End</p>
+                        {/* For all-day events, FullCalendar's end date is exclusive. Adjust if necessary or clarify. */}
+                        <p className="text-custom-text dark:text-dark-text">{formatDateTime(end, allDay, allDay)}</p>
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">All-day</p>
+                        <p className="text-custom-text dark:text-dark-text">{allDay ? 'Yes' : 'No'}</p>
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Event Type</p>
+                        <p className="text-custom-text dark:text-dark-text">{eventType}</p>
+                    </div>
+                    <div>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Relevant Parties</p>
+                        <p className="text-custom-text dark:text-dark-text">{relevantParties}</p>
+                    </div>
+                </div>
+                <div className="mt-6 flex justify-end">
+                    <button 
+                        onClick={onClose} 
+                        className="px-4 py-2 bg-custom-primary hover:bg-opacity-90 dark:hover:bg-opacity-90 text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-custom-primary dark:focus:ring-offset-dark-div dark:focus:ring-dark-primary"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const CalendarPage: React.FC = () => {
     const { user } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
-    // Ensure selectedDateInfo can hold the new fields if you plan to pre-fill them from event clicks later
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false); 
+    const [clickedEventInfo, setClickedEventInfo] = useState<EventClickArg['event'] | null>(null); 
     const [selectedDateInfo, setSelectedDateInfo] = useState<DateSelectArg | DateClickArg | (EventClickArg['event'] & { eventType?: string; relevantParties?: string }) | null>(null);
     const calendarRef = React.useRef<FullCalendar>(null);
 
@@ -221,7 +290,8 @@ const CalendarPage: React.FC = () => {
     };
 
     const handleEventClick = (clickInfo: EventClickArg) => {
-        alert('Event Title: ' + clickInfo.event.title);
+        setClickedEventInfo(clickInfo.event);
+        setIsDetailModalOpen(true);
     };
 
     const handleSaveEvent = (eventData: { 
@@ -296,9 +366,14 @@ const CalendarPage: React.FC = () => {
                     endStr: 'endStr' in selectedDateInfo ? selectedDateInfo.endStr : (selectedDateInfo as DateClickArg).dateStr,
                     allDay: selectedDateInfo.allDay !== undefined ? selectedDateInfo.allDay : !(('dateStr' in selectedDateInfo && selectedDateInfo.dateStr.includes('T')) || ('startStr' in selectedDateInfo && selectedDateInfo.startStr.includes('T'))),
                     title: 'title' in selectedDateInfo ? selectedDateInfo.title : undefined,
-                    eventType: 'eventType' in selectedDateInfo ? selectedDateInfo.eventType : undefined,
-                    relevantParties: 'relevantParties' in selectedDateInfo ? selectedDateInfo.relevantParties : undefined,
+                    eventType: ('extendedProps' in selectedDateInfo && selectedDateInfo.extendedProps?.eventType) ? selectedDateInfo.extendedProps.eventType : undefined,
+                    relevantParties: ('extendedProps' in selectedDateInfo && selectedDateInfo.extendedProps?.relevantParties) ? selectedDateInfo.extendedProps.relevantParties : undefined,
                  } : undefined}
+            />
+            <EventDetailModal 
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
+                event={clickedEventInfo}
             />
         </CalendarLayout>
     );
@@ -308,18 +383,29 @@ export default CalendarPage;
 
 function renderEventContent(eventInfo: EventContentArg) {
     const isMonthView = eventInfo.view.type === 'dayGridMonth';
+    const eventType = eventInfo.event.extendedProps.eventType;
+    const relevantParties = eventInfo.event.extendedProps.relevantParties;
 
     return (
         <div 
-            className={`overflow-hidden text-ellipsis whitespace-nowrap rounded h-full flex flex-col justify-center
-                        ${isMonthView ? 'p-0.5' : 'p-1'} 
+            className={`overflow-hidden text-ellipsis whitespace-nowrap rounded h-full flex flex-col 
+                        ${isMonthView ? 'p-0.5 text-xs' : 'p-1 text-sm'} 
                         bg-custom-primary text-white dark:bg-dark-primary`}
-            title={eventInfo.event.title} // Show full title on hover
+            title={`${eventInfo.event.title} (${eventType} for ${relevantParties})`} 
         >
             {eventInfo.timeText && !isMonthView && (
                 <span className="font-semibold mr-1">{eventInfo.timeText}</span>
             )}
-            <span className="text-xs font-medium">{eventInfo.event.title}</span>
+            <span className="font-medium">{eventInfo.event.title}</span>
+            {isMonthView && eventType && (
+                <span className="text-xs block truncate">Type: {eventType}</span>
+            )}
+            {!isMonthView && eventType && (
+                 <span className="text-xs block">Type: {eventType}</span>
+            )}
+            {!isMonthView && relevantParties && (
+                <span className="text-xs block">For: {relevantParties}</span>
+            )}
         </div>
     );
 }
