@@ -2,6 +2,7 @@ package server
 
 import (
 	"net/http"
+    "Automated-Scheduling-Project/internal/auth"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -20,6 +21,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.GET("/", s.HelloWorldHandler)
 
 	r.GET("/health", s.healthHandler)
+    auth.RegisterAuthRoutes(r)
 
 	return r
 }
