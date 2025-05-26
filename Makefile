@@ -9,11 +9,16 @@ build:
 	
 	@go build -o main cmd/api/main.go
 
+# Run migrations
+migrate:
+	@go run cmd/migrate/main.go
+
 # Run the application
 run:
 	@go run cmd/api/main.go &
-	@yarn install --prefer-offline --no-fund --prefix ./frontend
-	@npm run dev --prefix ./frontend
+	@cd frontend && yarn install --prefer-offline --no-fund
+	@cd frontend && npm run dev
+
 # Create DB container
 docker-run:
 	@if docker compose up --build 2>/dev/null; then \

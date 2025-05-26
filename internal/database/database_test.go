@@ -86,8 +86,8 @@ func TestHealth(t *testing.T) {
 		t.Fatalf("expected error not to be present")
 	}
 
-	if stats["message"] != "It's healthy" {
-		t.Fatalf("expected message to be 'It's healthy', got %s", stats["message"])
+	if stats["message"] != "Database is healthy" {
+		t.Fatalf("expected message to be 'Database is healthy', got %s", stats["message"])
 	}
 }
 
