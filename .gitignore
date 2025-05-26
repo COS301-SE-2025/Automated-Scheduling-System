@@ -31,6 +31,3 @@ main
 
 # OS X generated file
 .DS_Store
-
-frontend/package-lock.json
-frontend/package.json

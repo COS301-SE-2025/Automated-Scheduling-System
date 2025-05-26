@@ -12,7 +12,7 @@ build:
 # Run the application
 run:
 	@go run cmd/api/main.go &
-	@npm install --prefer-offline --no-fund --prefix ./frontend
+	@yarn install --prefer-offline --no-fund --prefix ./frontend
 	@npm run dev --prefix ./frontend
 # Create DB container
 docker-run:
