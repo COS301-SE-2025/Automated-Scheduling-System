@@ -41,6 +41,13 @@ docker-down:
 test:
 	@echo "Testing..."
 	@go test ./... -v
+
+# Unit testing (auth only)
+utest:
+
+    @echo "Running Unit Test for Auth..."
+    @go test -v -tags=unit ./...
+
 # Integrations Tests for the application
 itest:
 	@echo "Running integration tests..."

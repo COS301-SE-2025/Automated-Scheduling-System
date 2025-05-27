@@ -1,0 +1,1 @@
+/nix/store/jzgvbkw5ja1sp3533c1fm3ibc8sviscx-postgresql-15.12/bin/postgres "-D" "/home/muller/Documents/Capstoneproject/Automated-Scheduling-System/.pgdata" "-p" "5432" "-k" "/home/muller/Documents/Capstoneproject/Automated-Scheduling-System/.pgsocket"
