@@ -5,6 +5,12 @@ export interface User {
     email: string;
 }
 
+export interface ApiUser {
+    id: number;      
+    username: string; 
+    email: string;
+}
+
 export interface AuthState {
     isAuthenticated: boolean;
     user: User | null;

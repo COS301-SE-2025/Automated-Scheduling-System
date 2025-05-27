@@ -1,27 +1,49 @@
+// src/components/users/UserTable.tsx
 import React from 'react';
-import type { User } from '../../types/user';
+
+// Define or import UserStatus if not already globally available/imported
+export type UserStatus = "Active" | "Inactive" | "Pending";
+
+// This is the type UserTable will work with internally and expect as a prop
+export interface TableUser { // Renamed to avoid confusion if 'User' is used elsewhere
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  status: UserStatus; // <--- Use the specific UserStatus type
+  lastLogin: string | null;
+}
 
 interface UserTableProps {
-  users: User[];
+  users: TableUser[]; // <--- Expects TableUser[]
   isLoading: boolean;
-  onEdit: (user: User) => void;
-  onDelete: (user: User) => void;
+  onEdit: (user: TableUser) => void;
+  onDelete: (user: TableUser) => void;
 }
 
 const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelete }) => {
-  const formatDate = (dateString: string | null) => {
+  const formatDate = (dateString: string | null): string => {
     if (!dateString) return 'Never';
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date);
+    try {
+      const date = new Date(dateString);
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+          return 'Invalid Date';
+      }
+      return new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } catch (e) {
+        console.error("Error formatting date:", dateString, e);
+        return "Error";
+    }
   };
 
-  const getStatusClass = (status: string) => {
+  const getStatusClass = (status: UserStatus): string => { // <--- Parameter is UserStatus
     switch (status) {
       case 'Active':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
@@ -30,6 +52,8 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelet
       case 'Pending':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
       default:
+        // This case should ideally not be reached if status is strictly UserStatus
+        const _exhaustiveCheck: never = status; // Helps ensure all cases are handled
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
     }
   };
@@ -91,7 +115,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelet
                       {user.role}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm">
-                      <span className={`inline-flex rounded-full px-2 text-xs font-semibold leading-5 ${getStatusClass(user.status)}`}>
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold leading-5 ${getStatusClass(user.status)}`}>
                         {user.status}
                       </span>
                     </td>
@@ -99,13 +123,15 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelet
                       {formatDate(user.lastLogin)}
                     </td>
                     <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                      <button 
+                      <button
+                        type="button"
                         className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary mr-4"
                         onClick={() => onEdit(user)}
                       >
                         Edit
                       </button>
-                      <button 
+                      <button
+                        type="button"
                         className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                         onClick={() => onDelete(user)}
                       >
