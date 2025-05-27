@@ -4,9 +4,11 @@ import type { User } from '../../types/user';
 interface UserTableProps {
   users: User[];
   isLoading: boolean;
+  onEdit: (user: User) => void;
+  onDelete: (user: User) => void;
 }
 
-const UserTable: React.FC<UserTableProps> = ({ users, isLoading }) => {
+const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelete }) => {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'Never';
     const date = new Date(dateString);
@@ -97,10 +99,16 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading }) => {
                       {formatDate(user.lastLogin)}
                     </td>
                     <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                      <button className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary mr-4">
+                      <button 
+                        className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary mr-4"
+                        onClick={() => onEdit(user)}
+                      >
                         Edit
                       </button>
-                      <button className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300">
+                      <button 
+                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                        onClick={() => onDelete(user)}
+                      >
                         Delete
                       </button>
                     </td>
