@@ -11,6 +11,7 @@
 | 📄 SRS Document | [Requirements](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Software-Requirements-Specification) |
 | 📊 Scrum Board | [Scrum Board](https://github.com/orgs/COS301-SE-2025/projects/145) |
 | 📊 Sprint Planning | [Sprint Planning](https://github.com/orgs/COS301-SE-2025/projects/145/views/3?sliceBy%5Bvalue%5D=Task&pane=info) |
+| 📊 Getting Started | [Getting Started](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Getting-Started) |
 
 ---
 
