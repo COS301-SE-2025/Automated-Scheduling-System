@@ -1,11 +1,11 @@
-// import apiClient from './api'; 
-import type { ApiError } from '../types';
+import type { ApiError,  } from '../types';
 import apiClient from './api';
+import type {User} from '../types/user'
 
 import type {
   LoginFormData,
   SignupFormData,
-  User,
+  
   GoLoginResponse,
   GoRegisterResponse,
   GoProfileResponse,
@@ -20,6 +20,7 @@ export const fetchUserProfile = async (): Promise<User> => {
       isAuthRequest: true, 
     });
     return {
+        id:profileData.id,
       name: profileData.username,
       email: profileData.email,
     };
@@ -71,6 +72,7 @@ export const signup = async (credentials: SignupFormData): Promise<AuthSuccessPa
       isAuthRequest: false, 
     });
     const user: User = {
+        id: response.id,
       name: response.username, 
       email: credentials.email,   
     };

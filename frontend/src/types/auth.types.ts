@@ -1,9 +1,5 @@
 import { type LoginFormData, type SignupFormData } from '../utils/validation';
-export interface User {
-    //id: string;
-    name: string;
-    email: string;
-}
+import { type User } from './user';
 
 export interface ApiUser {
     id: number;      
@@ -54,12 +50,14 @@ export interface GoLoginResponse {
 }
 
 export interface GoRegisterResponse {
+    id: number;
     message: string;
     username: string; 
     token: string;
 }
 
 export interface GoProfileResponse {
+    id: number;
     username: string;
     email: string;
 }
