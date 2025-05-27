@@ -5,12 +5,13 @@ import { saveToken, removeToken, saveUser, removeUser, getToken, getUser } from 
 import type {
     AuthState,
     AuthAction,
-    User,
+    
     LoginFormData,
     SignupFormData,
     AuthSuccessPayload,
 } from '../types/auth.types';
 import { ApiError } from '../services/api'; 
+import type {User} from '../types/user'
 
 const initialState: AuthState = {
     isAuthenticated: false,
