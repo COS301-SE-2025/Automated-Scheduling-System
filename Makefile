@@ -19,6 +19,10 @@ run:
 	@cd frontend && yarn install --prefer-offline --no-fund
 	@cd frontend && npm run dev
 
+# Run frontend tests
+ftest:
+	@cd frontend && yarn install --prefer-offline --no-fund && yarn run test --silent --watch=false
+
 # Create DB container
 docker-run:
 	@if docker compose up --build 2>/dev/null; then \
@@ -44,9 +48,8 @@ test:
 
 # Unit testing (auth only)
 utest:
-
-    @echo "Running Unit Test for Auth..."
-    @go test -v -tags=unit ./...
+	@echo "Running Unit Tests"
+	@go test -v -tags=unit ./...
 
 # Integrations Tests for the application
 itest:

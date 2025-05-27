@@ -34,3 +34,7 @@ main
 
 # Nix
 shell.nix
+
+#PostGres
+.pgdata
+.pgsocket
