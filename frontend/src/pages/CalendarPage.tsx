@@ -386,11 +386,28 @@ function renderEventContent(eventInfo: EventContentArg) {
     const eventType = eventInfo.event.extendedProps.eventType;
     const relevantParties = eventInfo.event.extendedProps.relevantParties;
 
+    let bgColorClass = 'bg-custom-primary dark:bg-dark-primary'; 
+
+    switch (eventType) {
+        case 'Meeting':
+            bgColorClass = 'bg-green-500 dark:bg-dark-green';
+            break;
+        case 'HealthCheck':
+            bgColorClass = 'bg-purple-500 dark:bg-dark-purple';
+            break;
+        case 'Training':
+            bgColorClass = 'bg-yellow-700 dark:bg-dark-brown'; 
+            break;
+        case 'Report':
+            bgColorClass = 'bg-red-500 dark:bg-dark-red';
+            break;
+    }
+
     return (
         <div 
             className={`overflow-hidden text-ellipsis whitespace-nowrap rounded h-full flex flex-col 
                         ${isMonthView ? 'p-0.5 text-xs' : 'p-1 text-sm'} 
-                        bg-custom-primary text-white dark:bg-dark-primary`}
+                        ${bgColorClass} text-white`}
             title={`${eventInfo.event.title} (${eventType} for ${relevantParties})`} 
         >
             {eventInfo.timeText && !isMonthView && (
