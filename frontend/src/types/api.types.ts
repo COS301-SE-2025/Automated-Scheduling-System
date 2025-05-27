@@ -1,4 +1,4 @@
-import { type User } from './auth.types';
+import { type User } from './user';
 
 export interface ApiResponse<T> {
     success: boolean;
