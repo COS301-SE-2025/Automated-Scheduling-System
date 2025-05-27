@@ -13,6 +13,20 @@ var (
 )
 
 func SendEmail(to, subject, body string) error {
+	dialer := gomail.NewDialer(
+		"smtp.gmail.com",
+		587,
+		fromAddress,
+		mailPassword,
+	)
+
+	// Use the helper function to send the email
+	return SendEmailWithDialer(dialer, to, subject, body)
+}
+
+func SendEmailWithDialer(dialer interface {
+	DialAndSend(...*gomail.Message) error
+}, to, subject, body string) error {
 	message := gomail.NewMessage()
 
 	// Set email headers
@@ -23,16 +37,12 @@ func SendEmail(to, subject, body string) error {
 	// Set email body
 	message.SetBody("text/plain", body)
 
-	// Set up the SMTP dialer
-	dialer := gomail.NewDialer("smtp.gmail.com", 587, fromAddress, mailPassword)
-
 	// Send the email
 	if err := dialer.DialAndSend(message); err != nil {
 		fmt.Println("Error:", err)
 		return err
-	} else {
-		fmt.Println("Email sent successfully!")
 	}
 
+	fmt.Println("Email sent successfully!")
 	return nil
 }
