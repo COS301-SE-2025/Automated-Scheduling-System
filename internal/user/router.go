@@ -1,18 +1,15 @@
 package user
 
 import (
-	"Automated-Scheduling-Project/internal/auth" // For AuthMiddleware
-	"fmt"
+	"Automated-Scheduling-Project/internal/auth" 
 	"github.com/gin-gonic/gin"
 )
 
 
-func UserRoutes(r *gin.Engine) {
-	fmt.Println("Attempting to register user routes under /api group") 
+func RegisterUserRoutes(r *gin.Engine) {
 	userProtected := r.Group("/api") 
 	userProtected.Use(auth.AuthMiddleware())
 	{
-		fmt.Println("Registering GET /api/users")
 		userProtected.GET("/users", GetAllUsersHandler)
 	}
 }

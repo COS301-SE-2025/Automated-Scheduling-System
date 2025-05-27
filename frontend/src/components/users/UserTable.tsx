@@ -1,21 +1,18 @@
-// src/components/users/UserTable.tsx
 import React from 'react';
 
-// Define or import UserStatus if not already globally available/imported
 export type UserStatus = "Active" | "Inactive" | "Pending";
 
-// This is the type UserTable will work with internally and expect as a prop
-export interface TableUser { // Renamed to avoid confusion if 'User' is used elsewhere
+export interface TableUser { 
   id: number;
   name: string;
   email: string;
   role: string;
-  status: UserStatus; // <--- Use the specific UserStatus type
+  status: UserStatus; 
   lastLogin: string | null;
 }
 
 interface UserTableProps {
-  users: TableUser[]; // <--- Expects TableUser[]
+  users: TableUser[]; 
   isLoading: boolean;
   onEdit: (user: TableUser) => void;
   onDelete: (user: TableUser) => void;
@@ -43,7 +40,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelet
     }
   };
 
-  const getStatusClass = (status: UserStatus): string => { // <--- Parameter is UserStatus
+  const getStatusClass = (status: UserStatus): string => { 
     switch (status) {
       case 'Active':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
@@ -52,8 +49,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelet
       case 'Pending':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
       default:
-        // This case should ideally not be reached if status is strictly UserStatus
-        const _exhaustiveCheck: never = status; // Helps ensure all cases are handled
+        const _exhaustiveCheck: never = status; 
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
     }
   };
