@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
+const API_BASE_URL = 'http://localhost:' + (import.meta.env.VITE_GO_API_PORT || '8080');
 
 import { type ApiError } from '../types/api.types';
 
