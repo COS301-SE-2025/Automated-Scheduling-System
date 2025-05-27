@@ -3,9 +3,10 @@ package server
 import (
 	"net/http"
     "Automated-Scheduling-Project/internal/auth"
-
+	"Automated-Scheduling-Project/internal/user"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"fmt"
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
@@ -22,6 +23,9 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	r.GET("/health", s.healthHandler)
     auth.RegisterAuthRoutes(r)
+	fmt.Println("Registered auth routes")
+	user.UserRoutes(r)
+	fmt.Println("user routes")
 
 	return r
 }
@@ -36,3 +40,4 @@ func (s *Server) HelloWorldHandler(c *gin.Context) {
 func (s *Server) healthHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, s.db.Health())
 }
+
