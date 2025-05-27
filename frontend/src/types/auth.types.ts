@@ -1,5 +1,9 @@
 import { type LoginFormData, type SignupFormData } from '../utils/validation';
-import { type User } from './user';
+export interface User {
+    //id: string;
+    name: string;
+    email: string;
+}
 
 export interface AuthState {
     isAuthenticated: boolean;
@@ -7,6 +11,20 @@ export interface AuthState {
     token: string | null;
     isLoading: boolean;
     error: string | null;
+}
+
+export interface AuthSuccessPayload { 
+    user: User; // Uses the updated User interface
+    token: string;
+}
+
+export interface ApiErrorData { 
+    error: string;
+}
+
+// --- Mocked Service Types ---
+export interface ForgotPasswordResponse { 
+    message: string;
 }
 
 // AuthActions for the reducer
@@ -24,3 +42,19 @@ export type AuthAction =
     | { type: 'CLEAR_ERROR' };
 
 export type { LoginFormData, SignupFormData };
+
+export interface GoLoginResponse {
+    token: string;
+    // The Go login handler only returns a token. User details are fetched via /api/profile.
+}
+
+export interface GoRegisterResponse {
+    message: string;
+    username: string; // Backend returns username
+    token: string;
+}
+
+export interface GoProfileResponse {
+    username: string;
+    email: string;
+}
