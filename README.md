@@ -92,5 +92,15 @@ Here’s the team behind **Automated Scheduling System**:
 [![codecov](https://codecov.io/gh/COS301-SE-2025/Automated-Scheduling-System/branch/dev/graph/badge.svg)](https://github.com/COS301-SE-2025/Automated-Scheduling-System)
 
 
-## Technology used:
-![React](https://img.shields.io/badge/react-61DAFB?style=for-the-badge&logo=react&logoColor=black)![](https://img.shields.io/badge/Go-00ADD8?style=for-the-badge&logo=go&logoColor=white)![Typescript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
+## Technological  Requirements
+ ### Frontend
+ <img src="https://skillicons.dev/icons?i=tailwindcss,typescript,react,vite"/>
+  
+ ### Backend
+ <img src="https://skillicons.dev/icons?i=go"/>
+    
+ ### Project Management & Deployment
+ <img src="https://skillicons.dev/icons?i=git,githubactions,yarn,docker"/>
+   
+ ### Testing
+ <img src="https://skillicons.dev/icons?i=vitest"/>
