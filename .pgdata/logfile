@@ -1,0 +1,9 @@
+2025-05-26 19:16:38.495 UTC [57233] LOG:  starting PostgreSQL 15.12 on x86_64-pc-linux-gnu, compiled by gcc (GCC) 14.2.1 20241116, 64-bit
+2025-05-26 19:16:38.495 UTC [57233] LOG:  listening on IPv6 address "::1", port 5432
+2025-05-26 19:16:38.495 UTC [57233] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+2025-05-26 19:16:38.498 UTC [57233] LOG:  listening on Unix socket "/home/muller/Documents/Capstoneproject/Automated-Scheduling-System/.pgsocket/.s.PGSQL.5432"
+2025-05-26 19:16:38.501 UTC [57236] LOG:  database system was shut down at 2025-05-26 19:16:38 UTC
+2025-05-26 19:16:38.505 UTC [57233] LOG:  database system is ready to accept connections
+2025-05-26 19:17:23.886 UTC [57716] FATAL:  database "blueprint" does not exist
+2025-05-26 19:21:38.601 UTC [57234] LOG:  checkpoint starting: time
+2025-05-26 19:23:15.498 UTC [57234] LOG:  checkpoint complete: wrote 971 buffers (5.9%); 0 WAL file(s) added, 0 removed, 0 recycled; write=96.868 s, sync=0.023 s, total=96.898 s; sync files=310, longest=0.003 s, average=0.001 s; distance=4502 kB, estimate=4502 kB
