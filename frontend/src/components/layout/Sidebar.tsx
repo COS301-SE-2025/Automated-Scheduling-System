@@ -77,8 +77,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                 {/* Company Header */}
                 <div className="p-4 sm:p-6 lg:p-8 border-b border-gray-200/40 dark:border-gray-700/40 bg-gradient-to-br from-custom-fourth/30 to-transparent dark:from-dark-signin/20 flex-shrink-0">
                     <div className="flex items-center justify-between">
-                        {!isCollapsed && (
+                        {!isCollapsed ? (
                             <div className="flex items-center min-w-0 flex-1">
+                                <img 
+                                    src="/Discon_Logo.png" 
+                                    alt="DISCON Logo" 
+                                    className="h-8 w-auto mr-3 flex-shrink-0" 
+                                />
                                 <div className="min-w-0 flex-1">
                                     <h2 className="text-base sm:text-lg lg:text-xl font-bold text-custom-primary dark:text-dark-primary tracking-tight truncate">
                                         {companyName.split(' ')[0]}
@@ -89,6 +94,14 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         </p>
                                     )}
                                 </div>
+                            </div>
+                        ) : (
+                            <div className="flex justify-center w-full">
+                                <img 
+                                    src="/Discon_Logo.png" 
+                                    alt="DISCON Logo" 
+                                    className="h-8 w-auto" 
+                                />
                             </div>
                         )}
                     </div>
