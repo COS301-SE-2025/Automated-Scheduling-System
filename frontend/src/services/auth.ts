@@ -1,4 +1,5 @@
-// import apiClient from './api'; 
+import apiClient from './api'; 
+
 import type { LoginFormData, SignupFormData, AuthApiResponseData, ApiError } from '../types';
 
 export const login = async (credentials: LoginFormData): Promise<AuthApiResponseData> => {
@@ -70,23 +71,9 @@ interface ForgotPasswordResponse {
 }
 
 export const forgotPassword = async (email: string): Promise<ForgotPasswordResponse> => {
-    // ...
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            if (email === "nonexistent@example.com") {
-                const error = new Error('User with this email not found.') as ApiError;
-                error.status = 404;
-                reject(error);
-            } 
-            else if (email === "servererror@example.com") {
-                const error = new Error('A server error occurred. Please try again later.') as ApiError;
-                error.status = 500;
-                reject(error);
-            }
-            else {
-                resolve({ message: `If an account with the email ${email} exists, a password reset link has been sent.` });
-                
-            }
-        }, 1000);
+    return await apiClient<{ message: string }>('forgot-password', {
+        method: 'POST',
+        data: { email },
+        isAuthRequest: false,
     });
 };
