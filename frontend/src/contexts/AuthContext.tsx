@@ -1,7 +1,5 @@
-// src/contexts/AuthContext.tsx
 import React, { useReducer, type ReactNode, useEffect, useCallback } from 'react';
-// Import the actual AuthContext object and its type from the definition file
-import { AuthContext, type AuthContextType } from './AuthContextDefinition'; // <--- IMPORT THESE
+import { AuthContext, type AuthContextType } from './AuthContextDefinition'; 
 import * as authService from '../services/auth';
 import { saveToken, removeToken, saveUser, removeUser, getToken, getUser } from '../utils/localStorage';
 import type {
@@ -12,7 +10,7 @@ import type {
     SignupFormData,
     AuthSuccessPayload,
 } from '../types/auth.types';
-import { ApiError } from '../services/api'; // Assuming ApiError class is in services/api.ts
+import { ApiError } from '../services/api'; 
 
 const initialState: AuthState = {
     isAuthenticated: false,
@@ -171,7 +169,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         dispatch({ type: 'CLEAR_ERROR' });
     };
 
-    // This contextValue must match the AuthContextType from AuthContextDefinition.ts
     const contextValue: AuthContextType = {
         ...state,
         login,
@@ -182,11 +179,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     return (
-        // Use the imported AuthContext for the Provider
         <AuthContext.Provider value={contextValue}>
             {children}
         </AuthContext.Provider>
     );
 };
 
-// DO NOT define useAuth or another AuthContext object here for Option 2.

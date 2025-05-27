@@ -51,12 +51,11 @@ export type { LoginFormData, SignupFormData };
 
 export interface GoLoginResponse {
     token: string;
-    // The Go login handler only returns a token. User details are fetched via /api/profile.
 }
 
 export interface GoRegisterResponse {
     message: string;
-    username: string; // Backend returns username
+    username: string; 
     token: string;
 }
 

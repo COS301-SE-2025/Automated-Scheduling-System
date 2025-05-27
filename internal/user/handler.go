@@ -1,7 +1,7 @@
 package user
 
 import (
-	"Automated-Scheduling-Project/internal/auth" // To use the User model and DB instance
+	"Automated-Scheduling-Project/internal/auth" 
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -16,7 +16,7 @@ func GetAllUsersHandler(c *gin.Context) {
 
 
 	type UserResponse struct {
-		ID        uint   `json:"id"` // GORM Model ID
+		ID        uint   `json:"id"` 
 		Username  string `json:"username"`
 		Email     string `json:"email"`
 	}

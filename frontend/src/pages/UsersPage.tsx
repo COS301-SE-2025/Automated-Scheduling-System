@@ -71,7 +71,7 @@ const UsersPage: React.FC = () => {
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(user =>
-        user.name.toLowerCase().includes(term) || // name is now derived from username
+        user.name.toLowerCase().includes(term) || 
         user.email.toLowerCase().includes(term)
       );
     }

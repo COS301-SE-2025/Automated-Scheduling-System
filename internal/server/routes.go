@@ -6,7 +6,6 @@ import (
 	"Automated-Scheduling-Project/internal/user"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"fmt"
 )
 
 func (s *Server) RegisterRoutes() http.Handler {
@@ -23,9 +22,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	r.GET("/health", s.healthHandler)
     auth.RegisterAuthRoutes(r)
-	fmt.Println("Registered auth routes")
-	user.UserRoutes(r)
-	fmt.Println("user routes")
+	user.RegisterUserRoutes(r)
 
 	return r
 }
