@@ -1,10 +1,5 @@
 import { type LoginFormData, type SignupFormData } from '../utils/validation';
-
-export interface User {
-    id: string;
-    name: string;
-    email: string;
-}
+import { type User } from './user';
 
 export interface AuthState {
     isAuthenticated: boolean;
