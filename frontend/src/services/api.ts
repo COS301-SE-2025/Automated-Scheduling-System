@@ -7,7 +7,7 @@ export class ApiError extends Error {
     status: number;
     data?: ApiErrorResponseData | any;
 
-    constructor(message: string, status: number, data?: ApiErrorResponseData | any) {
+    constructor(message: string, status: number, data?: ApiErrorResponseData | unknown) {
         super(message);
         this.name = 'ApiError';
         this.status = status;
@@ -43,7 +43,7 @@ async function apiClient<T>(
             const formData = new URLSearchParams();
             for (const key in data as Record<string, any>) { 
                 if (Object.prototype.hasOwnProperty.call(data, key)) {
-                     formData.append(key, String((data as Record<string, any>)[key]));
+                     formData.append(key, String((data as Record<string, unknown>)[key]));
                 }
             }
             config.body = formData; 

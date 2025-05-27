@@ -1,4 +1,3 @@
-import type { ApiError,  } from '../types';
 import apiClient from './api';
 import type {User} from '../types/user'
 

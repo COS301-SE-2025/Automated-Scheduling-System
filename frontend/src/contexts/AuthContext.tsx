@@ -1,7 +1,7 @@
 import React, { useReducer, type ReactNode, useEffect, useCallback } from 'react';
 import { AuthContext, type AuthContextType } from './AuthContextDefinition'; 
 import * as authService from '../services/auth';
-import { saveToken, removeToken, saveUser, removeUser, getToken, getUser } from '../utils/localStorage';
+import { saveToken, removeToken, saveUser, removeUser, getToken } from '../utils/localStorage';
 import type {
     AuthState,
     AuthAction,

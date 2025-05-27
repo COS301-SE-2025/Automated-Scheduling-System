@@ -1,5 +1,5 @@
-import { createContext, type Dispatch } from 'react';
-import type { AuthState, AuthAction, LoginFormData, SignupFormData } from '../types/auth.types';
+import { createContext } from 'react';
+import type { AuthState, LoginFormData, SignupFormData } from '../types/auth.types';
 
 export interface AuthContextType extends AuthState {
     // dispatch: Dispatch<AuthAction>;
