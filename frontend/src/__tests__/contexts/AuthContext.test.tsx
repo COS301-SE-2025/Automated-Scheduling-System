@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import * as authService from '../../services/auth';
 import * as localStorage from '../../utils/localStorage';
 import type { AuthApiResponseData } from '../../types';
+import type { User } from '../../types/user';
 
 vi.mock('../../services/auth');
 vi.mock('../../utils/localStorage');
@@ -64,6 +65,7 @@ describe('AuthContext', () => {
         vi.clearAllMocks();
         mockLocalStorage.getToken.mockReturnValue(null);
         mockLocalStorage.getUser.mockReturnValue(null);
+        mockAuthService.fetchUserProfile.mockRejectedValue(new Error('User profile not found'));
     });
 
     afterEach(() => {
@@ -84,11 +86,11 @@ describe('AuthContext', () => {
         });
 
         it('should initialize with stored auth data when available', async () => {
-            const mockUser = { id: '1', name: 'Test User', email: 'test@example.com' };
+            const mockUser: User = { id: 1, name: 'Test User', email: 'test@example.com' };
             const mockToken = 'stored-token';
 
             mockLocalStorage.getToken.mockReturnValue(mockToken);
-            mockLocalStorage.getUser.mockReturnValue(mockUser);
+            mockAuthService.fetchUserProfile.mockResolvedValue(mockUser); 
 
             renderWithAuthProvider(<TestComponent />);
 
@@ -98,17 +100,17 @@ describe('AuthContext', () => {
 
             expect(screen.getByTestId('authenticated')).toHaveTextContent('authenticated');
             expect(screen.getByTestId('user')).toHaveTextContent('Test User');
+            expect(mockLocalStorage.saveUser).toHaveBeenCalledWith(mockUser);
         });
     });
 
     describe('Login', () => {
         it('should handle successful login', async () => {
-            const mockResponse: AuthApiResponseData = {
-                user: { id: '1', name: 'Test User', email: 'test@example.com' },
-                token: 'new-token'
-            };
+            const mockUserToFetch: User = { id: 1, name: 'Test User', email: 'test@example.com' };
+            const mockTokenFromLogin = 'new-token';
 
-            mockAuthService.login.mockResolvedValue(mockResponse);
+            mockAuthService.login.mockResolvedValue({ token: mockTokenFromLogin });
+            mockAuthService.fetchUserProfile.mockResolvedValue(mockUserToFetch);
 
             renderWithAuthProvider(<TestComponent />);
 
@@ -127,9 +129,9 @@ describe('AuthContext', () => {
             });
 
             expect(screen.getByTestId('authenticated')).toHaveTextContent('authenticated');
-            expect(screen.getByTestId('user')).toHaveTextContent('Test User');
-            expect(mockLocalStorage.saveToken).toHaveBeenCalledWith('new-token');
-            expect(mockLocalStorage.saveUser).toHaveBeenCalledWith(mockResponse.user);
+            expect(screen.getByTestId('user')).toHaveTextContent(mockUserToFetch.name);
+            expect(mockLocalStorage.saveToken).toHaveBeenCalledWith(mockTokenFromLogin);
+            expect(mockLocalStorage.saveUser).toHaveBeenCalledWith(mockUserToFetch);
         });
 
         // it('should handle login failure', async () => {
@@ -158,7 +160,7 @@ describe('AuthContext', () => {
     describe('Signup', () => {
         it('should handle successful signup', async () => {
             const mockResponse: AuthApiResponseData = {
-                user: { id: '2', name: 'New User', email: 'new@example.com' },
+                user: { id: 2, name: 'New User', email: 'new@example.com' },
                 token: 'signup-token'
             };
 
@@ -208,15 +210,18 @@ describe('AuthContext', () => {
 
     describe('Logout', () => {
         it('should handle successful logout', async () => {
-            const mockUser = { id: '1', name: 'Test User', email: 'test@example.com' };
-            mockLocalStorage.getToken.mockReturnValue('token');
-            mockLocalStorage.getUser.mockReturnValue(mockUser);
+            const mockUser: User = { id: 1, name: 'Test User', email: 'test@example.com' };
+            
+            mockLocalStorage.getToken.mockReturnValue('token'); 
+            mockAuthService.fetchUserProfile.mockResolvedValue(mockUser); 
+            
             mockAuthService.logout.mockResolvedValue();
 
             renderWithAuthProvider(<TestComponent />);
 
             await waitFor(() => {
                 expect(screen.getByTestId('authenticated')).toHaveTextContent('authenticated');
+                expect(screen.getByTestId('user')).toHaveTextContent(mockUser.name);
             });
 
             await act(async () => {
@@ -241,7 +246,7 @@ describe('AuthContext', () => {
             renderWithAuthProvider(<TestComponent />);
 
             await waitFor(() => {
-                expect(screen.getByTestId('loading')).toHaveTextContent('not-loading');
+                expect(screen.getByTestId('loading')).toHaveTextContent('not-loading'); 
             });
 
             await act(async () => {

@@ -104,7 +104,7 @@ describe('localStorage utilities', () => {
 
     describe('User operations', () => {
         const mockUser: User = {
-            id: '1',
+            id: 1,
             name: 'John Doe',
             email: 'john@example.com'
         };
@@ -186,7 +186,7 @@ describe('localStorage utilities', () => {
         it('should handle complete auth flow', () => {
             const token = 'auth-token-123';
             const user: User = {
-                id: '2',
+                id: 1,
                 name: 'Jane Doe',
                 email: 'jane@example.com'
             };
@@ -212,9 +212,9 @@ describe('localStorage utilities', () => {
 
         it('should handle different user variations', () => {
             const users: User[] = [
-                { id: '1', name: 'Alice Smith', email: 'alice@example.com' },
-                { id: '2', name: 'Bob Johnson', email: 'bob@example.com' },
-                { id: '3', name: 'Charlie Brown', email: 'charlie@example.com' }
+                { id: 1, name: 'Alice Smith', email: 'alice@example.com' },
+                { id: 2, name: 'Bob Johnson', email: 'bob@example.com' },
+                { id: 3, name: 'Charlie Brown', email: 'charlie@example.com' }
             ];
 
             users.forEach((user) => {
