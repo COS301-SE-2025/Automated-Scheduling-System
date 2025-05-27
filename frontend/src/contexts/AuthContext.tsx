@@ -1,8 +1,18 @@
-import React, { useReducer, type ReactNode, useEffect } from 'react';
+// src/contexts/AuthContext.tsx
+import React, { useReducer, type ReactNode, useEffect, useCallback } from 'react';
+// Import the actual AuthContext object and its type from the definition file
+import { AuthContext, type AuthContextType } from './AuthContextDefinition'; // <--- IMPORT THESE
 import * as authService from '../services/auth';
 import { saveToken, removeToken, saveUser, removeUser, getToken, getUser } from '../utils/localStorage';
-import type { AuthState, AuthAction, LoginFormData, SignupFormData } from '../types';
-import { AuthContext } from './AuthContextDefinition';
+import type {
+    AuthState,
+    AuthAction,
+    User,
+    LoginFormData,
+    SignupFormData,
+    AuthSuccessPayload,
+} from '../types/auth.types';
+import { ApiError } from '../services/api'; // Assuming ApiError class is in services/api.ts
 
 const initialState: AuthState = {
     isAuthenticated: false,
@@ -15,6 +25,7 @@ const initialState: AuthState = {
 const AuthReducer = (state: AuthState, action: AuthAction): AuthState => {
     switch (action.type) {
         case 'INIT_AUTH':
+            return { ...state, isLoading: true, error: null };
         case 'AUTH_REQUEST':
         case 'FORGOT_PASSWORD_REQUEST':
             return { ...state, isLoading: true, error: null };
@@ -38,8 +49,6 @@ const AuthReducer = (state: AuthState, action: AuthAction): AuthState => {
                 isLoading: false,
                 error: action.payload,
             };
-        case 'FORGOT_PASSWORD_SUCCESS':
-            return { ...state, isLoading: false, error: null };
         case 'LOGOUT':
             return {
                 ...initialState,
@@ -55,10 +64,9 @@ const AuthReducer = (state: AuthState, action: AuthAction): AuthState => {
             };
         case 'CLEAR_ERROR':
             return { ...state, error: null };
+        case 'FORGOT_PASSWORD_SUCCESS':
+            return { ...state, isLoading: false, error: null };
         default:
-            // type assertions?
-            // const _exhaustiveCheck: never = action;
-            // return _exhaustiveCheck;
             return state;
     }
 };
@@ -66,28 +74,54 @@ const AuthReducer = (state: AuthState, action: AuthAction): AuthState => {
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [state, dispatch] = useReducer(AuthReducer, initialState);
 
-    useEffect(() => {
-        const checkAuth = () => {
-            const token = getToken();
-            const user = getUser();
-            dispatch({ 
-                type: 'SET_USER_FROM_STORAGE', 
-                payload: { user, token } 
-            });
-        };
-        
-        checkAuth();
+    const handleApiError = (err: unknown, defaultMessage: string): string => {
+        if (err instanceof ApiError) {
+            return err.data?.error || err.message || defaultMessage;
+        }
+        return err instanceof Error ? err.message : defaultMessage;
+    };
+
+    const initializeAuth = useCallback(async () => {
+        dispatch({ type: 'INIT_AUTH' });
+        const storedToken = getToken();
+        let userToSet: User | null = null;
+        let tokenToSet: string | null = null;
+
+        if (storedToken) {
+            try {
+                const profile = await authService.fetchUserProfile();
+                userToSet = profile;
+                tokenToSet = storedToken;
+                saveUser(userToSet);
+            } catch (error) {
+                console.warn('Token validation failed on init:', error);
+                removeToken();
+                removeUser();
+            }
+        }
+        dispatch({
+            type: 'SET_USER_FROM_STORAGE',
+            payload: { user: userToSet, token: tokenToSet },
+        });
     }, []);
+
+    useEffect(() => {
+        initializeAuth();
+    }, [initializeAuth]);
 
     const login = async (credentials: LoginFormData) => {
         dispatch({ type: 'AUTH_REQUEST' });
         try {
-            const data = await authService.login(credentials);
-            saveToken(data.token);
-            saveUser(data.user);
-            dispatch({ type: 'LOGIN_SUCCESS', payload: data });
-        } catch (err: unknown) {
-            const message = (err instanceof Error) ? err.message : 'Login failed. Please check your credentials.';
+            const { token } = await authService.login(credentials);
+            saveToken(token);
+            const user = await authService.fetchUserProfile();
+            saveUser(user);
+            const payload: AuthSuccessPayload = { user, token };
+            dispatch({ type: 'LOGIN_SUCCESS', payload });
+        } catch (err) {
+            const message = handleApiError(err, 'Login failed. Please check your credentials.');
+            removeToken();
+            removeUser();
             dispatch({ type: 'AUTH_FAILURE', payload: message });
             throw err;
         }
@@ -96,41 +130,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const signup = async (credentials: SignupFormData) => {
         dispatch({ type: 'AUTH_REQUEST' });
         try {
-            const data = await authService.signup(credentials);
-            saveToken(data.token);
-            saveUser(data.user);
-            dispatch({ type: 'SIGNUP_SUCCESS', payload: data });
-        } catch (err: unknown) {
-            const message = (err instanceof Error) ? err.message : 'Signup failed. Please try again.';
+            const payload = await authService.signup(credentials);
+            saveToken(payload.token);
+            saveUser(payload.user);
+            dispatch({ type: 'SIGNUP_SUCCESS', payload });
+        } catch (err) {
+            const message = handleApiError(err, 'Signup failed. Please try again.');
             dispatch({ type: 'AUTH_FAILURE', payload: message });
             throw err;
         }
     };
 
     const logout = async () => {
+        dispatch({ type: 'AUTH_REQUEST' });
         try {
             await authService.logout();
         } catch (err: unknown) {
-            if (err instanceof Error) {
-                console.error("Logout API call failed (if any):", err.message);
-            } else {
-                console.error("Logout API call failed (if any) with unknown error:", err);
-            }
+            console.error("Error during logout service call (if any):", err);
         } finally {
             removeToken();
             removeUser();
             dispatch({ type: 'LOGOUT' });
         }
     };
-    
-    const forgotPassword = async (email: string): Promise<{ message: string}> => {
+
+    const forgotPassword = async (email: string): Promise<{ message: string }> => {
         dispatch({ type: 'FORGOT_PASSWORD_REQUEST' });
         try {
             const response = await authService.forgotPassword(email);
             dispatch({ type: 'FORGOT_PASSWORD_SUCCESS' });
             return response;
         } catch (err: unknown) {
-            const message = (err instanceof Error) ? err.message : 'Failed to send reset link.';
+            const message = handleApiError(err, 'Failed to send password reset link.');
             dispatch({ type: 'FORGOT_PASSWORD_FAILURE', payload: message });
             throw err;
         }
@@ -140,17 +171,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         dispatch({ type: 'CLEAR_ERROR' });
     };
 
+    // This contextValue must match the AuthContextType from AuthContextDefinition.ts
+    const contextValue: AuthContextType = {
+        ...state,
+        login,
+        signup,
+        logout,
+        forgotPassword,
+        clearError,
+    };
+
     return (
-        <AuthContext.Provider value={{ 
-            ...state, 
-            dispatch, 
-            login, 
-            signup, 
-            logout, 
-            forgotPassword, 
-            clearError 
-        }}>
+        // Use the imported AuthContext for the Provider
+        <AuthContext.Provider value={contextValue}>
             {children}
         </AuthContext.Provider>
     );
-}
+};
+
+// DO NOT define useAuth or another AuthContext object here for Option 2.
