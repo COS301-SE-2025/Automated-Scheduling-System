@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import UserTable from '../components/users/UserTable';
 import UserFilters from '../components/users/UserFilters';
+import UserModal from '../components/users/UserModal';
+import DeleteConfirmationModal from '../components/users/DeleteConfirmationModal';
 import type { User } from '../types/user';
 import UsersLayout from '../layouts/UsersLayout';
 
@@ -13,6 +15,12 @@ const UsersPage: React.FC = () => {
     status: '',
   });
   const [isLoading, setIsLoading] = useState(true);
+  
+  // Modal states
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | undefined>(undefined);
 
   // Fetch users data
   useEffect(() => {
@@ -78,6 +86,56 @@ const UsersPage: React.FC = () => {
     }));
   };
 
+  // User CRUD operations
+  const handleAddUser = () => {
+    setCurrentUser(undefined);
+    setIsAddModalOpen(true);
+  };
+
+  const handleEditUser = (user: User) => {
+    setCurrentUser(user);
+    setIsEditModalOpen(true);
+  };
+
+  const handleDeleteUser = (user: User) => {
+    setCurrentUser(user);
+    setIsDeleteModalOpen(true);
+  };
+
+  const saveNewUser = (userData: Omit<User, 'id' | 'lastLogin'>) => {
+    const newUser: User = {
+      ...userData,
+      id: Math.max(...users.map(u => u.id), 0) + 1,
+      lastLogin: null
+    };
+    
+    setUsers(prev => [...prev, newUser]);
+    setIsAddModalOpen(false);
+  };
+
+  const updateUser = (userData: Omit<User, 'id' | 'lastLogin'>) => {
+    if (!currentUser) return;
+    
+    const updatedUser: User = {
+      ...userData,
+      id: currentUser.id,
+      lastLogin: currentUser.lastLogin
+    };
+    
+    setUsers(prev => prev.map(user => 
+      user.id === currentUser.id ? updatedUser : user
+    ));
+    
+    setIsEditModalOpen(false);
+  };
+
+  const confirmDeleteUser = () => {
+    if (!currentUser) return;
+    
+    setUsers(prev => prev.filter(user => user.id !== currentUser.id));
+    setIsDeleteModalOpen(false);
+  };
+
   return (
     <UsersLayout>
       <div className="px-4 sm:px-6 lg:px-8 py-8">
@@ -91,6 +149,7 @@ const UsersPage: React.FC = () => {
           <div className="mt-4 sm:ml-16 sm:mt-0 sm:flex-none">
             <button
               type="button"
+              onClick={handleAddUser}
               className="block rounded-md bg-custom-secondary px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-custom-third focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-custom-secondary"
             >
               Add user
@@ -106,9 +165,36 @@ const UsersPage: React.FC = () => {
         
         <UserTable 
           users={filteredUsers} 
-          isLoading={isLoading} 
+          isLoading={isLoading}
+          onEdit={handleEditUser}
+          onDelete={handleDeleteUser}
         />
       </div>
+
+      {/* Add User Modal */}
+      <UserModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSave={saveNewUser}
+        title="Add New User"
+      />
+
+      {/* Edit User Modal */}
+      <UserModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSave={updateUser}
+        user={currentUser}
+        title="Edit User"
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        onConfirm={confirmDeleteUser}
+        userName={currentUser?.name || ''}
+      />
     </UsersLayout>
   );
 };
