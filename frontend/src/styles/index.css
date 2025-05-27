@@ -90,11 +90,11 @@ body {
 }
 
 .fc .fc-day-today .fc-daygrid-day-frame {
-  @apply bg-custom-accent dark:bg-dark-accent !important; /* Your custom highlight for today */
+  @apply bg-custom-accent dark:bg-dark-accent !important; 
 }
 
 .fc .fc-day-today .fc-daygrid-day-number {
-  @apply bg-custom-secondary text-white rounded-full px-1.5 py-0.5 text-xs dark:bg-dark-secondary !important; /* GCal style today number */
+  @apply bg-custom-secondary text-white rounded-full px-1.5 py-0.5 text-xs dark:bg-dark-secondary !important;
 }
 
 .fc .fc-event {
