@@ -23,4 +23,3 @@ func (s *stubService) Close() error              { return nil }
 func New() Service {
 	return &stubService{}
 }
-

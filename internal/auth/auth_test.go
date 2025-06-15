@@ -1,4 +1,3 @@
-
 package auth
 
 import (
@@ -35,7 +34,7 @@ func testDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&User{}))
-    DB=db
+	DB = db
 	return db
 }
 
@@ -222,4 +221,3 @@ func TestProfileHandler_MissingToken(t *testing.T) {
 
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
-

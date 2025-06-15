@@ -6,25 +6,25 @@ package database
 import (
 	"context"
 	"fmt"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/joho/godotenv/autoload"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 	"log"
 	"os"
 	"strconv"
 	"time"
-    "gorm.io/gorm"
-    "gorm.io/driver/postgres"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	_ "github.com/joho/godotenv/autoload"
 )
 
 // Service represents a service that interacts with a database.
 type Service interface {
-    Gorm() *gorm.DB
-    Health() map[string]string
-    Close() error
+	Gorm() *gorm.DB
+	Health() map[string]string
+	Close() error
 }
 
 type service struct {
-    db *gorm.DB
+	db *gorm.DB
 }
 
 var (
@@ -37,8 +37,8 @@ var (
 	dbInstance *service
 )
 
-func (s *service) Gorm() *gorm.DB{
-    return s.db
+func (s *service) Gorm() *gorm.DB {
+	return s.db
 }
 
 func New() Service {
@@ -46,19 +46,19 @@ func New() Service {
 	if dbInstance != nil {
 		return dbInstance
 	}
-    dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s search_path=%s sslmode=disable",
-    host,
-    username,
-    password,
-    database,
-    port,
-    schema,
-)
-    db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-    if err!= nil{
-        log.Fatalf("Failed to connect to DB: %v", err)
-    }
-    dbInstance = &service{db:db}
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s search_path=%s sslmode=disable",
+		host,
+		username,
+		password,
+		database,
+		port,
+		schema,
+	)
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatalf("Failed to connect to DB: %v", err)
+	}
+	dbInstance = &service{db: db}
 	return dbInstance
 }
 
@@ -110,7 +110,8 @@ func (s *service) Health() map[string]string {
 		stats["message"] = "Connections closed due to max lifetime — consider tuning"
 	}
 
-	return stats}
+	return stats
+}
 
 // Close closes the database connection.
 // It logs a message indicating the disconnection from the specific database.
@@ -124,4 +125,5 @@ func (s *service) Close() error {
 	}
 
 	log.Printf("Disconnected from database: %s", database)
-	return sqlDB.Close()}
+	return sqlDB.Close()
+}
