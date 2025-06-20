@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-
 export interface NavItem {
     path: string;
     label: string;
@@ -11,30 +10,20 @@ export interface NavItem {
 interface SidebarProps {
     navItems: NavItem[];
     companyName?: string;
-    onToggle?: (isCollapsed: boolean) => void;
+    isCollapsed: boolean;
+    onToggle: () => void;
 }
-
-const getInitialSidebarCollapsedState = (): boolean => {
-    if (typeof window === 'undefined') {
-        return false;
-    }
-    const storedState = localStorage.getItem('sidebarCollapsed');
-    if (storedState !== null) {
-        return JSON.parse(storedState);
-    }
-    return window.innerWidth < 768;
-};
-
 
 const Sidebar: React.FC<SidebarProps> = ({
     navItems,
     companyName = "DISCON Specialists",
+    isCollapsed,
     onToggle,
 }) => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const [isCollapsed, setIsCollapsed] = useState<boolean>(getInitialSidebarCollapsedState);
+    // This state is for presentation logic purely within the sidebar (e.g., mobile overlay)
     const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
@@ -48,15 +37,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         return () => window.removeEventListener('resize', checkScreenSize);
     }, []);
 
-    useEffect(() => {
-        localStorage.setItem('sidebarCollapsed', JSON.stringify(isCollapsed));
-        onToggle?.(isCollapsed);
-    }, [isCollapsed, onToggle]);
-
-    const toggleSidebar = () => {
-        setIsCollapsed(!isCollapsed);
-    };
-
     const sidebarWidth = isCollapsed ? 'w-16' : 'w-56 sm:w-60 lg:w-64';
 
     return (
@@ -64,7 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             {isMobile && !isCollapsed && (
                 <div
                     className="fixed inset-0 bg-black/50 z-30 md:hidden"
-                    onClick={() => setIsCollapsed(true)}
+                    onClick={onToggle} // Use the passed-in toggle handler
                 />
             )}
 
@@ -122,7 +102,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                             e.preventDefault();
                                             navigate(item.path);
                                             if (isMobile) {
-                                                setIsCollapsed(true);
+                                                onToggle(); // Use the passed-in toggle handler
                                             }
                                         }}
                                         className={`group relative flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3 sm:px-4'} py-2.5 sm:py-3 lg:py-3.5 rounded-lg sm:rounded-xl 
@@ -163,7 +143,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <div className={`mt-auto p-3 sm:p-4 border-t border-gray-200/40 dark:border-gray-700/40 flex-shrink-0
                                 ${isCollapsed ? 'flex justify-center' : 'flex justify-end'}`}>
                     <button
-                        onClick={toggleSidebar}
+                        onClick={onToggle} // Use the passed-in toggle handler
                         className={`p-2 rounded-lg hover:bg-gray-100/60 dark:hover:bg-gray-700/30 text-custom-primary dark:text-dark-primary transition-all duration-200 flex-shrink-0`}
                         title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                     >
