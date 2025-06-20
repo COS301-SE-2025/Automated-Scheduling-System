@@ -14,7 +14,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, user, ti
     name: '',
     email: '',
     role: 'User',
-    status: 'Active' as 'Active' | 'Inactive' | 'Pending',
+    status: 'Active',
   });
 
   useEffect(() => {
@@ -22,8 +22,8 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, user, ti
       setFormData({
         name: user.name,
         email: user.email,
-        role: user.role,
-        status: user.status,
+        role: "User",
+        status: "Active",
       });
     } else {
       setFormData({
