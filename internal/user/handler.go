@@ -2,32 +2,31 @@ package user
 
 import (
 	"Automated-Scheduling-Project/internal/auth"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
 func GetAllUsersHandler(c *gin.Context) {
-	var users []auth.User
-	if err := auth.DB.Find(&users).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch users"})
+	var responseUsers []auth.UserResponse
+	err := auth.DB.Table("users").
+		Select(
+			"users.user_id",
+			"users.username",
+			"employee_information.employeenumber",
+			"CONCAT_WS(' ', employee_information.firstname, employee_information.lastname) as name",
+			"employee_information.useraccountemail as email",
+			"employee_information.terminationdate",
+			"employee_information.employeestatus as status",
+			"users.role",
+		).
+		Joins("LEFT JOIN employee_information ON users.employee_number = employee_information.employeenumber").
+		Scan(&responseUsers).Error
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to fetch users: %v", err)})
 		return
 	}
-
-	type UserResponse struct {
-		ID       uint   `json:"id"`
-		Username string `json:"username"`
-		Email    string `json:"email"`
-	}
-
-	var responseUsers []UserResponse
-	for _, u := range users {
-		responseUsers = append(responseUsers, UserResponse{
-			ID:       u.ID,
-			Username: u.Username,
-			Email:    u.Email,
-		})
-	}
-
 	c.JSON(http.StatusOK, responseUsers)
 }

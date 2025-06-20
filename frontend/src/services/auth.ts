@@ -22,6 +22,8 @@ export const fetchUserProfile = async (): Promise<User> => {
         id:profileData.id,
       name: profileData.username,
       email: profileData.email,
+      // role: profileData.role,
+      // status: profileData.status
     };
   } catch (error) {
     console.error('Failed to fetch user profile:', error);
