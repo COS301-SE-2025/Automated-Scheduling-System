@@ -27,11 +27,22 @@ func RegisterHandler(c *gin.Context) {
 		return
 	}
 
+	// Check if user is an employee
+	var employeeInfo EmployeeInformation
+	if err := DB.Where("useraccountemail = ?", email).First(&employeeInfo).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "This email is not registered in the employee system. Please contact HR."})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify employee information"})
+		return
+	}
+
 	// Check if user already exists
 
 	var existing User
 
-	if err := DB.Where("email = ? OR username = ?", email, username).First(&existing).Error; err == nil {
+	if err := DB.Where("employee_number = ? OR username = ?", employeeInfo.EmployeeNumber, username).First(&existing).Error; err == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "Username or email already exists"})
 	}
 
@@ -41,7 +52,7 @@ func RegisterHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
 		return
 	}
-	user := User{Username: username, Email: email, Password: string(hashedPassword)}
+	user := User{Username: username, EmployeeNumber: employeeInfo.EmployeeNumber, Password: string(hashedPassword), Role: "User"}
 	if err := DB.Create(&user).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User creation failed"})
 		return
@@ -54,10 +65,20 @@ func RegisterHandler(c *gin.Context) {
 		return
 	}
 
+	responseUser := UserResponse{
+		UserID:         user.UserID,
+		EmployeeNumber: user.EmployeeNumber,
+		Username:       user.Username,
+		Name:           fmt.Sprintf("%s %s", employeeInfo.FirstName, employeeInfo.LastName),
+		Email:          employeeInfo.UserAccountEmail,
+		Status:         employeeInfo.EmployeeStatus,
+		Role:           user.Role,
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"message":  "User registered successfully",
-		"username": user.Username,
-		"token":    token,
+		"message": "User registered successfully",
+		"user":    responseUser,
+		"token":   token,
 	})
 }
 
@@ -70,12 +91,32 @@ func LoginHandler(c *gin.Context) {
 		return
 	}
 
-	var user User
-	if err := DB.Where("email = ? OR username = ?", identifier, identifier).First(&user).Error; err != nil {
-		c.JSON(401, gin.H{"error": "Invalid email or password"})
+	var loginData struct {
+		UserResponse
+		Password string `json:"-"`
+	}
+
+	err := DB.Table("users").
+		Select(
+			"users.user_id", "users.username", "users.role", "users.password",
+			"employee_information.employeenumber", "employee_information.useraccountemail as email",
+			"CONCAT_WS(' ', employee_information.firstname, employee_information.lastname) as name",
+			"employee_information.employeestatus as status", "employee_information.terminationdate",
+		).
+		Joins("LEFT JOIN employee_information ON users.employee_number = employee_information.employeenumber").
+		Where("users.username = ? OR employee_information.useraccountemail = ?", identifier, identifier).
+		First(&loginData).Error
+
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
-	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
+	// var user User
+	// if err := DB.Where("email = ? OR username = ?", identifier, identifier).First(&user).Error; err != nil {
+	// 	c.JSON(401, gin.H{"error": "Invalid email or password"})
+	// 	return
+	// }
+	if err := bcrypt.CompareHashAndPassword([]byte(loginData.Password), []byte(password)); err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
@@ -84,7 +125,10 @@ func LoginHandler(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "Could not generate token"})
 		return
 	}
-	c.JSON(200, gin.H{"token": token})
+	c.JSON(200, gin.H{
+		"token": token,
+		"user":  loginData.UserResponse,
+	})
 }
 
 func ProfileHandler(c *gin.Context) {
@@ -99,18 +143,30 @@ func ProfileHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid email format"})
 		return
 	}
-	var user User
+	var userResponse UserResponse
 
-	if err := DB.Where("email = ?", email).First(&user).Error; err != nil {
+	err := DB.Table("users").
+		Select(
+			"users.user_id, "+
+				"employee_information.employeenumber, "+
+				"CONCAT(employee_information.firstname, ' ', employee_information.lastname) as name, "+
+				"employee_information.useraccountemail as email, "+
+				"employee_information.terminationdate, "+
+				"employee_information.employeestatus, "+
+				"users.role, "+
+				"users.status",
+		).
+		Joins("LEFT JOIN employee_information ON users.employee_number = employee_information.employeenumber").
+		Where("employee_information.useraccountemail = ?", email).
+		First(&userResponse).Error
+
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
+		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"username": user.Username,
-		"email":    user.Email,
-	})
+	c.JSON(http.StatusOK, userResponse)
 }
-
 func forgotPasswordHandler(c *gin.Context) {
 	type ForgotPasswordRequest struct {
 		Email string `json:"email" binding:"required,email"`
@@ -122,9 +178,15 @@ func forgotPasswordHandler(c *gin.Context) {
 		return
 	}
 
+	var employeeInfo EmployeeInformation
+	if err := DB.Where("useraccountemail = ?", req.Email).First(&employeeInfo).Error; err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "If an account with this email exists, a password reset link has been sent."})
+		return
+	}
+
 	var user User
-	if err := DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
-		c.JSON(404, gin.H{"error": "No such email in our database"})
+	if err := DB.Where("employee_number = ?", employeeInfo.EmployeeNumber).First(&user).Error; err != nil {
+		c.JSON(404, gin.H{"error": "No such account in our database"})
 		return
 	}
 
