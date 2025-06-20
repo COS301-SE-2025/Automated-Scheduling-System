@@ -1,4 +1,4 @@
-import CalendarLayout from '../layouts/CalendarLayout';
+import MainLayout from '../layouts/MainLayout';
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import FullCalendar from '@fullcalendar/react';
@@ -93,7 +93,7 @@ const CalendarPage: React.FC = () => {
 
 
     return (
-        <CalendarLayout>
+        <MainLayout pageTitle='Calendar'>
             <div>
                 <div className="flex justify-between items-center mb-4">
                     <h1 className="text-2xl font-semibold text-custom-text dark:text-dark-text">Calendar - {user?.name || 'User'}</h1>
@@ -142,7 +142,7 @@ const CalendarPage: React.FC = () => {
                 onClose={() => setIsDetailModalOpen(false)}
                 event={clickedEventInfo}
             />
-        </CalendarLayout>
+        </MainLayout>
     );
 };
 
