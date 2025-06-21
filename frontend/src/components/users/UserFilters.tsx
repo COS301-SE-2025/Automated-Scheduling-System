@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 interface UserFiltersProps {
   onSearch: (term: string) => void;
@@ -7,100 +7,84 @@ interface UserFiltersProps {
     role: string;
     status: string;
   };
+  // New props to accept dynamic options
+  availableRoles: string[];
+  availableStatuses: string[];
 }
 
-const UserFilters: React.FC<UserFiltersProps> = ({ onSearch, onFilterChange, filters }) => {
-  const [searchInput, setSearchInput] = useState('');
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchInput(value);
-    onSearch(value);
-  };
-
-  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    onFilterChange(name, value);
-  };
-
-  const clearFilters = () => {
-    setSearchInput('');
-    onSearch('');
-    onFilterChange('role', '');
-    onFilterChange('status', '');
-  };
-
-  const roleOptions = ['', 'Admin', 'Manager', 'User'];
-  const statusOptions = ['', 'Active', 'Inactive', 'Pending'];
-
+const UserFilters: React.FC<UserFiltersProps> = ({
+  onSearch,
+  onFilterChange,
+  filters,
+  availableRoles,
+  availableStatuses,
+}) => {
   return (
-    <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div className="col-span-1 sm:col-span-2">
-        <label htmlFor="search" className="block text-sm font-medium text-custom-primary dark:text-dark-secondary">
-          Search
+    <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-6 py-4">
+      {/* Search Input */}
+      <div className="sm:col-span-2">
+        <label htmlFor="search" className="block text-sm font-medium leading-6 text-custom-primary dark:text-dark-secondary">
+          Search Users
         </label>
-        <div className="mt-1 relative rounded-md shadow-sm">
+        <div className="mt-2">
           <input
             type="text"
             name="search"
             id="search"
-            value={searchInput}
-            onChange={handleSearchChange}
-            className="block w-full rounded-md border-gray-300 dark:border-gray-600 py-2 pl-3 pr-3 text-base focus:border-custom-secondary focus:ring-custom-secondary sm:text-sm dark:bg-dark-input dark:text-white h-[38px]"
-            placeholder="Search by name or email"
+            onChange={(e) => onSearch(e.target.value)}
+            className="block w-full rounded-md border-0 py-1.5 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-custom-secondary sm:text-sm sm:leading-6 dark:bg-dark-input"
+            placeholder="Name or email..."
           />
         </div>
       </div>
 
-      <div>
-        <label htmlFor="role" className="block text-sm font-medium text-custom-primary dark:text-dark-secondary">
-          Role
+      {/* Role Filter Dropdown (Now Dynamic) */}
+      <div className="sm:col-span-2">
+        <label htmlFor="role" className="block text-sm font-medium leading-6 text-custom-primary dark:text-dark-secondary">
+          Filter by Role
         </label>
-        <select
-          id="role"
-          name="role"
-          value={filters.role}
-          onChange={handleFilterChange}
-          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 py-2 pl-3 pr-10 text-base focus:border-custom-secondary focus:outline-none focus:ring-custom-secondary sm:text-sm dark:bg-dark-input dark:text-white h-[38px]"
-        >
-          {roleOptions.map(role => (
-            <option key={role} value={role}>
-              {role || 'All Roles'}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label htmlFor="status" className="block text-sm font-medium text-custom-primary dark:text-dark-secondary">
-          Status
-        </label>
-        <select
-          id="status"
-          name="status"
-          value={filters.status}
-          onChange={handleFilterChange}
-          className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 py-2 pl-3 pr-10 text-base focus:border-custom-secondary focus:outline-none focus:ring-custom-secondary sm:text-sm dark:bg-dark-input dark:text-white h-[38px]"
-        >
-          {statusOptions.map(status => (
-            <option key={status} value={status}>
-              {status || 'All Statuses'}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {(searchInput || filters.role || filters.status) && (
-        <div className="col-span-1 sm:col-span-2 lg:col-span-4 flex justify-end">
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-custom-primary dark:text-dark-primary bg-white dark:bg-dark-input hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-custom-secondary"
+        <div className="mt-2">
+          <select
+            id="role"
+            name="role"
+            value={filters.role}
+            onChange={(e) => onFilterChange('role', e.target.value)}
+            className="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-custom-secondary sm:text-sm sm:leading-6 dark:bg-dark-input"
           >
-            Clear Filters
-          </button>
+            <option value="">All Roles</option>
+            {/* Map over the provided roles to create options */}
+            {availableRoles.map((role) => (
+              <option key={role} value={role}>
+                {role}
+              </option>
+            ))}
+          </select>
         </div>
-      )}
+      </div>
+
+      {/* Status Filter Dropdown (Now Dynamic) */}
+      <div className="sm:col-span-2">
+        <label htmlFor="status" className="block text-sm font-medium leading-6 text-custom-primary dark:text-dark-secondary">
+          Filter by Status
+        </label>
+        <div className="mt-2">
+          <select
+            id="status"
+            name="status"
+            value={filters.status}
+            onChange={(e) => onFilterChange('status', e.target.value)}
+            className="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-custom-secondary sm:text-sm sm:leading-6 dark:bg-dark-input"
+          >
+            <option value="">All Statuses</option>
+            {/* Map over the provided statuses to create options */}
+            {availableStatuses.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
     </div>
   );
 };

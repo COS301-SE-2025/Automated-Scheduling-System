@@ -155,11 +155,11 @@ func ProfileHandler(c *gin.Context) {
 		Select(
 			"users.user_id",
 			"users.username",
-			"employeeinformation.employeenumber",
-			"CONCAT_WS(' ', employeeinformation.firstname, employeeinformation.lastname) as name",
-			"employeeinformation.useraccountemail as email",
-			"employeeinformation.terminationdate",
-			"employeeinformation.employeestatus as status",
+			`employeeinformation."EMPLOYEENUMBER"`,
+			`CONCAT_WS(' ', employeeinformation."FIRSTNAME", employeeinformation."LASTNAME") as name`,
+			`employeeinformation."USERACCOUNTEMAIL" as email`,
+			`employeeinformation."TERMINATIONDATE"`,
+			`employeeinformation."EMPLOYEESTATUS" as status`,
 			"users.role",
 		).
 		Joins("LEFT JOIN employeeinformation ON users.employee_number = employeeinformation.\"EMPLOYEENUMBER\"").

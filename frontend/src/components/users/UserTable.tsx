@@ -2,17 +2,14 @@ import React from 'react';
 import type { User } from '../../types/user';
 
 interface UserTableProps {
-  users: User[]; // Uses the single, authoritative User type
+  users: User[]; 
   isLoading: boolean;
   onEdit: (user: User) => void;
   onDelete: (user: User) => void;
 }
 
 const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelete }) => {
-  
-  // A simple, dynamic way to get a color for a status.
-  // It handles a few common cases and provides a fallback.
-  // This makes it robust against any new status strings from the API.
+
   const getStatusClass = (status: string): string => {
     const lowerCaseStatus = status.toLowerCase();
     if (lowerCaseStatus.includes('active')) {
@@ -53,7 +50,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelet
               <thead className="bg-gray-50 dark:bg-dark-input">
                 <tr>
                   <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-custom-primary dark:text-dark-primary sm:pl-6">
-                    Name / Username
+                    Name 
                   </th>
                   <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-custom-primary dark:text-dark-primary">
                     Contact Email
