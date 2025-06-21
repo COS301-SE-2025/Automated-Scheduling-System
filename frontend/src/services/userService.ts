@@ -1,10 +1,10 @@
 import apiClient, { ApiError } from '../services/api';
-import type { ApiUser } from '../types/auth.types'; 
+import type { User } from '../types/user';
 
-export const getAllUsers = async (): Promise<ApiUser[]> => {
+export const getAllUsers = async (): Promise<User[]> => {
   try {
   
-    const users = await apiClient<ApiUser[]>('api/users', {
+    const users = await apiClient<User[]>('api/users', {
       method: 'GET',
     });
     return users;

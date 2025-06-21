@@ -4,27 +4,19 @@ import type {User} from '../types/user'
 import type {
   LoginFormData,
   SignupFormData,
-  
+  RegisterSuccessResponse,
   GoLoginResponse,
-  GoRegisterResponse,
-  GoProfileResponse,
   AuthSuccessPayload, 
   ForgotPasswordResponse, 
 } from '../types/auth.types';
 
 export const fetchUserProfile = async (): Promise<User> => {
   try {
-    const profileData = await apiClient<GoProfileResponse>('api/profile', {
+    const profileData = await apiClient<User>('api/profile', {
       method: 'GET',
       isAuthRequest: true, 
     });
-    return {
-        id:profileData.id,
-      name: profileData.username,
-      email: profileData.email,
-      // role: profileData.role,
-      // status: profileData.status
-    };
+    return profileData;
   } catch (error) {
     console.error('Failed to fetch user profile:', error);
     throw error;
@@ -66,20 +58,15 @@ export const signup = async (credentials: SignupFormData): Promise<AuthSuccessPa
 
   try {
   
-    const response = await apiClient<GoRegisterResponse>('register', {
+    const response = await apiClient<RegisterSuccessResponse>('register', {
       data: signupPayload,
       method: 'POST',
       isFormData: true,     
       isAuthRequest: false, 
     });
-    const user: User = {
-        id: response.id,
-      name: response.username, 
-      email: credentials.email,   
-    };
 
     return {
-      user,
+      user: response.user,
       token: response.token,
     };
   } catch (err) {

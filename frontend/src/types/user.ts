@@ -1,8 +1,13 @@
-
+export type Role = 'Admin' | 'User';
+export type Status = string;
 
 export interface User {
-    id: number;
-    name: string;
-    email: string;
+  userId: number;
+  employeeNumber: string;
+  name: string;             
+  email: string;           
+  terminationDate: string | null; 
+  employeeStatus: string;   
+  role: Role;              
+  status: Status;             
 }
-

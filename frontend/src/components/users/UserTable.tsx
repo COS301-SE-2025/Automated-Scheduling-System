@@ -1,57 +1,31 @@
 import React from 'react';
-
-export type UserStatus = "Active" | "Inactive" | "Pending";
-
-export interface TableUser { 
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  status: UserStatus; 
-  lastLogin: string | null;
-}
+import type { User } from '../../types/user';
 
 interface UserTableProps {
-  users: TableUser[]; 
+  users: User[]; // Uses the single, authoritative User type
   isLoading: boolean;
-  onEdit: (user: TableUser) => void;
-  onDelete: (user: TableUser) => void;
+  onEdit: (user: User) => void;
+  onDelete: (user: User) => void;
 }
 
 const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelete }) => {
-  const formatDate = (dateString: string | null): string => {
-    if (!dateString) return 'Never';
-    try {
-      const date = new Date(dateString);
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-          return 'Invalid Date';
-      }
-      return new Intl.DateTimeFormat('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      }).format(date);
-    } catch (e) {
-        console.error("Error formatting date:", dateString, e);
-        return "Error";
+  
+  // A simple, dynamic way to get a color for a status.
+  // It handles a few common cases and provides a fallback.
+  // This makes it robust against any new status strings from the API.
+  const getStatusClass = (status: string): string => {
+    const lowerCaseStatus = status.toLowerCase();
+    if (lowerCaseStatus.includes('active')) {
+      return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
     }
-  };
-
-  const getStatusClass = (status: UserStatus): string => { 
-    switch (status) {
-      case 'Active':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      case 'Inactive':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      case 'Pending':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
-      default:
-        const _exhaustiveCheck: never = status; 
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
+    if (lowerCaseStatus.includes('terminated') || lowerCaseStatus.includes('inactive') || lowerCaseStatus.includes('resigned')) {
+      return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
     }
+    if (lowerCaseStatus.includes('leave') || lowerCaseStatus.includes('pending')) {
+      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
+    }
+    // Default fallback for any other status
+    return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
   };
 
   if (isLoading) {
@@ -65,7 +39,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelet
   if (users.length === 0) {
     return (
       <div className="mt-6 text-center py-10 bg-white dark:bg-dark-input rounded-md shadow">
-        <p className="text-custom-third dark:text-dark-secondary">No users found matching your criteria.</p>
+        <p className="text-custom-third dark:text-dark-secondary">No users found.</p>
       </div>
     );
   }
@@ -79,19 +53,16 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelet
               <thead className="bg-gray-50 dark:bg-dark-input">
                 <tr>
                   <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-custom-primary dark:text-dark-primary sm:pl-6">
-                    Name
+                    Name / Username
                   </th>
                   <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-custom-primary dark:text-dark-primary">
-                    Email
+                    Contact Email
                   </th>
                   <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-custom-primary dark:text-dark-primary">
-                    Role
+                    Employee Status
                   </th>
                   <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-custom-primary dark:text-dark-primary">
-                    Status
-                  </th>
-                  <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-custom-primary dark:text-dark-primary">
-                    Last Login
+                    App Role
                   </th>
                   <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
                     <span className="sr-only">Actions</span>
@@ -100,15 +71,13 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelet
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-dark-input">
                 {users.map((user) => (
-                  <tr key={user.id}>
-                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-white sm:pl-6">
-                      {user.name}
+                  <tr key={user.userId}>
+                    <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
+                      <div className="font-medium text-gray-900 dark:text-white">{user.name}</div>
+                      {/* <div className="text-gray-500 dark:text-gray-400">{user.username}</div> */}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300">
                       {user.email}
-                    </td>
-                    <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300">
-                      {user.role}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm">
                       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold leading-5 ${getStatusClass(user.status)}`}>
@@ -116,7 +85,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelet
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300">
-                      {formatDate(user.lastLogin)}
+                      {user.role}
                     </td>
                     <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                       <button
@@ -124,7 +93,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelet
                         className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary mr-4"
                         onClick={() => onEdit(user)}
                       >
-                        Edit
+                        Edit Role
                       </button>
                       <button
                         type="button"
