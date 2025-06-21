@@ -1,5 +1,5 @@
 import apiClient, { ApiError } from '../services/api';
-import type { User } from '../types/user';
+import type { User, AddUserData, UpdateUserData } from '../types/user';
 
 export const getAllUsers = async (): Promise<User[]> => {
   try {
@@ -19,4 +19,36 @@ export const getAllUsers = async (): Promise<User[]> => {
       error 
     );
   }
+};
+
+export const addUser = async (userData: AddUserData): Promise<User> => {
+  console.log('--- MOCK API: Adding User ---', userData);
+  return new Promise(resolve => {
+    setTimeout(() => {
+      const mockNewUser: User = {
+        userId: Math.floor(Math.random() * 10000), // Random ID
+        email: userData.email,
+        role: userData.role,
+        name: userData.username,
+        employeeStatus: 'Active', 
+        employeeNumber: `NEW-${Math.floor(Math.random() * 1000)}`,
+        terminationDate: null,
+      };
+      resolve(mockNewUser);
+    }, 500);
+  });
+};
+
+// --- Placeholder for updating a user ---
+export const updateUser = async (userId: number, updates: UpdateUserData): Promise<User> => {
+  console.log(`--- MOCK API: Updating User ${userId} ---`, updates);
+  return new Promise(resolve => {
+    setTimeout(() => {
+      const mockUpdatedFields: Partial<User> = {
+        userId,
+        ...updates,
+      };
+      resolve(mockUpdatedFields as User);
+    }, 500);
+  });
 };

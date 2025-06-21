@@ -9,5 +9,15 @@ export interface User {
   terminationDate: string | null; 
   employeeStatus: string;   
   role: Role;              
-  status: Status;             
+}
+
+export interface AddUserData {
+  username: string;
+  email: string;
+  password: string;
+  role: Role; 
+}
+export interface UpdateUserData {
+  email?: string;
+  role?: Role;
 }
