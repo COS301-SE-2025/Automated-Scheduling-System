@@ -111,12 +111,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const login = async (credentials: LoginFormData) => {
         dispatch({ type: 'AUTH_REQUEST' });
         try {
-            const { token } = await authService.login(credentials);
-            saveToken(token);
-            const user = await authService.fetchUserProfile();
-            saveUser(user);
-            const payload: AuthSuccessPayload = { user, token };
+            // const { token } = await authService.login(credentials);
+            // saveToken(token);
+            // const user = await authService.fetchUserProfile();
+            // saveUser(user);
+            // const payload: AuthSuccessPayload = { user, token };
+            const payload = await authService.login(credentials);
+            saveToken(payload.token);
+            saveUser(payload.user);
             dispatch({ type: 'LOGIN_SUCCESS', payload });
+
         } catch (err) {
             const message = handleApiError(err, 'Login failed. Please check your credentials.');
             removeToken();
