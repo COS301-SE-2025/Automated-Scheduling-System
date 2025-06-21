@@ -29,7 +29,7 @@ func RegisterHandler(c *gin.Context) {
 
 	// Check if user is an employee
 	var employeeInfo EmployeeInformation
-	if err := DB.Where("useraccountemail = ?", email).First(&employeeInfo).Error; err != nil {
+	if err := DB.Where(`"USERACCOUNTEMAIL" = ?`, email).First(&employeeInfo).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "This email is not registered in the employee system. Please contact HR."})
 			return
@@ -44,15 +44,19 @@ func RegisterHandler(c *gin.Context) {
 
 	if err := DB.Where("employee_number = ? OR username = ?", employeeInfo.EmployeeNumber, username).First(&existing).Error; err == nil {
 		c.JSON(http.StatusConflict, gin.H{"error": "Username or email already exists"})
+		return
 	}
 
-	// Hash the password
+	//Hash the password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
 		return
 	}
+
+	//plaintextPassword := password
 	user := User{Username: username, EmployeeNumber: employeeInfo.EmployeeNumber, Password: string(hashedPassword), Role: "User"}
+	//user := User{Username: username, EmployeeNumber: employeeInfo.EmployeeNumber, Password: string(plaintextPassword), Role: "User"}
 	if err := DB.Create(&user).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User creation failed"})
 		return
@@ -99,12 +103,14 @@ func LoginHandler(c *gin.Context) {
 	err := DB.Table("users").
 		Select(
 			"users.user_id", "users.username", "users.role", "users.password",
-			"employee_information.employeenumber", "employee_information.useraccountemail as email",
-			"CONCAT_WS(' ', employee_information.firstname, employee_information.lastname) as name",
-			"employee_information.employeestatus as status", "employee_information.terminationdate",
+			`employeeinformation."EMPLOYEENUMBER"`,
+			`employeeinformation."USERACCOUNTEMAIL" as email`,
+			`CONCAT_WS(' ', employeeinformation."FIRSTNAME", employeeinformation."LASTNAME") as name`,
+			`employeeinformation."EMPLOYEESTATUS" as status`,
+			`employeeinformation."TERMINATIONDATE"`,
 		).
-		Joins("LEFT JOIN employee_information ON users.employee_number = employee_information.employeenumber").
-		Where("users.username = ? OR employee_information.useraccountemail = ?", identifier, identifier).
+		Joins("LEFT JOIN employeeinformation ON users.employee_number = employeeinformation.\"EMPLOYEENUMBER\"").
+		Where(`users.username = ? OR employeeinformation."USERACCOUNTEMAIL" = ?`, identifier, identifier).
 		First(&loginData).Error
 
 	if err != nil {
@@ -147,17 +153,17 @@ func ProfileHandler(c *gin.Context) {
 
 	err := DB.Table("users").
 		Select(
-			"users.user_id, "+
-				"employee_information.employeenumber, "+
-				"CONCAT(employee_information.firstname, ' ', employee_information.lastname) as name, "+
-				"employee_information.useraccountemail as email, "+
-				"employee_information.terminationdate, "+
-				"employee_information.employeestatus, "+
-				"users.role, "+
-				"users.status",
+			"users.user_id",
+			"users.username",
+			"employeeinformation.employeenumber",
+			"CONCAT_WS(' ', employeeinformation.firstname, employeeinformation.lastname) as name",
+			"employeeinformation.useraccountemail as email",
+			"employeeinformation.terminationdate",
+			"employeeinformation.employeestatus as status",
+			"users.role",
 		).
-		Joins("LEFT JOIN employee_information ON users.employee_number = employee_information.employeenumber").
-		Where("employee_information.useraccountemail = ?", email).
+		Joins("LEFT JOIN employeeinformation ON users.employee_number = employeeinformation.\"EMPLOYEENUMBER\"").
+		Where(`employeeinformation."USERACCOUNTEMAIL" = ?`, email).
 		First(&userResponse).Error
 
 	if err != nil {
@@ -179,7 +185,7 @@ func forgotPasswordHandler(c *gin.Context) {
 	}
 
 	var employeeInfo EmployeeInformation
-	if err := DB.Where("useraccountemail = ?", req.Email).First(&employeeInfo).Error; err != nil {
+	if err := DB.Where(`"USERACCOUNTEMAIL" = ?`, req.Email).First(&employeeInfo).Error; err != nil {
 		c.JSON(http.StatusOK, gin.H{"message": "If an account with this email exists, a password reset link has been sent."})
 		return
 	}
