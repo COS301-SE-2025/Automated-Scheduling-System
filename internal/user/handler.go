@@ -14,14 +14,14 @@ func GetAllUsersHandler(c *gin.Context) {
 		Select(
 			"users.user_id",
 			"users.username",
-			"employee_information.employeenumber",
-			"CONCAT_WS(' ', employee_information.firstname, employee_information.lastname) as name",
-			"employee_information.useraccountemail as email",
-			"employee_information.terminationdate",
-			"employee_information.employeestatus as status",
+			`employeeinformation."EMPLOYEENUMBER" as employeeNumber`,
+			`CONCAT_WS(' ', employeeinformation."FIRSTNAME", employeeinformation."LASTNAME") as name`,
+			`employeeinformation."USERACCOUNTEMAIL" as email`,
+			`employeeinformation."TERMINATIONDATE" as terminationDate`,
+			`employeeinformation."EMPLOYEESTATUS" as status`,
 			"users.role",
 		).
-		Joins("LEFT JOIN employee_information ON users.employee_number = employee_information.employeenumber").
+		Joins(`LEFT JOIN employeeinformation ON users.employee_number = employeeinformation."EMPLOYEENUMBER"`).
 		Scan(&responseUsers).Error
 
 	if err != nil {
