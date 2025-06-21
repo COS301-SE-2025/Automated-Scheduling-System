@@ -10,8 +10,8 @@ interface UserTableProps {
 
 const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelete }) => {
 
-  const getStatusClass = (status: string): string => {
-    const lowerCaseStatus = status.toLowerCase();
+  const getStatusClass = (employeeStatus: string): string => {
+    const lowerCaseStatus = (employeeStatus || '').toLowerCase();
     if (lowerCaseStatus.includes('active')) {
       return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
     }
@@ -77,8 +77,8 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelet
                       {user.email}
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold leading-5 ${getStatusClass(user.status)}`}>
-                        {user.status}
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold leading-5 ${getStatusClass(user.employeeStatus)}`}>
+                        {user.employeeStatus ?? 'N?A'}
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300">
@@ -90,15 +90,15 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelet
                         className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary mr-4"
                         onClick={() => onEdit(user)}
                       >
-                        Edit Role
+                        Edit User
                       </button>
-                      <button
+                      {/* <button
                         type="button"
                         className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                         onClick={() => onDelete(user)}
                       >
                         Delete
-                      </button>
+                      </button> */}
                     </td>
                   </tr>
                 ))}
