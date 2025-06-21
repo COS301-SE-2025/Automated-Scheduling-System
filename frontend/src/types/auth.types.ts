@@ -53,6 +53,7 @@ export type { LoginFormData, SignupFormData };
 
 export interface GoLoginResponse {
     token: string;
+    user: User;
 }
 
 // export interface GoProfileResponse {

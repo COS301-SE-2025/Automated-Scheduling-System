@@ -4,24 +4,18 @@ import type { User, Role } from '../../types/user';
 interface UserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  // onSave now only needs to send the fields that can actually be changed.
   onSave: (data: { userId: number; role: Role }) => void;
-  user?: User; // The full, hydrated user object from the API
+  user?: User; 
   title: string;
 }
 
 const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, user, title }) => {
-  // The form state only needs to track the fields that are editable.
   const [editableRole, setEditableRole] = useState<Role>('User');
 
   useEffect(() => {
-    // When the user prop changes (i.e., when the modal opens with a user),
-    // set the form's state to match that user's role.
     if (user) {
       setEditableRole(user.role);
     } else {
-      // If creating a new user, reset to default.
-      // Note: Creating a brand new user is now a more complex "onboarding" flow.
       setEditableRole('User');
     }
   }, [user, isOpen]);
@@ -58,7 +52,6 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, user, ti
         <div className="flex items-start justify-between p-4 border-b border-gray-200 dark:border-gray-700 rounded-t">
           <h3 className="text-xl font-semibold text-custom-primary dark:text-dark-primary">{title}</h3>
           <button type="button" onClick={onClose} className="text-gray-400 ...">
-            {/* Close Icon SVG */}
           </button>
         </div>
         
@@ -90,7 +83,6 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, user, ti
                     className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 py-2 pl-3 pr-10 text-base focus:border-custom-secondary focus:outline-none focus:ring-custom-secondary sm:text-sm dark:bg-dark-input dark:text-white"
                   >
                     <option value="Admin">Admin</option>
-                    <option value="Manager">Manager</option>
                     <option value="User">User</option>
                   </select>
                 </div>
