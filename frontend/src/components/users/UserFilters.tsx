@@ -5,7 +5,7 @@ interface UserFiltersProps {
   onFilterChange: (name: string, value: string) => void;
   filters: {
     role: string;
-    status: string;
+    employeeStatus: string;
   };
   // New props to accept dynamic options
   availableRoles: string[];
@@ -38,7 +38,7 @@ const UserFilters: React.FC<UserFiltersProps> = ({
         </div>
       </div>
 
-      {/* Role Filter Dropdown (Now Dynamic) */}
+      {/* Role Filter Dropdown  */}
       <div className="sm:col-span-2">
         <label htmlFor="role" className="block text-sm font-medium leading-6 text-custom-primary dark:text-dark-secondary">
           Filter by Role
@@ -71,7 +71,7 @@ const UserFilters: React.FC<UserFiltersProps> = ({
           <select
             id="status"
             name="status"
-            value={filters.status}
+            value={filters.employeeStatus}
             onChange={(e) => onFilterChange('status', e.target.value)}
             className="block w-full rounded-md border-0 py-1.5 pl-3 pr-10 text-gray-900 dark:text-white ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-custom-secondary sm:text-sm sm:leading-6 dark:bg-dark-input"
           >
