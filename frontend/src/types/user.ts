@@ -19,6 +19,5 @@ export interface AddUserData {
   role: Role; 
 }
 export interface UpdateUserData {
-  email?: string;
   role?: Role;
 }
