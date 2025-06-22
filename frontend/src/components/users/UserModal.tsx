@@ -26,7 +26,7 @@ interface UserModalProps {
 
 const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, user }) => {
   const [formData, setFormData] = useState({
-    username: '',
+    name: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -39,7 +39,7 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
       setError(''); 
       if (mode === 'edit' && user) {
         setFormData({
-          username: user.name, 
+          name: user.name, 
           email: user.email,
           role: user.role,
           password: '', 
@@ -47,7 +47,7 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
         });
       } else {
         setFormData({
-          username: '',
+          name: '',
           email: '',
           password: '',
           confirmPassword: '',
@@ -76,7 +76,7 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
         return;
       }
       const addPayload: AddUserData = {
-        username: formData.username,
+        username: formData.name,
         email: formData.email,
         password: formData.password,
         role: formData.role,
@@ -124,7 +124,7 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
 
             {mode === 'add' && (
               <>
-                <InputField label="Username" name="username" value={formData.username} onChange={handleChange} required autoComplete="off" />
+                <InputField label="Username" name="username" value={formData.name} onChange={handleChange} required autoComplete="off" />
                 <InputField label="Email Address" name="email" type="email" value={formData.email} onChange={handleChange} required />
               </>
             )}
