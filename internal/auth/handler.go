@@ -54,9 +54,7 @@ func RegisterHandler(c *gin.Context) {
 		return
 	}
 
-	//plaintextPassword := password
 	user := User{Username: username, EmployeeNumber: employeeInfo.EmployeeNumber, Password: string(hashedPassword), Role: "User"}
-	//user := User{Username: username, EmployeeNumber: employeeInfo.EmployeeNumber, Password: string(plaintextPassword), Role: "User"}
 	if err := DB.Create(&user).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User creation failed"})
 		return
@@ -117,11 +115,7 @@ func LoginHandler(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
-	// var user User
-	// if err := DB.Where("email = ? OR username = ?", identifier, identifier).First(&user).Error; err != nil {
-	// 	c.JSON(401, gin.H{"error": "Invalid email or password"})
-	// 	return
-	// }
+
 	if err := bcrypt.CompareHashAndPassword([]byte(loginData.Password), []byte(password)); err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
