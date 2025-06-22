@@ -20,10 +20,12 @@ const CalendarPage: React.FC = () => {
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [clickedEventInfo, setClickedEventInfo] = useState<EventClickArg['event'] | null>(null);
     const [selectedDateInfo, setSelectedDateInfo] = useState<SelectedInfoType | null>(null);
+    const [eventToEdit, setEventToEdit] = useState<EventClickArg['event'] | null>(null);
     const calendarRef = useRef<FullCalendar>(null);
 
     const handleAddEventClick = () => {
         setSelectedDateInfo(null); 
+        setEventToEdit(null);
         setIsModalOpen(true);
     };
 
@@ -42,27 +44,57 @@ const CalendarPage: React.FC = () => {
         setIsDetailModalOpen(true);
     };
 
+    const handleStartEdit = (event: EventClickArg['event']) => {
+        setIsDetailModalOpen(false);
+        setEventToEdit(event);
+        setIsModalOpen(true);
+    };
+
     const handleSaveEvent = (eventData: EventSaveData) => {
         const calendarApi = calendarRef.current?.getApi();
         if (calendarApi) {
-            calendarApi.addEvent({
-                
-                title: eventData.title,
-                start: eventData.start,
-                end: eventData.end,
-                allDay: eventData.allDay,
-                extendedProps: {
-                    eventType: eventData.eventType,
-                    relevantParties: eventData.relevantParties
+            if (eventData.id) {
+                const event = calendarApi.getEventById(eventData.id);
+                if (event) {
+                    event.setProp('title', eventData.title);
+                    event.setStart(eventData.start);
+                    event.setEnd(eventData.end);
+                    event.setAllDay(eventData.allDay);
+                    event.setExtendedProp('eventType', eventData.eventType);
+                    event.setExtendedProp('relevantParties', eventData.relevantParties);
                 }
-            });
+            } else {
+                calendarApi.addEvent({
+                    id: new Date().toISOString(),
+                    title: eventData.title,
+                    start: eventData.start,
+                    end: eventData.end,
+                    allDay: eventData.allDay,
+                    extendedProps: {
+                        eventType: eventData.eventType,
+                        relevantParties: eventData.relevantParties
+                    }
+                });
+            }
             console.log('Event saved with details:', eventData);
         }
         setIsModalOpen(false);
         setSelectedDateInfo(null); 
+        setEventToEdit(null);
     };
 
     const prepareInitialModalData = (): EventFormModalProps['initialData'] | undefined => {
+        if (eventToEdit) {
+            return {
+                id: eventToEdit.id,
+                title: eventToEdit.title,
+                startStr: eventToEdit.startStr,
+                endStr: eventToEdit.endStr,
+                allDay: eventToEdit.allDay,
+                eventType: eventToEdit.extendedProps.eventType,
+                relevantParties: eventToEdit.extendedProps.relevantParties,
+            };
+        }
         if (!selectedDateInfo) return undefined;
 
         if ('dateStr' in selectedDateInfo && !('startStr' in selectedDateInfo)) {
@@ -131,6 +163,7 @@ const CalendarPage: React.FC = () => {
                 onClose={() => {
                     setIsModalOpen(false);
                     setSelectedDateInfo(null); 
+                    setEventToEdit(null);
                     const calendarApi = calendarRef.current?.getApi();
                     calendarApi?.unselect(); 
                 }}
@@ -141,6 +174,7 @@ const CalendarPage: React.FC = () => {
                 isOpen={isDetailModalOpen}
                 onClose={() => setIsDetailModalOpen(false)}
                 event={clickedEventInfo}
+                onEdit={handleStartEdit}
             />
         </MainLayout>
     );

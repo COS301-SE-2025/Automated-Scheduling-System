@@ -9,6 +9,7 @@ export interface EventFormModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (eventData: {
+        id?: string;
         title: string;
         start: string;
         end: string;
@@ -17,6 +18,7 @@ export interface EventFormModalProps {
         relevantParties: string;
     }) => void;
     initialData?: {
+        id?: string;
         startStr: string;
         endStr: string;
         allDay: boolean;
@@ -27,6 +29,7 @@ export interface EventFormModalProps {
 }
 
 const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave, initialData }) => {
+    const [id, setId] = useState(initialData?.id);
     const [title, setTitle] = useState(initialData?.title || '');
     const [eventDate, setEventDate] = useState(initialData?.startStr ? initialData.startStr.split('T')[0] : new Date().toISOString().split('T')[0]);
     const [startTime, setStartTime] = useState(initialData?.startStr && initialData.startStr.includes('T') ? initialData.startStr.split('T')[1].substring(0,5) : '09:00');
@@ -38,6 +41,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
+                setId(initialData.id);
                 setTitle(initialData.title || '');
                 setEventDate(initialData.startStr.split('T')[0]);
                 setAllDay(initialData.allDay);
@@ -57,6 +61,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                 setRelevantParties(initialData.relevantParties || parties[0]);
             } else {
                 // Reset to default for new event
+                setId(undefined);
                 setTitle('');
                 setEventDate(new Date().toISOString().split('T')[0]);
                 setStartTime('09:00');
@@ -75,6 +80,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
             const start = allDay ? eventDate : `${eventDate}T${startTime}`;
             const end = allDay ? eventDate : `${eventDate}T${endTime}`; // For allDay, end date should ideally be exclusive or handled by FullCalendar
             onSave({
+                id,
                 title,
                 start,
                 end,
@@ -88,7 +94,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
             <div className="bg-custom-background dark:bg-dark-div p-6 rounded-lg shadow-xl w-full max-w-lg">
-                <h2 className="text-xl font-semibold mb-6 text-custom-text dark:text-dark-text">Add New Event</h2>
+                <h2 className="text-xl font-semibold mb-6 text-custom-text dark:text-dark-text">{initialData?.id ? 'Edit Event' : 'Add New Event'}</h2>
 
                 <div className="mb-4">
                     <label htmlFor="eventTitle" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Event Title</label>
@@ -188,7 +194,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                         onClick={handleSubmit}
                         className="px-4 py-2 bg-custom-primary hover:bg-opacity-90 dark:hover:bg-opacity-90 text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-custom-primary dark:focus:ring-offset-dark-div dark:focus:ring-dark-primary"
                     >
-                        Save Event
+                        {initialData?.id ? 'Save Changes' : 'Save Event'}
                     </button>
                 </div>
             </div>

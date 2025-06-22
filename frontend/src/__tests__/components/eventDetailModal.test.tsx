@@ -17,9 +17,11 @@ const formatTestDateTime = (date: Date | null, isAllDay: boolean, isEnd: boolean
 
 describe('EventDetailModal', () => {
     const mockOnClose = vi.fn();
+    const mockOnEdit = vi.fn();
 
     const createMockEvent = (overrides: Partial<EventClickArg['event']>): EventClickArg['event'] => {
         const baseEvent = {
+            id: 'test-event-1',
             title: 'Default Event Title',
             start: new Date(),
             end: new Date(),
@@ -40,6 +42,7 @@ describe('EventDetailModal', () => {
         isOpen: true,
         onClose: mockOnClose,
         event: defaultEvent,
+        onEdit: mockOnEdit,
     };
 
     beforeEach(() => {
@@ -140,5 +143,12 @@ describe('EventDetailModal', () => {
         render(<EventDetailModal {...defaultProps} />);
         fireEvent.click(screen.getByRole('button', { name: /Close/i }));
         expect(mockOnClose).toHaveBeenCalledTimes(1);
+    });
+
+    it('should call onEdit when Edit button is clicked', () => {
+        render(<EventDetailModal {...defaultProps} event={defaultEvent} />);
+        fireEvent.click(screen.getByRole('button', { name: /Edit/i }));
+        expect(mockOnEdit).toHaveBeenCalledTimes(1);
+        expect(mockOnEdit).toHaveBeenCalledWith(defaultEvent);
     });
 });
