@@ -22,33 +22,39 @@ export const getAllUsers = async (): Promise<User[]> => {
 };
 
 export const addUser = async (userData: AddUserData): Promise<User> => {
-  console.log('--- MOCK API: Adding User ---', userData);
-  return new Promise(resolve => {
-    setTimeout(() => {
-      const mockNewUser: User = {
-        userId: Math.floor(Math.random() * 10000), // Random ID
-        email: userData.email,
-        role: userData.role,
-        name: userData.username,
-        employeeStatus: 'Active', 
-        employeeNumber: `NEW-${Math.floor(Math.random() * 1000)}`,
-        terminationDate: null,
-      };
-      resolve(mockNewUser);
-    }, 500);
-  });
+
+  try {
+    const newUser = await apiClient<User>('api/users', {
+      method: 'POST',
+      data: userData, 
+    });
+    return newUser;
+  } catch (error) {
+    console.error('Error adding user:', error);
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      error instanceof Error ? error.message : 'An unknown error occurred while adding the user.',
+      (error as any).status || 0,
+      error
+    );
+  }
 };
 
-// --- Placeholder for updating a user ---
 export const updateUser = async (userId: number, updates: UpdateUserData): Promise<User> => {
-  console.log(`--- MOCK API: Updating User ${userId} ---`, updates);
-  return new Promise(resolve => {
-    setTimeout(() => {
-      const mockUpdatedFields: Partial<User> = {
-        userId,
-        ...updates,
-      };
-      resolve(mockUpdatedFields as User);
-    }, 500);
-  });
+
+  try {
+    const updatedUser = await apiClient<User>(`api/users/${userId}`, {
+      method: 'PATCH',
+      data: updates,   
+    });
+    return updatedUser;
+  } catch (error) {
+    console.error(`Error updating user ${userId}:`, error);
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(
+      error instanceof Error ? error.message : `An unknown error occurred while updating user ${userId}.`,
+      (error as any).status || 0,
+      error
+    );
+  }
 };

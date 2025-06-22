@@ -4,6 +4,7 @@ export type Status = string;
 export interface User {
   userId: number;
   employeeNumber: string;
+  username: string;
   name: string;             
   email: string;           
   terminationDate: string | null; 

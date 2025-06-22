@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth'; 
 
 export interface NavItem {
     path: string;
@@ -22,6 +23,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
     const navigate = useNavigate();
     const location = useLocation();
+    const { user } = useAuth();
 
     // This state is for presentation logic purely within the sidebar (e.g., mobile overlay)
     const [isMobile, setIsMobile] = useState(false);
@@ -91,6 +93,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <nav className="mt-4 sm:mt-6 px-3 sm:px-4 overflow-y-auto flex-1">
                     <ul className="space-y-1 sm:space-y-2">
                         {navItems.map((item) => {
+                            if (item.label.toLowerCase() == "users" && user?.role !== "Admin"){
+                                return null;
+                            }
                             const isActive = location.pathname === item.path ||
                                 (item.path !== '/' && location.pathname.startsWith(item.path + '/'));
 
