@@ -9,8 +9,9 @@ import DashboardPage from '../pages/DashboardPage';
 import CalendarPage from '../pages/CalendarPage';
 import EventsPage from '../pages/EventsPage';
 import RulesPage from '../pages/RulesPage';
-// 1. Import the LandingPage
-import LandingPage from '../pages/LandingPage'; 
+import LandingPage from '../pages/LandingPage';
+import LandingHelpPage from '../pages/LandingHelpPage';
+import MainHelpPage from '../pages/MainHelpPage';
 import { useAuth } from '../hooks/useAuth';
 
 const ProtectedRouteElement: React.FC = () => {
@@ -41,8 +42,6 @@ const PublicAuthRouteElement: React.FC = () => {
     return <Outlet />;
 }
 
-// 2. The RootRedirector component is no longer needed and has been removed.
-
 const AppRoutes: React.FC = () => {
     const { isLoading: authIsLoading } = useAuth();
 
@@ -54,11 +53,11 @@ const AppRoutes: React.FC = () => {
         <Routes>
             {/* Public routes */}
             <Route element={<PublicAuthRouteElement />}>
-                {/* 3. Set the root path '/' to render the LandingPage */}
                 <Route path="/" element={<LandingPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/landing-help" element={<LandingHelpPage />} />
             </Route>
 
             {/* Protected Routes */}
@@ -68,9 +67,8 @@ const AppRoutes: React.FC = () => {
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/events" element={<EventsPage />} />
                 <Route path="/rules" element={<RulesPage />} />
+                <Route path="/main-help" element={<MainHelpPage />} />
             </Route>
-            
-            {/* 4. The specific route for '/' has been moved into the public routes group. */}
 
             {/* Catch-all for 404 Not Found */}
             <Route path="*" element={<NotFoundPage />} />

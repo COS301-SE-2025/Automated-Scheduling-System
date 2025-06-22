@@ -10,6 +10,7 @@ const navItems: NavItem[] = [
     { path: '/calendar', label: 'Calendar' },
     { path: '/events', label: 'Events' },
     { path: '/rules', label: 'Rules' },
+    { path: '/main-help', label: 'Help' },
 ];
 
 interface MainLayoutProps {

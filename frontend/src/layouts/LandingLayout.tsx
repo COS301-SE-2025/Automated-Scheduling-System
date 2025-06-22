@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 
 const navItems: NavItem[] = [
     { path: '/', label: 'Welcome' },
+    { path: '/landing-help', label: 'Help' }
 ];
 
 interface LandingLayoutProps {
