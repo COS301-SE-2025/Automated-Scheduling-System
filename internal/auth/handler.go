@@ -75,7 +75,7 @@ func RegisterHandler(c *gin.Context) {
 		Username:       user.Username,
 		Name:           fmt.Sprintf("%s %s", employeeInfo.FirstName, employeeInfo.LastName),
 		Email:          employeeInfo.UserAccountEmail,
-		Status:         employeeInfo.EmployeeStatus,
+		EmployeeStatus: employeeInfo.EmployeeStatus,
 		Role:           user.Role,
 	}
 
@@ -106,7 +106,7 @@ func LoginHandler(c *gin.Context) {
 			`employeeinformation."EMPLOYEENUMBER"`,
 			`employeeinformation."USERACCOUNTEMAIL" as email`,
 			`CONCAT_WS(' ', employeeinformation."FIRSTNAME", employeeinformation."LASTNAME") as name`,
-			`employeeinformation."EMPLOYEESTATUS" as status`,
+			`employeeinformation."EMPLOYEESTATUS" as employee_status`,
 			`employeeinformation."TERMINATIONDATE"`,
 		).
 		Joins("LEFT JOIN employeeinformation ON users.employee_number = employeeinformation.\"EMPLOYEENUMBER\"").
@@ -159,7 +159,7 @@ func ProfileHandler(c *gin.Context) {
 			`CONCAT_WS(' ', employeeinformation."FIRSTNAME", employeeinformation."LASTNAME") as name`,
 			`employeeinformation."USERACCOUNTEMAIL" as email`,
 			`employeeinformation."TERMINATIONDATE"`,
-			`employeeinformation."EMPLOYEESTATUS" as status`,
+			`employeeinformation."EMPLOYEESTATUS" as employee_status`,
 			"users.role",
 		).
 		Joins("LEFT JOIN employeeinformation ON users.employee_number = employeeinformation.\"EMPLOYEENUMBER\"").

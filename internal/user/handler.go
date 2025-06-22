@@ -18,7 +18,7 @@ func GetAllUsersHandler(c *gin.Context) {
 			`CONCAT_WS(' ', employeeinformation."FIRSTNAME", employeeinformation."LASTNAME") as name`,
 			`employeeinformation."USERACCOUNTEMAIL" as email`,
 			`employeeinformation."TERMINATIONDATE" as terminationDate`,
-			`employeeinformation."EMPLOYEESTATUS" as status`,
+			`employeeinformation."EMPLOYEESTATUS" as employee_status`,
 			"users.role",
 		).
 		Joins(`LEFT JOIN employeeinformation ON users.employee_number = employeeinformation."EMPLOYEENUMBER"`).

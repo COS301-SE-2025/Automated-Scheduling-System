@@ -46,6 +46,6 @@ type UserResponse struct {
 	Name            string     `json:"name"`
 	Email           string     `json:"email"`
 	TerminationDate *time.Time `json:"terminationDate"`
-	Status          string     `json:"status"`
+	EmployeeStatus  string     `json:"status"`
 	Role            string     `json:"role"`
 }
