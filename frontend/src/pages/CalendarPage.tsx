@@ -10,6 +10,7 @@ import type { DateClickArg } from '@fullcalendar/interaction';
 import { PlusCircle } from 'lucide-react';
 import EventFormModal, { type EventFormModalProps } from '../components/ui/EventFormModal'; 
 import EventDetailModal from '../components/ui/EventDetailModal'; 
+import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
 
 type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
 type SelectedInfoType = DateSelectArg | DateClickArg | (EventClickArg['event'] & { eventType?: string; relevantParties?: string });
@@ -18,9 +19,11 @@ const CalendarPage: React.FC = () => {
     const { user } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [clickedEventInfo, setClickedEventInfo] = useState<EventClickArg['event'] | null>(null);
     const [selectedDateInfo, setSelectedDateInfo] = useState<SelectedInfoType | null>(null);
     const [eventToEdit, setEventToEdit] = useState<EventClickArg['event'] | null>(null);
+    const [eventToDelete, setEventToDelete] = useState<EventClickArg['event'] | null>(null);
     const calendarRef = useRef<FullCalendar>(null);
 
     const handleAddEventClick = () => {
@@ -48,6 +51,20 @@ const CalendarPage: React.FC = () => {
         setIsDetailModalOpen(false);
         setEventToEdit(event);
         setIsModalOpen(true);
+    };
+
+    const handleDeleteRequest = (event: EventClickArg['event']) => {
+        setIsDetailModalOpen(false);
+        setEventToDelete(event);
+        setIsDeleteModalOpen(true);
+    };
+
+    const handleConfirmDelete = () => {
+        if (eventToDelete) {
+            eventToDelete.remove();
+        }
+        setIsDeleteModalOpen(false);
+        setEventToDelete(null);
     };
 
     const handleSaveEvent = (eventData: EventSaveData) => {
@@ -175,7 +192,19 @@ const CalendarPage: React.FC = () => {
                 onClose={() => setIsDetailModalOpen(false)}
                 event={clickedEventInfo}
                 onEdit={handleStartEdit}
+                onDelete={handleDeleteRequest}
             />
+            {eventToDelete && (
+                <EventDeleteConfirmationModal
+                    isOpen={isDeleteModalOpen}
+                    onClose={() => {
+                        setIsDeleteModalOpen(false);
+                        setEventToDelete(null);
+                    }}
+                    onConfirm={handleConfirmDelete}
+                    eventName={eventToDelete.title}
+                />
+            )}
         </MainLayout>
     );
 };
