@@ -106,18 +106,23 @@ const UsersPage: React.FC = () => {
     setEditingUser(undefined);
   };
 
-  const handleSaveUser = async (data: AddUserData | UpdateUserData, userId?: number) => {
-    try {
+    const handleSaveUser = async (
+    data: AddUserData | UpdateUserData,
+    options: { userId?: number; emailChanged?: boolean }) => {   
+      try {
       if (modalMode === 'add') {
         const newUser = await userService.addUser(data as AddUserData);
         setUsers(prevUsers => [newUser, ...prevUsers]);
-      } else if (modalMode === 'edit' && userId) {
-        const updatedUserPartial = await userService.updateUser(userId, data as UpdateUserData);
+      } else if (modalMode === 'edit' && options.userId) {
+        const updatedUserPartial = await userService.updateUser(options.userId, data as UpdateUserData);
         setUsers(prevUsers =>
           prevUsers.map(u =>
-            u.userId === userId ? { ...u, ...updatedUserPartial } : u
+            u.userId === options.userId ? { ...u, ...updatedUserPartial } : u
           )
         );
+        if (options.emailChanged) {
+          alert('User email has been updated successfully. A confirmation notice would be sent in a real application.');
+        }
       }
       handleCloseModal();
     } catch (err) {
