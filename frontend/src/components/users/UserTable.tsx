@@ -8,7 +8,7 @@ interface UserTableProps {
   onDelete: (user: User) => void;
 }
 
-const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit, onDelete }) => {
+const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit }) => {
 
   const getStatusClass = (employeeStatus: string): string => {
     const lowerCaseStatus = (employeeStatus || '').toLowerCase();

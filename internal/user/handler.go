@@ -14,7 +14,7 @@ func GetAllUsersHandler(c *gin.Context) {
 		Select(
 			"users.user_id",
 			"users.username",
-			`employeeinformation."EMPLOYEENUMBER" as employeeNumber`,
+			`employeeinformation."EMPLOYEENUMBER" as employee_number`,
 			`CONCAT_WS(' ', employeeinformation."FIRSTNAME", employeeinformation."LASTNAME") as name`,
 			`employeeinformation."USERACCOUNTEMAIL" as email`,
 			`employeeinformation."TERMINATIONDATE" as terminationDate`,
