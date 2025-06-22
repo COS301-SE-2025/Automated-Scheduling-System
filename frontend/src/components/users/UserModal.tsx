@@ -20,14 +20,13 @@ interface UserModalProps {
   mode: 'add' | 'edit';
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: AddUserData | UpdateUserData, userId?: number) => void;
-  user?: User; 
+  onSave: (data: AddUserData | UpdateUserData, options: { userId?: number }) => void;
+   user?: User; 
 }
 
 const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, user }) => {
   const [formData, setFormData] = useState({
     username: '',
-    email: '',
     password: '',
     confirmPassword: '',
     role: 'User' as Role,
@@ -40,7 +39,6 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
       if (mode === 'edit' && user) {
         setFormData({
           username: user.username, 
-          email: user.email,
           role: user.role,
           password: '', 
           confirmPassword: '',
@@ -48,7 +46,6 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
       } else {
         setFormData({
           username: '',
-          email: '',
           password: '',
           confirmPassword: '',
           role: 'User',
@@ -57,10 +54,20 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
     }
   }, [isOpen, mode, user]);
 
+    const [addUserEmail, setAddUserEmail] = useState('');
+  useEffect(() => {
+    if (isOpen && mode === 'add') {
+      setAddUserEmail('');
+    }
+  }, [isOpen, mode]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+if (name === 'addUserEmail') {
+      setAddUserEmail(value);
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,18 +84,19 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
       }
       const addPayload: AddUserData = {
         username: formData.username,
-        email: formData.email,
+        email: addUserEmail,
         password: formData.password,
         role: formData.role,
       };
-      onSave(addPayload);
+      onSave(addPayload, {});
     } else if (mode === 'edit' && user) {
       const updatePayload: UpdateUserData = {};
+
       if (formData.role !== user.role) updatePayload.role = formData.role;
-      if (formData.email !== user.email) updatePayload.email = formData.email;
+
 
       if (Object.keys(updatePayload).length > 0) {
-        onSave(updatePayload, user.userId);
+        onSave(updatePayload, {userId: user.userId});
       } else {
         onClose(); // Close if no changes were made
       }
@@ -119,19 +127,21 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
             {mode === 'edit' && user && (
               <>
                 <ReadOnlyField label="Full Name" value={user.name} />
+                <ReadOnlyField label="Email Address" value={user.email} />
+
               </>
             )}
 
             {mode === 'add' && (
               <>
                 <InputField label="Username" name="username" value={formData.username} onChange={handleChange} required autoComplete="off" />
-                <InputField label="Email Address" name="email" type="email" value={formData.email} onChange={handleChange} required />
+                <InputField label="Email Address" name="addUserEmail" type="email" value={addUserEmail} onChange={handleChange} required />
               </>
             )}
             
-            {mode === 'edit' && (
-              <InputField label="Email Address" name="email" type="email" value={formData.email} onChange={handleChange} required />
-            )}
+            {/* {mode === 'edit' && (
+              <InputField label="Email Address" name="email" type="email" value={add} onChange={handleChange} required />
+            )} */}
 
             <div>
               <label htmlFor="role" className="block text-sm font-medium text-custom-primary dark:text-dark-secondary">Application Role</label>
@@ -148,11 +158,11 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
               </>
             )}
             
-            {mode === 'edit' && user && formData.email !== user.email && (
+            {/* {mode === 'edit' && user && formData.email !== user.email && (
               <div className="p-3 text-sm text-yellow-800 bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-300 rounded-md">
                 <strong>Warning:</strong> Changing an email address may trigger a confirmation notice.
               </div>
-            )}
+            )} */}
           </div>
 
           {/* Modal Footer */}
