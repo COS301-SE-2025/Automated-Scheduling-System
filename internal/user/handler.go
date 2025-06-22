@@ -85,8 +85,10 @@ func AddUserHandler(c *gin.Context) {
 }
 
 func UpdateUserHandler(c *gin.Context) {
-	userIdStr := c.Param("userId")
+	userIdStr := c.Param("userID")
+	fmt.Print("User ID: " + userIdStr)
 	userId, err := strconv.Atoi(userIdStr)
+	fmt.Print(userId)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid User ID"})
 		return
@@ -133,8 +135,7 @@ func UpdateUserHandler(c *gin.Context) {
 			`employeeinformation."TERMINATIONDATE" as termination_date`,
 			`employeeinformation."EMPLOYEESTATUS" as employee_status`).
 		Joins(`LEFT JOIN employeeinformation ON users.employee_number = employeeinformation."EMPLOYEENUMBER"`).
-		Where("users.user_id = ?", userId).
-		First(&updatedUserResponse)
+		Where("users.user_id = ?", userId).First(&updatedUserResponse)
 
 	c.JSON(http.StatusOK, updatedUserResponse)
 }
