@@ -18,6 +18,7 @@ const formatTestDateTime = (date: Date | null, isAllDay: boolean, isEnd: boolean
 describe('EventDetailModal', () => {
     const mockOnClose = vi.fn();
     const mockOnEdit = vi.fn();
+    const mockOnDelete = vi.fn();
 
     const createMockEvent = (overrides: Partial<EventClickArg['event']>): EventClickArg['event'] => {
         const baseEvent = {
@@ -43,6 +44,7 @@ describe('EventDetailModal', () => {
         onClose: mockOnClose,
         event: defaultEvent,
         onEdit: mockOnEdit,
+        onDelete: mockOnDelete,
     };
 
     beforeEach(() => {
@@ -150,5 +152,12 @@ describe('EventDetailModal', () => {
         fireEvent.click(screen.getByRole('button', { name: /Edit/i }));
         expect(mockOnEdit).toHaveBeenCalledTimes(1);
         expect(mockOnEdit).toHaveBeenCalledWith(defaultEvent);
+    });
+
+    it('should call onDelete when Delete button is clicked', () => {
+        render(<EventDetailModal {...defaultProps} event={defaultEvent} />);
+        fireEvent.click(screen.getByRole('button', { name: /Delete/i }));
+        expect(mockOnDelete).toHaveBeenCalledTimes(1);
+        expect(mockOnDelete).toHaveBeenCalledWith(defaultEvent);
     });
 });

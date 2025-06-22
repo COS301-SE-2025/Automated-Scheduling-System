@@ -6,9 +6,10 @@ export interface EventDetailModalProps {
     onClose: () => void;
     event: EventClickArg['event'] | null;
     onEdit: (event: EventClickArg['event']) => void;
+    onDelete: (event: EventClickArg['event']) => void;
 }
 
-const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, event, onEdit }) => {
+const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, event, onEdit, onDelete }) => {
     if (!isOpen || !event) return null;
 
     const { title, start, end, allDay, extendedProps } = event;
@@ -63,6 +64,12 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
                         className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-custom-text dark:text-dark-text rounded-md shadow-sm hover:bg-gray-100 dark:hover:bg-dark-accent focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:focus:ring-offset-dark-div"
                     >
                         Edit
+                    </button>
+                    <button
+                        onClick={() => onDelete(event)}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-dark-div"
+                    >
+                        Delete
                     </button>
                     <button
                         onClick={onClose}
