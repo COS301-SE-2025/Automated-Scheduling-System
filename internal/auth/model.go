@@ -49,3 +49,14 @@ type UserResponse struct {
 	EmployeeStatus  string     `json:"employeeStatus"`
 	Role            string     `json:"role"`
 }
+
+type AddUserRequest struct {
+	Username string `json:"username" binding:"required"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=8"`
+	Role     string `json:"role" binding:"required"`
+}
+type UpdateUserRequest struct {
+	Email *string `json:"email,omitempty"`
+	Role  *string `json:"role,omitempty"`
+}

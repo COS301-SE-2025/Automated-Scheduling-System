@@ -42,6 +42,28 @@ const PublicAuthRouteElement: React.FC = () => {
     return <Outlet />;
 }
 
+const RootRedirector: React.FC = () => {
+    const { isAuthenticated, isLoading } = useAuth();
+    if (isLoading) {
+      return <div className="flex justify-center items-center min-h-screen"><div>Loading...</div></div>;
+    }
+    return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
+};
+
+const AdminRouteElement: React.FC = () => {
+    const { user, isLoading } = useAuth(); 
+    if (isLoading) {
+        return <div className="flex justify-center items-center min-h-screen"><div>Verifying permissions...</div></div>;
+    }
+
+ 
+    if (user?.role === 'Admin') {
+        return <Outlet />;
+    }
+
+    return <Navigate to="/404" replace />; 
+};
+
 const AppRoutes: React.FC = () => {
     const { isLoading: authIsLoading } = useAuth();
 
@@ -63,12 +85,21 @@ const AppRoutes: React.FC = () => {
             {/* Protected Routes */}
             <Route element={<ProtectedRouteElement />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/users" element={<UsersPage />} />
+                {/* <Route path="/users" element={<UsersPage />} /> */}
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/events" element={<EventsPage />} />
                 <Route path="/rules" element={<RulesPage />} />
                 <Route path="/main-help" element={<MainHelpPage />} />
             </Route>
+
+             <Route element={<ProtectedRouteElement />}>
+                <Route element={<AdminRouteElement />}>
+                    <Route path="/users" element={<UsersPage />} />
+                </Route>
+            </Route>
+            
+            {/* Default route handler */}
+            <Route path="/" element={<RootRedirector />} />
 
             {/* Catch-all for 404 Not Found */}
             <Route path="*" element={<NotFoundPage />} />
