@@ -5,9 +5,10 @@ export interface EventDetailModalProps {
     isOpen: boolean;
     onClose: () => void;
     event: EventClickArg['event'] | null;
+    onEdit: (event: EventClickArg['event']) => void;
 }
 
-const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, event }) => {
+const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, event, onEdit }) => {
     if (!isOpen || !event) return null;
 
     const { title, start, end, allDay, extendedProps } = event;
@@ -56,7 +57,13 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
                         <p className="text-custom-text dark:text-dark-text">{relevantParties}</p>
                     </div>
                 </div>
-                <div className="mt-6 flex justify-end">
+                <div className="mt-6 flex justify-end space-x-3">
+                    <button
+                        onClick={() => onEdit(event)}
+                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-custom-text dark:text-dark-text rounded-md shadow-sm hover:bg-gray-100 dark:hover:bg-dark-accent focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:focus:ring-offset-dark-div"
+                    >
+                        Edit
+                    </button>
                     <button
                         onClick={onClose}
                         className="px-4 py-2 bg-custom-primary hover:bg-opacity-90 dark:hover:bg-opacity-90 text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-custom-primary dark:focus:ring-offset-dark-div dark:focus:ring-dark-primary"

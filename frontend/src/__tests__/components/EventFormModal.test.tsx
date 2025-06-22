@@ -34,6 +34,7 @@ describe('EventFormModal', () => {
 
     it('should populate fields from initialData', () => {
         const initialData = {
+            id: 'test-id',
             startStr: '2023-11-15T10:00',
             endStr: '2023-11-15T11:00',
             allDay: false,
@@ -45,7 +46,8 @@ describe('EventFormModal', () => {
         expect(screen.getByLabelText(/Event Title/i)).toHaveValue('My Test Event');
         expect(screen.getByLabelText(/Date/i)).toHaveValue('2023-11-15');
         expect(screen.getByLabelText(/Start Time/i)).toHaveValue('10:00');
-        
+        expect(screen.getByText('Edit Event')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: /Save Changes/i })).toBeInTheDocument();
     });
 
     it('should call onClose when Cancel button is clicked', () => {
@@ -71,7 +73,7 @@ describe('EventFormModal', () => {
                 start: '2023-12-01', 
                 end: '2023-12-01',   
                 allDay: true,
-                
+                id: undefined,
             })
         );
     });
@@ -83,5 +85,23 @@ describe('EventFormModal', () => {
         expect(mockOnSave).not.toHaveBeenCalled();
     });
 
-    
+    it('should call onSave with id when editing', () => {
+        const initialData = {
+            id: '123',
+            startStr: '2023-11-15T10:00',
+            endStr: '2023-11-15T11:00',
+            allDay: false,
+            title: 'My Test Event',
+            eventType: 'Training',
+            relevantParties: 'Employees',
+        };
+        render(<EventFormModal {...defaultProps} initialData={initialData} />);
+        fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
+        expect(mockOnSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                id: '123',
+                title: 'My Test Event',
+            })
+        );
+    });
 });
