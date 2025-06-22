@@ -40,14 +40,14 @@ func (EmployeeInformation) TableName() string {
 }
 
 type UserResponse struct {
-	UserID          uint       `json:"userId"`
-	EmployeeNumber  string     `json:"employeeNumber"`
-	Username        string     `json:"username"`
-	Name            string     `json:"name"`
-	Email           string     `json:"email"`
-	TerminationDate *time.Time `json:"terminationDate"`
-	EmployeeStatus  string     `json:"employeeStatus"`
-	Role            string     `json:"role"`
+	UserID          uint       `gorm:"column:user_id" json:"userId"`
+	EmployeeNumber  string     `gorm:"column:employee_number" json:"employeeNumber"`
+	Username        string     `gorm:"column:username" json:"username"`
+	Name            string     `gorm:"column:name" json:"name"`
+	Email           string     `gorm:"column:email" json:"email"`
+	TerminationDate *time.Time `gorm:"column:termination_date" json:"terminationDate"`
+	EmployeeStatus  string     `gorm:"column:employee_status" json:"employeeStatus"`
+	Role            string     `gorm:"column:role" json:"role"`
 }
 
 type AddUserRequest struct {
