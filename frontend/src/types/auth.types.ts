@@ -1,12 +1,6 @@
 import { type LoginFormData, type SignupFormData } from '../utils/validation';
 import { type User } from './user';
 
-// export interface ApiUser {
-//     id: number;      
-//     username: string; 
-//     email: string;
-// }
-
 export interface AuthState {
     isAuthenticated: boolean;
     user: User | null;
@@ -55,9 +49,3 @@ export interface GoLoginResponse {
     token: string;
     user: User;
 }
-
-// export interface GoProfileResponse {
-//     id: number;
-//     username: string;
-//     email: string;
-// }

@@ -2,54 +2,61 @@ package user
 
 import (
 	"Automated-Scheduling-Project/internal/auth"
+	"Automated-Scheduling-Project/internal/database"
+	"Automated-Scheduling-Project/internal/database/gen_models"
+	"Automated-Scheduling-Project/internal/database/models"
 	"fmt"
 	"net/http"
 	"strconv"
 
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
 )
 
-func GetAllUsersHandler(c *gin.Context) {
-	var responseUsers []auth.UserResponse
-	err := auth.DB.Table("users").
-		Select(
-			"users.user_id",
-			"users.username",
-			"users.role",
-			`employeeinformation."EMPLOYEENUMBER" as employee_number`,
-			`CONCAT_WS(' ', employeeinformation."FIRSTNAME", employeeinformation."LASTNAME") as name`,
-			`employeeinformation."USERACCOUNTEMAIL" as email`,
-			`employeeinformation."TERMINATIONDATE" as terminationDate`,
-			`employeeinformation."EMPLOYEESTATUS" as employee_status`,
-		).
-		Joins(`LEFT JOIN employeeinformation ON users.employee_number = employeeinformation."EMPLOYEENUMBER"`).
-		Scan(&responseUsers).Error
+var dbService database.Service = database.New()
+var DB *gorm.DB = dbService.Gorm()
 
-	if err != nil {
+func GetAllUsersHandler(c *gin.Context) {
+	var extendedUsers []models.ExtendedUser
+	if err := DB.Model(&gen_models.User{}).Preload("Employee").Find(&extendedUsers).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to fetch users: %v", err)})
 		return
 	}
+
+	// Map the results to the response format
+	var responseUsers []models.UserResponse
+	for _, user := range extendedUsers {
+		responseUsers = append(responseUsers, models.UserResponse{
+			ID:             user.User.ID,
+			EmployeeNumber: user.Employee.Employeenumber,
+			Username:       user.User.Username,
+			Name:           fmt.Sprintf("%s %s", user.Employee.Firstname, user.Employee.Lastname),
+			Email:          user.Employee.Useraccountemail,
+			EmployeeStatus: user.Employee.Employeestatus,
+			Role:           user.User.Role,
+		})
+	}
+
 	c.JSON(http.StatusOK, responseUsers)
 }
 
 func AddUserHandler(c *gin.Context) {
-	var req auth.AddUserRequest
+	var req models.AddUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data" + err.Error()})
 		return
 	}
 
-	var employeeInfo auth.EmployeeInformation
-	if err := auth.DB.Where(`"USERACCOUNTEMAIL" = ?`, req.Email).First((&employeeInfo)).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Cannot add user, email not found."})
+	var extendedEmployee models.ExtendedEmployee
+	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("Useraccountemail = ?", req.Email).First(&extendedEmployee).Error; err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "Cannot add user, email not found."})
 		return
 	}
 
-	var existingUser auth.User
-	if err := auth.DB.Where("employee_number = ? or username = ?", employeeInfo.EmployeeNumber, req.Username).First(&existingUser).Error; err == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "An account for this employee already exists"})
+	if extendedEmployee.User == nil {
+		c.JSON(404, gin.H{"error": "An account for this employee already exists"})
 		return
 	}
 
@@ -59,11 +66,11 @@ func AddUserHandler(c *gin.Context) {
 		return
 	}
 
-	newUser := auth.User{
-		EmployeeNumber: employeeInfo.EmployeeNumber,
-		Username:       req.Username,
-		Password:       string(hashedPassword),
-		Role:           req.Role,
+	// Create new record
+	newUser := gen_models.User{Username: req.Username, EmployeeNumber: extendedEmployee.Employee.Employeenumber, Password: string(hashedPassword), Role: "User"}
+	if err := DB.Create(&newUser).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "User creation failed"})
+		return
 	}
 
 	if err := auth.DB.Create(&newUser).Error; err != nil {
@@ -71,71 +78,61 @@ func AddUserHandler(c *gin.Context) {
 		return
 	}
 
-	responseUser := auth.UserResponse{
-		UserID:         newUser.UserID,
+	userResponse := models.UserResponse{
+		ID:             newUser.ID,
 		EmployeeNumber: newUser.EmployeeNumber,
 		Username:       newUser.Username,
-		Name:           fmt.Sprintf("%s %s", employeeInfo.FirstName, employeeInfo.LastName),
-		Email:          employeeInfo.UserAccountEmail,
-		EmployeeStatus: employeeInfo.EmployeeStatus,
+		Name:           fmt.Sprintf("%s %s", extendedEmployee.Employee.Firstname, extendedEmployee.Employee.Lastname),
+		Email:          extendedEmployee.Employee.Useraccountemail,
+		EmployeeStatus: extendedEmployee.Employee.Employeestatus,
 		Role:           newUser.Role,
 	}
 
-	c.JSON(http.StatusCreated, responseUser)
+	c.JSON(http.StatusCreated, userResponse)
 }
 
 func UpdateUserHandler(c *gin.Context) {
 	userIdStr := c.Param("userID")
-	fmt.Print("User ID: " + userIdStr)
 	userId, err := strconv.Atoi(userIdStr)
-	fmt.Print(userId)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid User ID"})
 		return
 	}
 
-	var req auth.UpdateUserRequest
+	var req models.UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data: " + err.Error()})
 		return
 	}
 
-	var userToUpdate auth.User
-	if err := auth.DB.First(&userToUpdate, userId).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+	var userToUpdate models.ExtendedUser
+	if err := DB.Model(&gen_models.User{}).Preload("Employee").First(&userToUpdate, userId).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
 
 	if req.Role != nil {
-		userToUpdate.Role = *req.Role
+		userToUpdate.User.Role = *req.Role
 	}
 
 	if req.Email != nil {
-		var newEmployeeInfo auth.EmployeeInformation
-		if err := auth.DB.Where(`"USERACCOUNTEMAIL" = ?`, *req.Email).First(&newEmployeeInfo).Error; err != nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Cannot update email: new email address not found in employee records."})
-			return
-		}
-
-		userToUpdate.EmployeeNumber = newEmployeeInfo.EmployeeNumber
+		userToUpdate.Employee.Useraccountemail = *req.Email
 	}
 
-	if err := auth.DB.Save(&userToUpdate).Error; err != nil {
+	if err := DB.Model(&gen_models.User{}).Where("id = ?", userToUpdate.User.ID).Updates(userToUpdate.User).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user."})
 		return
 	}
 
-	var updatedUserResponse auth.UserResponse
+	userResponse := models.UserResponse{
+		ID:             userToUpdate.User.ID,
+		EmployeeNumber: userToUpdate.User.EmployeeNumber,
+		Username:       userToUpdate.User.Username,
+		Name:           fmt.Sprintf("%s %s", userToUpdate.Employee.Firstname, userToUpdate.Employee.Lastname),
+		Email:          userToUpdate.Employee.Useraccountemail,
+		EmployeeStatus: userToUpdate.Employee.Employeestatus,
+		Role:           userToUpdate.User.Role,
+	}
 
-	auth.DB.Table("users").
-		Select("users.user_id", "users.username", "users.role",
-			`employeeinformation."EMPLOYEENUMBER" as employee_number`,
-			`CONCAT_WS(' ', employeeinformation."FIRSTNAME", employeeinformation."LASTNAME") as name`,
-			`employeeinformation."USERACCOUNTEMAIL" as email`,
-			`employeeinformation."TERMINATIONDATE" as termination_date`,
-			`employeeinformation."EMPLOYEESTATUS" as employee_status`).
-		Joins(`LEFT JOIN employeeinformation ON users.employee_number = employeeinformation."EMPLOYEENUMBER"`).
-		Where("users.user_id = ?", userId).First(&updatedUserResponse)
-
-	c.JSON(http.StatusOK, updatedUserResponse)
+	c.JSON(http.StatusOK, userResponse)
 }
