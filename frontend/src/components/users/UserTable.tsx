@@ -21,7 +21,6 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit }) => {
     if (lowerCaseStatus.includes('leave') || lowerCaseStatus.includes('pending')) {
       return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
     }
-    // Default fallback for any other status
     return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
   };
 
@@ -68,7 +67,7 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit }) => {
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-dark-input">
                 {users.map((user) => (
-                  <tr key={user.userId}>
+                  <tr key={user.id}>
                     <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm sm:pl-6">
                       <div className="font-medium text-gray-900 dark:text-white">{user.name}</div>
                       {/* <div className="text-gray-500 dark:text-gray-400">{user.username}</div> */}

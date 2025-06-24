@@ -3,7 +3,7 @@ package models
 import "time"
 
 type UserResponse struct {
-	ID              int64      `gorm:"column:id" json:"userId"`
+	ID              int64      `gorm:"column:id" json:"id"`
 	EmployeeNumber  string     `gorm:"column:employee_number" json:"employeeNumber"`
 	Username        string     `gorm:"column:username" json:"username"`
 	Name            string     `gorm:"column:name" json:"name"`

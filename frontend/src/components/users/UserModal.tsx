@@ -1,15 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import type { User, Role, AddUserData, UpdateUserData } from '../../types/user';
-
-interface InputFieldProps {
-  label: string;
-  name: string;
-  type?: 'text' | 'email' | 'password';
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  required?: boolean;
-  autoComplete?: string;
-}
+import React, { useEffect } from 'react';
+import { useForm, type SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { addUserSchema, type AddUserFormData } from '../../utils/validation';
+import type { User, AddUserData, UpdateUserData } from '../../types/user';
+import FormInput from '../ui/FormInput';
+import FormButton from '../ui/FormButton';
+import MessageBox from '../ui/MessageBox';
+import FormSelect from '../ui/FormSelect';
 
 interface ReadOnlyFieldProps {
   label: string;
@@ -20,184 +17,117 @@ interface UserModalProps {
   mode: 'add' | 'edit';
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: AddUserData | UpdateUserData, options: { userId?: number }) => void;
-   user?: User; 
+  onSave: (data: AddUserData | UpdateUserData, options: { userId?: number }) => Promise<void>;
+  user?: User;
+  apiError: string | null;
+  clearApiError: () => void;
 }
 
-const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, user }) => {
-  const [formData, setFormData] = useState({
-    username: '',
-    password: '',
-    confirmPassword: '',
-    role: 'User' as Role,
+const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, user, apiError, clearApiError }) => {
+  const isEditMode = mode === 'edit';
+
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<AddUserFormData>({
+    resolver: isEditMode ? undefined : zodResolver(addUserSchema),
   });
-  const [error, setError] = useState('');
 
   useEffect(() => {
     if (isOpen) {
-      setError(''); 
-      if (mode === 'edit' && user) {
-        setFormData({
-          username: user.username, 
+      clearApiError();
+      if (isEditMode && user) {
+        reset({
           role: user.role,
-          password: '', 
-          confirmPassword: '',
+          username: user.username, 
+          email: user.email,       
         });
       } else {
-        setFormData({
+        reset({
           username: '',
+          email: '',
           password: '',
           confirmPassword: '',
           role: 'User',
         });
       }
     }
-  }, [isOpen, mode, user]);
+  }, [isOpen, mode, user, reset, clearApiError]);
 
-    const [addUserEmail, setAddUserEmail] = useState('');
-  useEffect(() => {
-    if (isOpen && mode === 'add') {
-      setAddUserEmail('');
-    }
-  }, [isOpen, mode]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-if (name === 'addUserEmail') {
-      setAddUserEmail(value);
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    if (mode === 'add') {
-      if (!formData.password) {
-        setError('Password is required.');
-        return;
-      }
-      if (formData.password !== formData.confirmPassword) {
-        setError('Passwords do not match.');
-        return;
-      }
-      const addPayload: AddUserData = {
-        username: formData.username,
-        email: addUserEmail,
-        password: formData.password,
-        role: formData.role,
-      };
-      onSave(addPayload, {});
-    } else if (mode === 'edit' && user) {
-      const updatePayload: UpdateUserData = {};
-
-      if (formData.role !== user.role) updatePayload.role = formData.role;
-
-
-      if (Object.keys(updatePayload).length > 0) {
-        onSave(updatePayload, {userId: user.userId});
+  const onSubmit: SubmitHandler<AddUserFormData> = async (data) => {
+    try {
+      if (isEditMode && user) {
+        const payload: UpdateUserData = { role: data.role };
+        await onSave(payload, { userId: user.id });
       } else {
-        onClose(); // Close if no changes were made
+        await onSave(data, {});
       }
+    } catch (error) {
+      console.error(`Failed to ${mode} user:`, error);
     }
   };
 
   if (!isOpen) return null;
 
-  const title = mode === 'add' ? 'Add New User' : 'Edit User';
+  const title = isEditMode ? 'Edit User' : 'Add New User';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-gray-600 bg-opacity-50 p-4">
-      <div className="relative w-full max-w-lg mx-auto bg-white dark:bg-dark-input rounded-lg shadow-xl">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 rounded-t">
+      <div className="relative w-full max-w-lg mx-auto bg-white dark:bg-dark-div rounded-lg shadow-xl">
+        <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
           <h3 className="text-xl font-semibold text-custom-primary dark:text-dark-primary">{title}</h3>
-          <button type="button" onClick={onClose} className="p-1.5 text-gray-400 bg-transparent rounded-lg hover:bg-gray-200 hover:text-gray-900 dark:hover:bg-gray-700 dark:hover:text-white">
-            <span className="sr-only">Close modal</span>
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd"></path></svg>
+          <button type="button" onClick={onClose} className="p-1.5 ...">
+            {/* Close SVG */}
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit}>
-          <div className="p-6 space-y-4">
-            {error && <div className="p-3 text-sm font-medium text-red-800 bg-red-100 dark:bg-red-900/20 dark:text-red-300 rounded-md">{error}</div>}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-6">
+          {apiError && <MessageBox type="error" title="Operation Failed">{apiError}</MessageBox>}
 
-            {mode === 'edit' && user && (
-              <>
-                <ReadOnlyField label="Full Name" value={user.name} />
-                <ReadOnlyField label="Email Address" value={user.email} />
+          {isEditMode && user ? (
+            <>
+              <ReadOnlyField label="Full Name" value={user.name} />
+              <ReadOnlyField label="Email Address" value={user.email} />
+              <ReadOnlyField label="Username" value={user.username} />
+            </>
+          ) : (
+            <>
+              <FormInput id="username" label="Username" {...register('username')} error={errors.username?.message} />
+              <FormInput id="email" label="Email Address" type="email" {...register('email')} error={errors.email?.message} />
+            </>
+          )}
 
-              </>
-            )}
+          <FormSelect
+            id="role"
+            label="Application Role"
+            {...register('role')}
+            error={errors.role?.message}
+            options={[{ value: 'User', label: 'User' }, { value: 'Admin', label: 'Admin' }]}
+          />
 
-            {mode === 'add' && (
-              <>
-                <InputField label="Username" name="username" value={formData.username} onChange={handleChange} required autoComplete="off" />
-                <InputField label="Email Address" name="addUserEmail" type="email" value={addUserEmail} onChange={handleChange} required />
-              </>
-            )}
-            
-            {/* {mode === 'edit' && (
-              <InputField label="Email Address" name="email" type="email" value={add} onChange={handleChange} required />
-            )} */}
+          {!isEditMode && (
+            <>
+              <FormInput id="password" label="Password" type="password" {...register('password')} error={errors.password?.message} autoComplete="new-password" />
+              <FormInput id="confirmPassword" label="Confirm Password" type="password" {...register('confirmPassword')} error={errors.confirmPassword?.message} autoComplete="new-password" />
+            </>
+          )}
 
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-custom-primary dark:text-dark-secondary">Application Role</label>
-              <select id="role" name="role" value={formData.role} onChange={handleChange} className="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 py-2 pl-3 pr-10 text-base focus:border-custom-secondary focus:ring-custom-secondary sm:text-sm dark:bg-dark-input dark:text-white">
-                <option value="Admin">Admin</option>
-                <option value="User">User</option>
-              </select>
-            </div>
-            
-            {mode === 'add' && (
-              <>
-                <InputField label="Password" name="password" type="password" value={formData.password} onChange={handleChange} required autoComplete="new-password" />
-                <InputField label="Confirm Password" name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} required autoComplete="new-password" />
-              </>
-            )}
-            
-            {/* {mode === 'edit' && user && formData.email !== user.email && (
-              <div className="p-3 text-sm text-yellow-800 bg-yellow-100 dark:bg-yellow-900/20 dark:text-yellow-300 rounded-md">
-                <strong>Warning:</strong> Changing an email address may trigger a confirmation notice.
-              </div>
-            )} */}
-          </div>
-
-          {/* Modal Footer */}
-          <div className="flex items-center justify-end p-4 space-x-2 border-t border-gray-200 dark:border-gray-700 rounded-b">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-custom-primary bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-custom-secondary dark:bg-dark-input dark:text-dark-primary dark:border-gray-600 dark:hover:bg-gray-700">
+          <div className="flex items-center justify-end pt-4 space-x-3">
+            <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 ...">
               Cancel
             </button>
-            <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-custom-secondary rounded-md shadow-sm hover:bg-custom-third focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-custom-secondary">
-              Save Changes
-            </button>
+            <FormButton type="submit" disabled={isSubmitting} fullWidth={false}>
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
+            </FormButton>
           </div>
         </form>
       </div>
     </div>
   );
 };
-
-
-const InputField: React.FC<InputFieldProps> = ({ label, name, type = 'text', value, onChange, required = false, autoComplete = 'off' }) => (
-  <div>
-    <label htmlFor={name} className="block text-sm font-medium text-custom-primary dark:text-dark-secondary">{label}</label>
-     <div className="mt-1">
-      <input
-        type={type}
-        name={name}
-        id={name}
-        value={value}
-        onChange={onChange}
-        required={required}
-        autoComplete={autoComplete}
-        className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-custom-secondary sm:text-sm sm:leading-6 dark:bg-gray-700 dark:text-gray-200 dark:ring-gray-600 dark:placeholder:text-gray-400 dark:focus:ring-custom-secondary"
-       />
-    </div>
-  </div>
-  );
 
 const ReadOnlyField: React.FC<ReadOnlyFieldProps> = ({ label, value }) => (
   <div>
