@@ -6,14 +6,16 @@ package database
 import (
 	"context"
 	"fmt"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	_ "github.com/joho/godotenv/autoload"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 	"log"
 	"os"
 	"strconv"
 	"time"
+
+	_ "github.com/jackc/pgx/v5/stdlib"
+	_ "github.com/joho/godotenv/autoload"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 // Service represents a service that interacts with a database.
@@ -46,6 +48,7 @@ func New() Service {
 	if dbInstance != nil {
 		return dbInstance
 	}
+
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s search_path=%s sslmode=disable",
 		host,
 		username,
@@ -54,7 +57,10 @@ func New() Service {
 		port,
 		schema,
 	)
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info), // Enable SQL query logging
+	})
 	if err != nil {
 		log.Fatalf("Failed to connect to DB: %v", err)
 	}
