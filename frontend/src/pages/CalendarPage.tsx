@@ -1,5 +1,5 @@
 import MainLayout from '../layouts/MainLayout';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -11,6 +11,8 @@ import { PlusCircle } from 'lucide-react';
 import EventFormModal, { type EventFormModalProps } from '../components/ui/EventFormModal'; 
 import EventDetailModal from '../components/ui/EventDetailModal'; 
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
+import * as eventService from '../services/eventService';
+import type { CalendarEvent } from '../services/eventService';
 
 type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
 type SelectedInfoType = DateSelectArg | DateClickArg | (EventClickArg['event'] & { eventType?: string; relevantParties?: string });
@@ -25,6 +27,27 @@ const CalendarPage: React.FC = () => {
     const [eventToEdit, setEventToEdit] = useState<EventClickArg['event'] | null>(null);
     const [eventToDelete, setEventToDelete] = useState<EventClickArg['event'] | null>(null);
     const calendarRef = useRef<FullCalendar>(null);
+    const [events, setEvents] = useState<CalendarEvent[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchEvents = async () => {
+            try {
+                setIsLoading(true);
+                const fetchedEvents = await eventService.getEvents();
+                setEvents(fetchedEvents);
+                setError(null);
+            } catch (err) {
+                console.error("Failed to fetch events:", err);
+                setError("Failed to load calendar events. Please try again later.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchEvents();
+    }, []);
 
     const handleAddEventClick = () => {
         setSelectedDateInfo(null); 
@@ -59,45 +82,52 @@ const CalendarPage: React.FC = () => {
         setIsDeleteModalOpen(true);
     };
 
-    const handleConfirmDelete = () => {
+    const handleConfirmDelete = async () => {
         if (eventToDelete) {
-            eventToDelete.remove();
+            try {
+                await eventService.deleteEvent(eventToDelete.id);
+                setEvents(prevEvents => prevEvents.filter(e => e.id !== eventToDelete.id));
+            } catch (err) {
+                console.error('Failed to delete event:', err);
+                setError('Failed to delete event.');
+            } finally {
+                setIsDeleteModalOpen(false);
+                setEventToDelete(null);
+            }
         }
-        setIsDeleteModalOpen(false);
-        setEventToDelete(null);
     };
 
-    const handleSaveEvent = (eventData: EventSaveData) => {
-        const calendarApi = calendarRef.current?.getApi();
-        if (calendarApi) {
-            if (eventData.id) {
-                const event = calendarApi.getEventById(eventData.id);
-                if (event) {
-                    event.setProp('title', eventData.title);
-                    event.setStart(eventData.start);
-                    event.setEnd(eventData.end);
-                    event.setAllDay(eventData.allDay);
-                    event.setExtendedProp('eventType', eventData.eventType);
-                    event.setExtendedProp('relevantParties', eventData.relevantParties);
-                }
-            } else {
-                calendarApi.addEvent({
-                    id: new Date().toISOString(),
+    const handleSaveEvent = async (eventData: EventSaveData) => {
+        try {
+            if (eventData.id) { // Update existing event
+                const updatedEvent = await eventService.updateEvent(eventData.id, {
                     title: eventData.title,
                     start: eventData.start,
                     end: eventData.end,
                     allDay: eventData.allDay,
-                    extendedProps: {
-                        eventType: eventData.eventType,
-                        relevantParties: eventData.relevantParties
-                    }
+                    eventType: eventData.eventType,
+                    relevantParties: eventData.relevantParties,
                 });
+                setEvents(prevEvents => prevEvents.map(e => e.id === updatedEvent.id ? { ...e, ...updatedEvent } : e));
+            } else { // Create new event
+                const newEvent = await eventService.createEvent({
+                    title: eventData.title,
+                    start: eventData.start,
+                    end: eventData.end,
+                    allDay: eventData.allDay,
+                    eventType: eventData.eventType,
+                    relevantParties: eventData.relevantParties,
+                });
+                setEvents(prevEvents => [...prevEvents, newEvent]);
             }
-            console.log('Event saved with details:', eventData);
+        } catch (err) {
+            console.error('Failed to save event:', err);
+            setError('Failed to save event. Please check your connection and try again.');
+        } finally {
+            setIsModalOpen(false);
+            setSelectedDateInfo(null);
+            setEventToEdit(null);
         }
-        setIsModalOpen(false);
-        setSelectedDateInfo(null); 
-        setEventToEdit(null);
     };
 
     const prepareInitialModalData = (): EventFormModalProps['initialData'] | undefined => {
@@ -170,6 +200,7 @@ const CalendarPage: React.FC = () => {
                         eventClick={handleEventClick}
                         dateClick={handleDateClick}
                         select={handleSelect}
+                        events={events}
                         eventContent={renderEventContent}
                         ref={calendarRef}
                     />
