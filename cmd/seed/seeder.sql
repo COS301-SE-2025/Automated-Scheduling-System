@@ -18,6 +18,24 @@ CREATE TABLE users (
     CONSTRAINT fk_employee FOREIGN KEY (employee_number) REFERENCES employee(EmployeeNumber) ON DELETE CASCADE
 );
 
+CREATE TABLE events (
+    id BIGSERIAL PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    event_type VARCHAR(100),
+    relevant_parties VARCHAR(255),
+    start_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    end_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    all_day BOOLEAN NOT NULL DEFAULT false
+);
+
+CREATE TABLE user_events (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    event_id BIGINT NOT NULL,
+    CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+);
+
 -- Insert dummy data
 -- Insert data into the employee table
 INSERT INTO employee (EmployeeNumber, FirstName, LastName, UserAccountEmail, EmployeeStatus, TerminationDate)
