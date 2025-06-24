@@ -10,8 +10,16 @@ build:
 	@go build -o main cmd/api/main.go
 
 # Run migrations
-migrate:
-	@go run cmd/migrate/main.go
+drop_tables:
+	@go run cmd/drop_all_tables/main.go
+
+# Run seeder
+seed:
+	@go run cmd/seed/main.go
+
+# Auto-generate models
+gen:
+	@go run cmd/gen/main.go
 
 # Run the application
 run:
