@@ -1,5 +1,8 @@
 import React from 'react';
 import HelpIcon from '../components/ui/HelpIcon';
+// 1. Import the ArrowLeft icon
+import { ArrowLeft } from 'lucide-react';
+
 interface AuthLayoutProps {
     children: React.ReactNode;
     title: string;
@@ -9,6 +12,21 @@ interface AuthLayoutProps {
 const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, helpText }) => {
     return (
         <div className="relative min-h-screen flex flex-col items-center justify-center bg-custom-background dark:bg-dark-background py-12 px-4 sm:px-6 lg:px-8">
+            
+            <a
+                href="/"
+                className="
+                    absolute top-6 left-6 p-2 rounded-full 
+                    text-custom-secondary hover:text-custom-primary 
+                    dark:text-dark-third dark:hover:text-dark-primary 
+                    hover:bg-gray-100 dark:hover:bg-dark-div 
+                    transition-colors duration-200
+                "
+                aria-label="Go back to dashboard"
+            >
+                <ArrowLeft size={24} />
+            </a>
+
             <div className="mb-8 text-center">
                 <h2 className="text-xl font-semibold text-custom-secondary dark:text-dark-third">
                     DISCON Specialists

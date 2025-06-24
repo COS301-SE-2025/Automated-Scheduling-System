@@ -3,16 +3,14 @@ import LandingLayout from '../layouts/LandingLayout';
 import FeatureBlock from '../components/ui/FeatureBlock';
 import { Calendar, Users, ShieldCheck, BookOpen } from 'lucide-react';
 
-// Import the images
 import calendarImage from '../assets/images/calendarPage.png';
 import userImage from '../assets/images/usersPage.png';
 
 const LandingPage: React.FC = () => {
     return (
         <LandingLayout>
-            {/* 1. Refined Hero Section (Weaker, as requested) */}
-            {/* 1. Corrected Hero Section */}
-            <section className="text-center pt-0 pb-16 md:pb-20">
+
+            <section className="text-center pt-0">
                 <div className="container mx-auto px-4">
                     <h2 className="text-lg font-semibold text-custom-secondary dark:text-light-accent">
                         DISCON Specialists
@@ -26,10 +24,10 @@ const LandingPage: React.FC = () => {
                 </div>
             </section>
 
-            {/* 2. Dedicated Feature Showcase with Alternating Layout and Consistent Colors */}
-            <section id="features" className="py-16 md:py-24 bg-gray-50 dark:bg-dark-secondary/20">
-                <div className="container mx-auto px-4 space-y-24">
-                    <div className="text-center mb-12">
+            <section className="mt-12 md:mt-16 rounded-xl bg-gradient-to-br from-custom-secondary to-custom-third p-[2px] shadow-lg">
+                <div className="container mx-auto h-full w-full rounded-[10px] bg-white dark:bg-dark-div px-4 py-16 space-y-16">
+
+                    <div className="text-center">
                         <h2 className="text-3xl font-bold text-custom-primary dark:text-dark-primary">
                             Everything You Need in One Platform
                         </h2>
@@ -38,7 +36,6 @@ const LandingPage: React.FC = () => {
                         </p>
                     </div>
 
-                    {/* Feature 1: Calendar */}
                     <div className="grid md:grid-cols-2 gap-12 items-center">
                         <div className="text-left">
                             <div className="inline-flex items-center gap-3 mb-4">
@@ -54,7 +51,6 @@ const LandingPage: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Feature 2: User Management */}
                     <div className="grid md:grid-cols-2 gap-12 items-center">
                         <div className="md:order-last text-left">
                             <div className="inline-flex items-center gap-3 mb-4">
@@ -69,14 +65,13 @@ const LandingPage: React.FC = () => {
                             <img src={userImage} alt="User Management" className="rounded-lg shadow-xl ring-1 ring-black/5" />
                         </div>
                     </div>
+
                 </div>
             </section>
 
-            {/* 3. Grid for Secondary Features (Using the provided FeatureBlock) */}
-            <section className="py-16 md:py-24">
+            <section className="pt-12 md:pt-16">
                 <div className="container mx-auto px-4">
                     <div className="grid md:grid-cols-2 gap-8 text-left">
-                        {/* FeatureBlock already uses the correct colors internally */}
                         <FeatureBlock title="Centralized Rules" icon={<BookOpen size={24} />}>
                             <p>Keep all company policies, procedures, and rules in one accessible place. Ensure your team is always informed and compliant.</p>
                         </FeatureBlock>
@@ -87,8 +82,7 @@ const LandingPage: React.FC = () => {
                 </div>
             </section>
 
-            {/* 4. Refined Final Call-to-Action (Less bulky and more inviting) */}
-            <section className="text-center py-16 md:py-20">
+            <section className="text-center py-12 md:py-16">
                 <div className="container mx-auto px-4">
                     <h2 className="text-3xl font-bold text-custom-primary dark:text-dark-primary">
                         Ready to Streamline Your Workflow?
