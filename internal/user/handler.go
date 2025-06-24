@@ -44,13 +44,13 @@ func GetAllUsersHandler(c *gin.Context) {
 func AddUserHandler(c *gin.Context) {
 	var req models.AddUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data" + err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data: Email has incorrect formatting "})
 		return
 	}
 
 	var extendedEmployee models.ExtendedEmployee
-	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("Useraccountemail = ?", req.Email).First(&extendedEmployee).Error; err != nil {
-		c.JSON(http.StatusOK, gin.H{"message": "Cannot add user, email not found."})
+	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("UserAccountEmail = ?", req.Email).First(&extendedEmployee).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"message": "Cannot add user, email not found."})
 		return
 	}
 
@@ -86,6 +86,7 @@ func AddUserHandler(c *gin.Context) {
 }
 
 func UpdateUserHandler(c *gin.Context) {
+	fmt.Print("User Handler is being called\n")
 	userIdStr := c.Param("userID")
 	userId, err := strconv.Atoi(userIdStr)
 	if err != nil {
