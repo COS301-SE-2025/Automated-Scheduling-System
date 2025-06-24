@@ -7,7 +7,6 @@ import { Globe, LifeBuoy, LogIn, HelpCircle } from 'lucide-react';
 const LandingHelpPage: React.FC = () => {
     return (
         <LandingLayout>
-            {/* Page Header */}
             <div className="mb-8 text-center">
                 <h2 className="text-xl font-semibold text-custom-secondary dark:text-dark-third">
                     Help & Support
