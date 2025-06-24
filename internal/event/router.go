@@ -10,6 +10,7 @@ func RegisterEventRoutes(r *gin.Engine) {
 	eventProtected.Use(auth.AuthMiddleware())
 	{
 		eventProtected.GET("/events", GetEventsHandler)
+		eventProtected.GET("/user-events", GetUserEventsHandler)
 		eventProtected.POST("/events", CreateEventHandler)
 		eventProtected.PATCH("/events/:eventID", UpdateEventHandler)
 		eventProtected.DELETE("/events/:eventID", DeleteEventHandler)
