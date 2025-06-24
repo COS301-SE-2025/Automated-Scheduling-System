@@ -2,6 +2,7 @@ package server
 
 import (
 	"Automated-Scheduling-Project/internal/auth"
+	"Automated-Scheduling-Project/internal/event"
 	"Automated-Scheduling-Project/internal/user"
 	"net/http"
 
@@ -24,6 +25,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.GET("/health", s.healthHandler)
 	auth.RegisterAuthRoutes(r)
 	user.RegisterUserRoutes(r)
+	event.RegisterEventRoutes(r)
 
 	return r
 }
