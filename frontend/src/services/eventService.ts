@@ -17,6 +17,15 @@ export const getEvents = async (): Promise<CalendarEvent[]> => {
     }));
 };
 
+export const getUserEvents = async (): Promise<CalendarEvent[]> => {
+    const response = await api<CalendarEvent[]>('api/user-events', { method: 'GET' });
+    return response.map((event: CalendarEvent) => ({
+        ...event,
+        start: event.start,
+        end: event.end,
+    }));
+};
+
 export const createEvent = async (eventData: Omit<CalendarEvent, 'id'>): Promise<CalendarEvent> => {
     const payload = {
         ...eventData,

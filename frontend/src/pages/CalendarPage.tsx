@@ -35,7 +35,7 @@ const CalendarPage: React.FC = () => {
         const fetchEvents = async () => {
             try {
                 setIsLoading(true);
-                const fetchedEvents = await eventService.getEvents();
+                const fetchedEvents = await eventService.getUserEvents();
                 setEvents(fetchedEvents);
                 setError(null);
             } catch (err) {

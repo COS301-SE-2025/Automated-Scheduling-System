@@ -174,3 +174,60 @@ func DeleteEventHandler(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Event deleted successfully"})
 }
+
+func GetUserEventsHandler(c *gin.Context) {
+	emailInterface, exists := c.Get("email")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+	email, ok := emailInterface.(string)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid email format"})
+		return
+	}
+
+	// Find the user by email
+	var extendedEmployee models.ExtendedEmployee
+	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("useraccountemail = ?", email).First(&extendedEmployee).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
+		return
+	}
+	userID := extendedEmployee.User.ID
+
+	// Get event IDs linked to this user
+	var userEvents []gen_models.UserEvent
+	if err := DB.Where("user_id = ?", userID).Find(&userEvents).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user events"})
+		return
+	}
+	eventIDs := make([]int64, 0, len(userEvents))
+	for _, ue := range userEvents {
+		eventIDs = append(eventIDs, ue.EventID)
+	}
+
+	// Get the events
+	var events []gen_models.Event
+	if len(eventIDs) > 0 {
+		if err := DB.Where("id IN ?", eventIDs).Find(&events).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch events"})
+			return
+		}
+	}
+
+	// Map to response
+	responseEvents := make([]models.EventResponse, 0, len(events))
+	for _, event := range events {
+		responseEvents = append(responseEvents, models.EventResponse{
+			ID:              strconv.FormatInt(event.ID, 10),
+			Title:           event.Title,
+			Start:           event.StartTime,
+			End:             event.EndTime,
+			AllDay:          event.AllDay,
+			EventType:       event.EventType,
+			RelevantParties: event.RelevantParties,
+		})
+	}
+
+	c.JSON(http.StatusOK, responseEvents)
+}
