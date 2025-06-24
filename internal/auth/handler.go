@@ -2,6 +2,8 @@ package auth
 
 import (
 	"Automated-Scheduling-Project/internal/database"
+	"Automated-Scheduling-Project/internal/database/gen_models"
+	"Automated-Scheduling-Project/internal/database/models"
 	"Automated-Scheduling-Project/internal/email"
 	"fmt"
 	"net/http"
@@ -28,8 +30,8 @@ func RegisterHandler(c *gin.Context) {
 	}
 
 	// Check if user is an employee
-	var employeeInfo EmployeeInformation
-	if err := DB.Where(`"USERACCOUNTEMAIL" = ?`, email).First(&employeeInfo).Error; err != nil {
+	var extendedEmployee models.ExtendedEmployee
+	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("Useraccountemail = ?", email).First(&extendedEmployee).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "This email is not registered in the employee system. Please contact HR."})
 			return
@@ -38,24 +40,23 @@ func RegisterHandler(c *gin.Context) {
 		return
 	}
 
+	// Assumes that a user needs to be connected to an employee
 	// Check if user already exists
-
-	var existing User
-
-	if err := DB.Where("employee_number = ? OR username = ?", employeeInfo.EmployeeNumber, username).First(&existing).Error; err == nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "Username or email already exists"})
+	if extendedEmployee.User != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "User with that email already exists"})
 		return
 	}
 
-	//Hash the password
+	// Hash the password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
 		return
 	}
 
-	user := User{Username: username, EmployeeNumber: employeeInfo.EmployeeNumber, Password: string(hashedPassword), Role: "User"}
-	if err := DB.Create(&user).Error; err != nil {
+	// Create new record
+	newUser := gen_models.User{Username: username, EmployeeNumber: extendedEmployee.Employee.Employeenumber, Password: string(hashedPassword), Role: "User"}
+	if err := DB.Create(&newUser).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User creation failed"})
 		return
 	}
@@ -67,19 +68,19 @@ func RegisterHandler(c *gin.Context) {
 		return
 	}
 
-	responseUser := UserResponse{
-		UserID:         user.UserID,
-		EmployeeNumber: user.EmployeeNumber,
-		Username:       user.Username,
-		Name:           fmt.Sprintf("%s %s", employeeInfo.FirstName, employeeInfo.LastName),
-		Email:          employeeInfo.UserAccountEmail,
-		EmployeeStatus: employeeInfo.EmployeeStatus,
-		Role:           user.Role,
+	userResponse := models.UserResponse{
+		ID:             newUser.ID,
+		EmployeeNumber: newUser.EmployeeNumber,
+		Username:       newUser.Username,
+		Name:           fmt.Sprintf("%s %s", extendedEmployee.Employee.Firstname, extendedEmployee.Employee.Lastname),
+		Email:          extendedEmployee.Employee.Useraccountemail,
+		EmployeeStatus: extendedEmployee.Employee.Employeestatus,
+		Role:           newUser.Role,
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "User registered successfully",
-		"user":    responseUser,
+		"user":    userResponse,
 		"token":   token,
 	})
 }
@@ -93,31 +94,14 @@ func LoginHandler(c *gin.Context) {
 		return
 	}
 
-	var loginData struct {
-		UserResponse
-		Password string `json:"-"`
-	}
-
-	err := DB.Table("users").
-		Select(
-			"users.user_id", "users.username", "users.role", "users.password",
-			`employeeinformation."EMPLOYEENUMBER"`,
-			`employeeinformation."USERACCOUNTEMAIL" as email`,
-			`CONCAT_WS(' ', employeeinformation."FIRSTNAME", employeeinformation."LASTNAME") as name`,
-			`employeeinformation."EMPLOYEESTATUS" as employee_status`,
-			`employeeinformation."TERMINATIONDATE"`,
-		).
-		Joins("LEFT JOIN employeeinformation ON users.employee_number = employeeinformation.\"EMPLOYEENUMBER\"").
-		Where(`users.username = ? OR employeeinformation."USERACCOUNTEMAIL" = ?`, identifier, identifier).
-		First(&loginData).Error
-
-	if err != nil {
+	var extendedEmployee models.ExtendedEmployee
+	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("Useraccountemail = ?", identifier).First(&extendedEmployee).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 		return
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(loginData.Password), []byte(password)); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+	if err := bcrypt.CompareHashAndPassword([]byte(extendedEmployee.User.Password), []byte(password)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to secure password."})
 		return
 	}
 	token, err := GenerateJWT(identifier)
@@ -125,9 +109,20 @@ func LoginHandler(c *gin.Context) {
 		c.JSON(500, gin.H{"error": "Could not generate token"})
 		return
 	}
+
+	userResponse := models.UserResponse{
+		ID:             extendedEmployee.User.ID,
+		EmployeeNumber: extendedEmployee.Employee.Employeenumber,
+		Username:       extendedEmployee.User.Username,
+		Name:           fmt.Sprintf("%s %s", extendedEmployee.Employee.Firstname, extendedEmployee.Employee.Lastname),
+		Email:          extendedEmployee.Employee.Useraccountemail,
+		EmployeeStatus: extendedEmployee.Employee.Employeestatus,
+		Role:           extendedEmployee.User.Role,
+	}
+
 	c.JSON(200, gin.H{
 		"token": token,
-		"user":  loginData.UserResponse,
+		"user":  userResponse,
 	})
 }
 
@@ -143,30 +138,26 @@ func ProfileHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid email format"})
 		return
 	}
-	var userResponse UserResponse
 
-	err := DB.Table("users").
-		Select(
-			"users.user_id",
-			"users.username",
-			`employeeinformation."EMPLOYEENUMBER"`,
-			`CONCAT_WS(' ', employeeinformation."FIRSTNAME", employeeinformation."LASTNAME") as name`,
-			`employeeinformation."USERACCOUNTEMAIL" as email`,
-			`employeeinformation."TERMINATIONDATE"`,
-			`employeeinformation."EMPLOYEESTATUS" as employee_status`,
-			"users.role",
-		).
-		Joins("LEFT JOIN employeeinformation ON users.employee_number = employeeinformation.\"EMPLOYEENUMBER\"").
-		Where(`employeeinformation."USERACCOUNTEMAIL" = ?`, email).
-		First(&userResponse).Error
-
-	if err != nil {
+	var extendedEmployee models.ExtendedEmployee
+	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("Useraccountemail = ?", email).First(&extendedEmployee).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
 		return
 	}
 
+	userResponse := models.UserResponse{
+		ID:             extendedEmployee.User.ID,
+		EmployeeNumber: extendedEmployee.User.EmployeeNumber,
+		Username:       extendedEmployee.User.Username,
+		Name:           fmt.Sprintf("%s %s", extendedEmployee.Employee.Firstname, extendedEmployee.Employee.Lastname),
+		Email:          extendedEmployee.Employee.Useraccountemail,
+		EmployeeStatus: extendedEmployee.Employee.Employeestatus,
+		Role:           extendedEmployee.User.Role,
+	}
+
 	c.JSON(http.StatusOK, userResponse)
 }
+
 func forgotPasswordHandler(c *gin.Context) {
 	type ForgotPasswordRequest struct {
 		Email string `json:"email" binding:"required,email"`
@@ -178,14 +169,13 @@ func forgotPasswordHandler(c *gin.Context) {
 		return
 	}
 
-	var employeeInfo EmployeeInformation
-	if err := DB.Where(`"USERACCOUNTEMAIL" = ?`, req.Email).First(&employeeInfo).Error; err != nil {
+	var extendedEmployee models.ExtendedEmployee
+	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("Useraccountemail = ?", req.Email).First(&extendedEmployee).Error; err != nil {
 		c.JSON(http.StatusOK, gin.H{"message": "If an account with this email exists, a password reset link has been sent."})
 		return
 	}
 
-	var user User
-	if err := DB.Where("employee_number = ?", employeeInfo.EmployeeNumber).First(&user).Error; err != nil {
+	if extendedEmployee.User == nil {
 		c.JSON(404, gin.H{"error": "No such account in our database"})
 		return
 	}
@@ -196,8 +186,8 @@ func forgotPasswordHandler(c *gin.Context) {
 		return
 	}
 
-	user.ForgotPasswordLink = resetToken
-	if err := DB.Save(&user).Error; err != nil {
+	extendedEmployee.User.ForgotPasswordLink = resetToken
+	if err := DB.Save(&extendedEmployee.User).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update reset token"})
 		return
 	}

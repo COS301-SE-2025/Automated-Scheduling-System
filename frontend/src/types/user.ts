@@ -2,7 +2,7 @@ export type Role = 'Admin' | 'User';
 export type Status = string;
 
 export interface User {
-  userId: number;
+  id: number;
   employeeNumber: string;
   username: string;
   name: string;             
