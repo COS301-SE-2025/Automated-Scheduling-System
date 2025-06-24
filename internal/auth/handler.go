@@ -55,8 +55,8 @@ func RegisterHandler(c *gin.Context) {
 	}
 
 	// Create new record
-	newUser := gen_models.User{Username: username, EmployeeNumber: extendedEmployee.Employee.Employeenumber, Password: string(hashedPassword), Role: "User"}
-	if err := DB.Create(&newUser).Error; err != nil {
+	extendedEmployee.User = &gen_models.User{Username: username, EmployeeNumber: extendedEmployee.Employee.Employeenumber, Password: string(hashedPassword), Role: "User"}
+	if err := DB.Model(&gen_models.User{}).Create(&extendedEmployee.User).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User creation failed"})
 		return
 	}
@@ -69,13 +69,13 @@ func RegisterHandler(c *gin.Context) {
 	}
 
 	userResponse := models.UserResponse{
-		ID:             newUser.ID,
-		EmployeeNumber: newUser.EmployeeNumber,
-		Username:       newUser.Username,
+		ID:             extendedEmployee.User.ID,
+		EmployeeNumber: extendedEmployee.User.EmployeeNumber,
+		Username:       extendedEmployee.User.Username,
 		Name:           fmt.Sprintf("%s %s", extendedEmployee.Employee.Firstname, extendedEmployee.Employee.Lastname),
 		Email:          extendedEmployee.Employee.Useraccountemail,
 		EmployeeStatus: extendedEmployee.Employee.Employeestatus,
-		Role:           newUser.Role,
+		Role:           extendedEmployee.User.Role,
 	}
 
 	c.JSON(http.StatusOK, gin.H{

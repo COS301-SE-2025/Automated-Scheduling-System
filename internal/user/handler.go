@@ -1,7 +1,6 @@
 package user
 
 import (
-	"Automated-Scheduling-Project/internal/auth"
 	"Automated-Scheduling-Project/internal/database"
 	"Automated-Scheduling-Project/internal/database/gen_models"
 	"Automated-Scheduling-Project/internal/database/models"
@@ -55,7 +54,7 @@ func AddUserHandler(c *gin.Context) {
 		return
 	}
 
-	if extendedEmployee.User == nil {
+	if extendedEmployee.User != nil {
 		c.JSON(404, gin.H{"error": "An account for this employee already exists"})
 		return
 	}
@@ -70,11 +69,6 @@ func AddUserHandler(c *gin.Context) {
 	newUser := gen_models.User{Username: req.Username, EmployeeNumber: extendedEmployee.Employee.Employeenumber, Password: string(hashedPassword), Role: "User"}
 	if err := DB.Create(&newUser).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User creation failed"})
-		return
-	}
-
-	if err := auth.DB.Create(&newUser).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create user in database"})
 		return
 	}
 
