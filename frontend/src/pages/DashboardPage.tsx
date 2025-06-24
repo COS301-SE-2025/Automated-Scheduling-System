@@ -1,17 +1,116 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 import MainLayout from '../layouts/MainLayout';
+import FeatureGrid from '../components/ui/FeatureGrid';
+import FeatureBlock from '../components/ui/FeatureBlock';
+import { getEvents, type CalendarEvent } from '../services/eventService';
+import { CalendarClock, Users, Calendar, HelpCircle, AlertCircle } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
+    const { user } = useAuth();
+    const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchUpcomingEvents = async () => {
+            try {
+                setIsLoading(true);
+                const allEvents = await getEvents();
+
+                const upcoming = allEvents
+                    .filter(event => event.start && new Date(event.start as string) > new Date())
+                    .sort((a, b) => new Date(a.start! as string).getTime() - new Date(b.start! as string).getTime())
+                    .slice(0, 4);
+
+                setUpcomingEvents(upcoming);
+                setError(null);
+            } catch (err) {
+                console.error("Failed to fetch events:", err);
+                setError("Could not load upcoming events.");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchUpcomingEvents();
+    }, []);
+
+    const UpcomingEventsContent = () => {
+        if (isLoading) {
+            return <p className="text-sm text-custom-text dark:text-dark-secondary">Loading events...</p>;
+        }
+        if (error) {
+            return (
+                <div className="flex items-center gap-2 text-red-500">
+                    <AlertCircle size={20} />
+                    <p className="text-sm font-semibold">{error}</p>
+                </div>
+            );
+        }
+        if (upcomingEvents.length === 0) {
+            return <p className="text-sm text-custom-text dark:text-dark-secondary">No upcoming events on your schedule.</p>;
+        }
+        return (
+            <ul className="space-y-3">
+                {upcomingEvents.map(event => (
+                    <li key={event.id} className="text-sm border-l-4 border-custom-secondary pl-3">
+                        <p className="font-bold text-custom-primary dark:text-dark-primary">{event.title}</p>
+                        <p className="text-custom-text dark:text-dark-secondary">
+                            {new Date(event.start! as string).toLocaleDateString(undefined, {
+                                weekday: 'long',
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit'
+                            })}
+                        </p>
+                    </li>
+                ))}
+            </ul>
+        );
+    };
+
     return (
         <MainLayout pageTitle="Dashboard">
-            <div>
-                <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-200">
-                    Dashboard Content
-                </h2>
-                <p className="mt-4 text-gray-600 dark:text-gray-400">
-                    Welcome to your dashboard. Here is where your main application content will go.
+            <div className="mb-8">
+                <h1 className="text-3xl font-bold text-custom-primary dark:text-dark-primary">
+                    Welcome, {user?.name || 'User'}!
+                </h1>
+                <p className="mt-1 text-custom-text dark:text-dark-secondary">
+                    Here's a quick overview of your workspace.
                 </p>
             </div>
+
+            <FeatureGrid className="grid-cols-1 md:grid-cols-2 lg:grid-cols-2">
+
+                <FeatureBlock title="Upcoming Events" icon={<CalendarClock size={24} />}>
+                    <UpcomingEventsContent />
+                </FeatureBlock>
+
+                {user?.role === 'Admin' && (
+                    <Link to="/users" className="block">
+                        <FeatureBlock title="Manage Users" icon={<Users size={24} />}>
+                            <p>Add, edit, or remove users and manage their roles and permissions across the system.</p>
+                        </FeatureBlock>
+                    </Link>
+                )}
+
+                <Link to="/calendar" className="block">
+                    <FeatureBlock title="View Full Calendar" icon={<Calendar size={24} />}>
+                        <p>Access the interactive company calendar to view all events, schedule new meetings, and manage deadlines.</p>
+                    </FeatureBlock>
+                </Link>
+
+                <Link to="/main-help" className="block">
+                    <FeatureBlock title="Help & Feedback" icon={<HelpCircle size={24} />}>
+                        <p>Find answers to common questions, read documentation, or get in touch with support for assistance.</p>
+                    </FeatureBlock>
+                </Link>
+
+            </FeatureGrid>
         </MainLayout>
     );
 };
