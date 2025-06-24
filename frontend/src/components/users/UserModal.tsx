@@ -1,17 +1,29 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { addUserSchema, type AddUserFormData } from '../../utils/validation';
 import type { User, AddUserData, UpdateUserData } from '../../types/user';
+import { ApiError } from '../../services/api';
+
+// Import your consistent UI components
 import FormInput from '../ui/FormInput';
 import FormButton from '../ui/FormButton';
 import MessageBox from '../ui/MessageBox';
 import FormSelect from '../ui/FormSelect';
 
+// Helper component for displaying non-editable info
 interface ReadOnlyFieldProps {
   label: string;
   value: string | number | null | undefined;
 }
+
+const ReadOnlyField: React.FC<ReadOnlyFieldProps> = ({ label, value }) => (
+  <div>
+    <label className="block text-sm font-medium text-gray-500 dark:text-dark-secondary">{label}</label>
+    <p className="mt-1 w-full p-2 text-base bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md">{value ?? 'N/A'}</p>
+  </div>
+);
+
 
 interface UserModalProps {
   mode: 'add' | 'edit';
@@ -19,14 +31,13 @@ interface UserModalProps {
   onClose: () => void;
   onSave: (data: AddUserData | UpdateUserData, options: { userId?: number }) => Promise<void>;
   user?: User;
-  apiError: string | null;
-  clearApiError: () => void;
 }
 
-const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, user, apiError, clearApiError }) => {
+const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, user }) => {
   const isEditMode = mode === 'edit';
 
-
+  const [apiError, setApiError] = useState<string | null>(null);
+  
   const {
     register,
     handleSubmit,
@@ -38,26 +49,18 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
 
   useEffect(() => {
     if (isOpen) {
-      clearApiError();
+      setApiError(null); 
       if (isEditMode && user) {
-        reset({
-          role: user.role,
-          username: user.username, 
-          email: user.email,       
-        });
+        reset({ role: user.role, username: user.username, email: user.email });
       } else {
-        reset({
-          username: '',
-          email: '',
-          password: '',
-          confirmPassword: '',
-          role: 'User',
-        });
+        reset({ username: '', email: '', password: '', confirmPassword: '', role: 'User' });
       }
     }
-  }, [isOpen, mode, user, reset, clearApiError]);
+  }, [isOpen, mode, user, reset]);
 
   const onSubmit: SubmitHandler<AddUserFormData> = async (data) => {
+    setApiError(null); 
+    
     try {
       if (isEditMode && user) {
         const payload: UpdateUserData = { role: data.role };
@@ -65,8 +68,15 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
       } else {
         await onSave(data, {});
       }
-    } catch (error) {
-      console.error(`Failed to ${mode} user:`, error);
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setApiError(err.data?.error || err.message);
+      } else if (err instanceof Error) {
+        setApiError(err.message);
+      } else {
+        setApiError('An unknown error occurred.');
+      }
+      console.error(`Failed to ${mode} user:`, err);
     }
   };
 
@@ -79,8 +89,8 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
       <div className="relative w-full max-w-lg mx-auto bg-white dark:bg-dark-div rounded-lg shadow-xl">
         <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
           <h3 className="text-xl font-semibold text-custom-primary dark:text-dark-primary">{title}</h3>
-          <button type="button" onClick={onClose} className="p-1.5 ...">
-            {/* Close SVG */}
+          <button type="button" onClick={onClose}  >
+             {/* Close SVG */}
           </button>
         </div>
 
@@ -88,7 +98,7 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
           {apiError && <MessageBox type="error" title="Operation Failed">{apiError}</MessageBox>}
 
           {isEditMode && user ? (
-            <>
+             <>
               <ReadOnlyField label="Full Name" value={user.name} />
               <ReadOnlyField label="Email Address" value={user.email} />
               <ReadOnlyField label="Username" value={user.username} />
@@ -110,8 +120,8 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
 
           {!isEditMode && (
             <>
-              <FormInput id="password" label="Password" type="password" {...register('password')} error={errors.password?.message} autoComplete="new-password" />
-              <FormInput id="confirmPassword" label="Confirm Password" type="password" {...register('confirmPassword')} error={errors.confirmPassword?.message} autoComplete="new-password" />
+              <FormInput id="password" label="Password" type="password" {...register('password')} error={errors.password?.message} />
+              <FormInput id="confirmPassword" label="Confirm Password" type="password" {...register('confirmPassword')} error={errors.confirmPassword?.message} />
             </>
           )}
 
@@ -128,12 +138,5 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
     </div>
   );
 };
-
-const ReadOnlyField: React.FC<ReadOnlyFieldProps> = ({ label, value }) => (
-  <div>
-    <label className="block text-sm font-medium text-gray-500 dark:text-dark-secondary">{label}</label>
-    <p className="mt-1 w-full p-2 text-base bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-md">{value ?? 'N/A'}</p>
-  </div>
-);
 
 export default UserModal;
