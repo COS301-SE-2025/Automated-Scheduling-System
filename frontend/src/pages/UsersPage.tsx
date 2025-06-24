@@ -105,11 +105,10 @@ const UsersPage: React.FC = () => {
     setEditingUser(undefined);
   };
 
-  const handleSaveUser = async (
+   const handleSaveUser = async (
     data: AddUserData | UpdateUserData,
     options: { userId?: number }
   ) => {
-    setModalApiError(null);
     try {
       if (modalMode === 'add') {
         const newUser = await userService.addUser(data as AddUserData);
@@ -120,15 +119,10 @@ const UsersPage: React.FC = () => {
           prevUsers.map(u => (u.id === options.userId ? updatedUser : u))
         );
       }
-      handleCloseModal();
+      handleCloseModal(); // Close modal on success
     } catch (err) {
-      if (err instanceof ApiError) {
-        setModalApiError(err.data?.error || err.message);
-      } else if (err instanceof Error) {
-        setModalApiError(err.message);
-      } else {
-        setModalApiError('An unknown error occurred.');
-      }
+      // IMPORTANT: Re-throw the error so the modal's onSubmit can catch it.
+      throw err;
     }
   };
 
@@ -188,8 +182,6 @@ const UsersPage: React.FC = () => {
         onSave={handleSaveUser}
         mode={modalMode}
         user={editingUser}
-        apiError={modalApiError}
-        clearApiError={() => setModalApiError(null)}
       />
     </UsersLayout>
   );
