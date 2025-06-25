@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import UserTable from '../components/users/UserTable';
 import UserFilters from '../components/users/UserFilters';
-import UsersLayout from '../layouts/UsersLayout';
+import MainLayout from '../layouts/MainLayout';
 import UserModal from '../components/users/UserModal';
 import * as userService from '../services/userService';
 import { useAuth } from '../hooks/useAuth';
@@ -121,7 +121,6 @@ const UsersPage: React.FC = () => {
       }
       handleCloseModal(); // Close modal on success
     } catch (err) {
-      // IMPORTANT: Re-throw the error so the modal's onSubmit can catch it.
       throw err;
     }
   };
@@ -134,17 +133,17 @@ const UsersPage: React.FC = () => {
 
   if (pageError) {
     return (
-      <UsersLayout>
+      <MainLayout pageTitle='Users List'>
         <div className="text-center py-10">
           <h1 className="text-2xl font-semibold text-red-600">Error</h1>
           <p className="mt-2 text-custom-third">{pageError}</p>
         </div>
-      </UsersLayout>
+      </MainLayout>
     );
   }
 
   return (
-    <UsersLayout>
+    <MainLayout pageTitle="Users List">
       <div className="px-4 sm:px-6 lg:px-8 py-8">
         <div className="sm:flex sm:items-center">
           <div className="sm:flex-auto">
@@ -183,7 +182,7 @@ const UsersPage: React.FC = () => {
         mode={modalMode}
         user={editingUser}
       />
-    </UsersLayout>
+    </MainLayout>
   );
 };
 
