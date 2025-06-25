@@ -68,22 +68,18 @@ func TestRegisterHandler_Success_Unit(t *testing.T) {
 	db, mock := newMockDB(t)
 	form := url.Values{"username": {testUsername}, "email": {testEmail}, "password": {testPassword}}
 
-	// 1. Mock finding the employee (This part is correct).
 	mock.ExpectQuery(regexp.QuoteMeta(
 		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."terminationdate" FROM "employee" WHERE useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
 		WithArgs(testEmail, 1).
 		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname", "useraccountemail", "employeestatus"}).
 			AddRow(testEmployeeNum, "Alice", "Smith", testEmail, "Active"))
 
-	// 2. Mock the .Preload("User") check (This part is correct).
 	mock.ExpectQuery(regexp.QuoteMeta(
 		`SELECT * FROM "users" WHERE "users"."employee_number" = $1`)).
 		WithArgs(testEmployeeNum).
 		WillReturnRows(sqlmock.NewRows([]string{"id"}))
 
-	// 3. Mock the transaction and the INSERT.
 	mock.ExpectBegin()
-	// FIXED: Re-added `forgot_password_link` and changed the expected argument to an empty string `""`.
 	mock.ExpectQuery(regexp.QuoteMeta(
 		`INSERT INTO "users" ("username","password","forgot_password_link","role","employee_number") VALUES ($1,$2,$3,$4,$5) RETURNING "id"`)).
 		WithArgs(testUsername, sqlmock.AnyArg(), "", "User", testEmployeeNum).
