@@ -9,181 +9,181 @@ import type { User, AddUserData, UpdateUserData } from '../types/user';
 import { ApiError } from '../services/api';
 
 const UsersPage: React.FC = () => {
-  // Page-level state
-  const { isAuthenticated } = useAuth();
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [pageError, setPageError] = useState<string | null>(null);
+    // Page-level state
+    const { isAuthenticated } = useAuth();
+    const [users, setUsers] = useState<User[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [pageError, setPageError] = useState<string | null>(null);
 
-  // State for filtering and search
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState({
-    role: '',
-    employeeStatus: '',
-  });
+    // State for filtering and search
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filters, setFilters] = useState({
+        role: '',
+        employeeStatus: '',
+    });
 
-  // State for controlling the modal
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
-  const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
-  const [modalApiError, setModalApiError] = useState<string | null>(null);
+    // State for controlling the modal
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+    const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
+    const [modalApiError, setModalApiError] = useState<string | null>(null);
 
-  // Fetch initial user data
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setIsLoading(false);
-      setPageError('You must be logged in to view users.');
-      return;
-    }
-    const fetchUsers = async () => {
-      setIsLoading(true);
-      setPageError(null);
-      try {
-        const apiUsers = await userService.getAllUsers();
-        setUsers(apiUsers);
-      } catch (err) {
-        if (err instanceof ApiError) {
-          setPageError(err.data?.error || err.message);
-        } else if (err instanceof Error) {
-          setPageError(err.message);
-        } else {
-          setPageError('An unknown error occurred while fetching users.');
+    // Fetch initial user data
+    useEffect(() => {
+        if (!isAuthenticated) {
+            setIsLoading(false);
+            setPageError('You must be logged in to view users.');
+            return;
         }
-      } finally {
-        setIsLoading(false);
-      }
+        const fetchUsers = async () => {
+            setIsLoading(true);
+            setPageError(null);
+            try {
+                const apiUsers = await userService.getAllUsers();
+                setUsers(apiUsers);
+            } catch (err) {
+                if (err instanceof ApiError) {
+                    setPageError(err.data?.error || err.message);
+                } else if (err instanceof Error) {
+                    setPageError(err.message);
+                } else {
+                    setPageError('An unknown error occurred while fetching users.');
+                }
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchUsers();
+    }, [isAuthenticated]);
+
+    const availableFilterOptions = useMemo(() => {
+        const roles = new Set(users.map(user => user.role));
+        const statuses = new Set(users.map(user => user.employeeStatus));
+        return {
+            roles: Array.from(roles).sort(),
+            statuses: Array.from(statuses).sort(),
+        };
+    }, [users]);
+
+    const filteredUsers = useMemo(() => {
+        let result = users;
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase();
+            result = result.filter(user =>
+                user.name.toLowerCase().includes(term) ||
+                user.username.toLowerCase().includes(term) ||
+                user.email.toLowerCase().includes(term)
+            );
+        }
+        if (filters.role) {
+            result = result.filter(user => user.role === filters.role);
+        }
+        if (filters.employeeStatus) {
+            result = result.filter(user => user.employeeStatus === filters.employeeStatus);
+        }
+        return result;
+    }, [users, searchTerm, filters]);
+
+    // --- MODAL HANDLER FUNCTIONS ---
+
+    const handleOpenAddModal = () => {
+        setModalMode('add');
+        setEditingUser(undefined);
+        setModalApiError(null);
+        setIsModalOpen(true);
     };
-    fetchUsers();
-  }, [isAuthenticated]);
 
-  const availableFilterOptions = useMemo(() => {
-    const roles = new Set(users.map(user => user.role));
-    const statuses = new Set(users.map(user => user.employeeStatus));
-    return {
-      roles: Array.from(roles).sort(),
-      statuses: Array.from(statuses).sort(),
+    const handleOpenEditModal = (user: User) => {
+        setModalMode('edit');
+        setEditingUser(user);
+        setModalApiError(null);
+        setIsModalOpen(true);
     };
-  }, [users]);
 
-  const filteredUsers = useMemo(() => {
-    let result = users;
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(user =>
-        user.name.toLowerCase().includes(term) ||
-        user.username.toLowerCase().includes(term) ||
-        user.email.toLowerCase().includes(term)
-      );
-    }
-    if (filters.role) {
-      result = result.filter(user => user.role === filters.role);
-    }
-    if (filters.employeeStatus) {
-      result = result.filter(user => user.employeeStatus === filters.employeeStatus);
-    }
-    return result;
-  }, [users, searchTerm, filters]);
+    const handleCloseModal = () => {
+        setIsModalOpen(false);
+        setEditingUser(undefined);
+    };
 
-  // --- MODAL HANDLER FUNCTIONS ---
+    const handleSaveUser = async (
+        data: AddUserData | UpdateUserData,
+        options: { userId?: number }
+    ) => {
+        try {
+            if (modalMode === 'add') {
+                const newUser = await userService.addUser(data as AddUserData);
+                setUsers(prevUsers => [newUser, ...prevUsers]);
+            } else if (modalMode === 'edit' && options.userId) {
+                const updatedUser = await userService.updateUser(options.userId, data as UpdateUserData);
+                setUsers(prevUsers =>
+                    prevUsers.map(u => (u.id === options.userId ? updatedUser : u))
+                );
+            }
+            handleCloseModal(); // Close modal on success
+        } catch (err) {
+            throw err;
+        }
+    };
 
-  const handleOpenAddModal = () => {
-    setModalMode('add');
-    setEditingUser(undefined);
-    setModalApiError(null);
-    setIsModalOpen(true);
-  };
+    // --- FILTER/SEARCH HANDLERS ---
+    const handleSearch = (term: string) => setSearchTerm(term);
+    const handleFilterChange = (name: string, value: string) => {
+        setFilters(prev => ({ ...prev, [name]: value }));
+    };
 
-  const handleOpenEditModal = (user: User) => {
-    setModalMode('edit');
-    setEditingUser(user);
-    setModalApiError(null);
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingUser(undefined);
-  };
-
-   const handleSaveUser = async (
-    data: AddUserData | UpdateUserData,
-    options: { userId?: number }
-  ) => {
-    try {
-      if (modalMode === 'add') {
-        const newUser = await userService.addUser(data as AddUserData);
-        setUsers(prevUsers => [newUser, ...prevUsers]);
-      } else if (modalMode === 'edit' && options.userId) {
-        const updatedUser = await userService.updateUser(options.userId, data as UpdateUserData);
-        setUsers(prevUsers =>
-          prevUsers.map(u => (u.id === options.userId ? updatedUser : u))
+    if (pageError) {
+        return (
+            <MainLayout pageTitle='Users List'>
+                <div className="text-center py-10">
+                    <h1 className="text-2xl font-semibold text-red-600">Error</h1>
+                    <p className="mt-2 text-custom-third">{pageError}</p>
+                </div>
+            </MainLayout>
         );
-      }
-      handleCloseModal(); // Close modal on success
-    } catch (err) {
-      throw err;
     }
-  };
 
-  // --- FILTER/SEARCH HANDLERS ---
-  const handleSearch = (term: string) => setSearchTerm(term);
-  const handleFilterChange = (name: string, value: string) => {
-    setFilters(prev => ({ ...prev, [name]: value }));
-  };
-
-  if (pageError) {
     return (
-      <MainLayout pageTitle='Users List'>
-        <div className="text-center py-10">
-          <h1 className="text-2xl font-semibold text-red-600">Error</h1>
-          <p className="mt-2 text-custom-third">{pageError}</p>
-        </div>
-      </MainLayout>
+        <MainLayout pageTitle="Users List">
+            <div className="px-4 sm:px-6 lg:px-8 py-8">
+                <div className="sm:flex sm:items-center">
+                    <div className="sm:flex-auto">
+                        <h1 className="text-2xl font-semibold text-custom-primary dark:text-dark-primary">User Management</h1>
+                        <p className="mt-2 text-sm text-custom-third dark:text-dark-secondary">
+                            Add, view, and manage user roles in the system.
+                        </p>
+                    </div>
+                    <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+                        <button type="button" onClick={handleOpenAddModal} className="block rounded-md bg-custom-secondary px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-custom-third focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-custom-secondary">
+                            Add User
+                        </button>
+                    </div>
+                </div>
+
+                <UserFilters
+                    onSearch={handleSearch}
+                    onFilterChange={handleFilterChange}
+                    filters={filters}
+                    availableRoles={availableFilterOptions.roles}
+                    availableStatuses={availableFilterOptions.statuses}
+                />
+
+                <UserTable
+                    users={filteredUsers}
+                    isLoading={isLoading}
+                    onEdit={handleOpenEditModal}
+                    onDelete={(user) => alert(`Delete functionality for ${user.name} is not yet implemented.`)}
+                />
+            </div>
+
+            <UserModal
+                isOpen={isModalOpen}
+                onClose={handleCloseModal}
+                onSave={handleSaveUser}
+                mode={modalMode}
+                user={editingUser}
+            />
+        </MainLayout>
     );
-  }
-
-  return (
-    <MainLayout pageTitle="Users List">
-      <div className="px-4 sm:px-6 lg:px-8 py-8">
-        <div className="sm:flex sm:items-center">
-          <div className="sm:flex-auto">
-            <h1 className="text-2xl font-semibold text-custom-primary dark:text-dark-primary">User Management</h1>
-            <p className="mt-2 text-sm text-custom-third dark:text-dark-secondary">
-              Add, view, and manage user roles in the system.
-            </p>
-          </div>
-          <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-            <button type="button" onClick={handleOpenAddModal} className="block rounded-md bg-custom-secondary px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-custom-third focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-custom-secondary">
-              Add User
-            </button>
-          </div>
-        </div>
-
-        <UserFilters
-          onSearch={handleSearch}
-          onFilterChange={handleFilterChange}
-          filters={filters}
-          availableRoles={availableFilterOptions.roles}
-          availableStatuses={availableFilterOptions.statuses}
-        />
-
-        <UserTable
-          users={filteredUsers}
-          isLoading={isLoading}
-          onEdit={handleOpenEditModal}
-          onDelete={(user) => alert(`Delete functionality for ${user.name} is not yet implemented.`)}
-        />
-      </div>
-
-      <UserModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        onSave={handleSaveUser}
-        mode={modalMode}
-        user={editingUser}
-      />
-    </MainLayout>
-  );
 };
 
 export default UsersPage;
