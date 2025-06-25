@@ -1,7 +1,7 @@
 package server
 
 import (
-	"Automated-Scheduling-Project/internal/auth"
+	"Automated-Scheduling-Project/internal/database/gen_models"
 
 	"net/http"
 	"testing"
@@ -32,7 +32,7 @@ func setupTestServer(t *testing.T) http.Handler {
 	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 
-	err = db.AutoMigrate(&auth.User{})
+	err = db.AutoMigrate(&gen_models.Employee{}, &gen_models.User{})
 	require.NoError(t, err)
 
 	s := &Server{
