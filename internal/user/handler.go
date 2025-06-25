@@ -1,7 +1,6 @@
 package user
 
 import (
-	"Automated-Scheduling-Project/internal/database"
 	"Automated-Scheduling-Project/internal/database/gen_models"
 	"Automated-Scheduling-Project/internal/database/models"
 	"fmt"
@@ -14,8 +13,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-var dbService database.Service = database.New()
-var DB *gorm.DB = dbService.Gorm()
+// var dbService database.Service = database.New()
+// var DB *gorm.DB = dbService.Gorm()
+var DB *gorm.DB
 
 func GetAllUsersHandler(c *gin.Context) {
 	var extendedUsers []models.ExtendedUser

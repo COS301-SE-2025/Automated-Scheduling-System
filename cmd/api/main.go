@@ -9,7 +9,10 @@ import (
 	"syscall"
 	"time"
 
+	"Automated-Scheduling-Project/internal/auth"
+	"Automated-Scheduling-Project/internal/database"
 	"Automated-Scheduling-Project/internal/server"
+	"Automated-Scheduling-Project/internal/user"
 )
 
 func gracefulShutdown(apiServer *http.Server, done chan bool) {
@@ -38,6 +41,11 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 }
 
 func main() {
+
+	dbConnection := database.New().Gorm()
+
+	auth.DB = dbConnection
+	user.DB = dbConnection
 
 	server := server.NewServer()
 

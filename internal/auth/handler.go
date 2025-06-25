@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"Automated-Scheduling-Project/internal/database"
 	"Automated-Scheduling-Project/internal/database/gen_models"
 	"Automated-Scheduling-Project/internal/database/models"
 	"Automated-Scheduling-Project/internal/email"
@@ -17,8 +16,10 @@ import (
 	"encoding/hex"
 )
 
-var dbService database.Service = database.New()
-var DB *gorm.DB = dbService.Gorm()
+// var dbService database.Service = database.New()
+// var DB *gorm.DB = dbService.Gorm()
+
+var DB *gorm.DB
 
 func RegisterHandler(c *gin.Context) {
 	// Sanitize and normalize inputs
