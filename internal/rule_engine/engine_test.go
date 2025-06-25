@@ -138,3 +138,51 @@ func TestEngineEndToEnd(t *testing.T) {
 	require.Len(t, notified, 1)
 	require.Equal(t, "vision", generated[0].CheckType)
 }
+/* ------------------------------------------------------------------------- */
+/* 5. ActionRule basic behaviour                                             */
+/* ------------------------------------------------------------------------- */
+type stubNotifier func(string, string) error
+
+func (f stubNotifier) Send(u, m string) error { return f(u, m) }
+
+// variables the stub will capture (must be package-level)
+var gotUser, gotMsg string
+
+func TestActionRule_Notify(t *testing.T) {
+	// 1. register stub notifier
+	RegisterNotifier(stubNotifier(func(u, m string) error {
+		gotUser, gotMsg = u, m
+		return nil
+	}))
+	defer RegisterNotifier(nil) // clean up for other tests
+
+	// 2. build the Action rule
+	raw := RawRule{
+		ID:      "demo",
+		Type:    "action",
+		Enabled: true,
+		When:    "user.role == 'driver' && check['checkType'] == 'vision'",		
+        Actions: []RawAction{{
+			Type:   "notify",
+			Params: map[string]any{"message": "Time for your eye test"},
+		}},
+	}
+	rule, err := BuildRule(raw)
+	require.NoError(t, err)
+	ar := rule.(*ActionRule)
+
+	// 3a. condition FALSE – notifier should NOT be called
+	check1 := MedicalCheck{CheckType: "vision"}
+	user1  := User{ID: "u1", Role: "admin"}
+
+	require.NoError(t, ar.Validate(check1, Schedule{}, user1))
+	require.Equal(t, "", gotUser)
+
+	// 3b. condition TRUE – notifier should be called
+	check2 := MedicalCheck{CheckType: "vision"}
+	user2  := User{ID: "u2", Role: "driver"}
+
+	require.NoError(t, ar.Validate(check2, Schedule{}, user2))
+	require.Equal(t, "u2", gotUser)
+	require.Equal(t, "Time for your eye test", gotMsg)
+}

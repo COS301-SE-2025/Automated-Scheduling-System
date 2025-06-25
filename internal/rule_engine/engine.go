@@ -67,6 +67,13 @@ type RawRule struct {
     Frequency string `json:"frequency"` // e.g. "6mo" -  only scheduled rules
     Conditions map[string]any `json:"conditions,omitempty"`
     Params  map[string]any  `json:"params,omitempty"`
+    When string `json:"when,omitempty"`
+    Actions []RawAction `json:"actions,omitempty"`
+}
+
+type RawAction struct{
+    Type string `json:"type"` // Things like webhook, 'notify'
+    Params map[string]any `json:"params,omitempty"`
 }
 
 func DecodeRawRules(data []byte) ([]RawRule, error){
@@ -200,6 +207,16 @@ func BuildRule(rr RawRule) (Rule, error) {
             notifyDaysBefore: int(pdays),
             checkType:        ct,
             lastRun:          make(map[string]time.Time),
+        }, nil
+    case "action":
+        if len(rr.Actions) == 0 {
+            return nil, fmt.Errorf("action rule %q has no actions", rr.ID)
+        }
+        return &ActionRule{
+            id: rr.ID,
+            enabled: rr.Enabled,
+            whenExpr: rr.When,
+            actions: rr.Actions,
         }, nil
 
     default:
