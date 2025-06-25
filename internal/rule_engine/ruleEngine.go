@@ -21,7 +21,7 @@ type MedicalCheck struct {
     Result string
 }
 
-// Schedule is a wrapper that ewill be replaced by the DB 
+// Schedule is a wrapper that ewill be enabled by the DB 
 // Passed to validate rules to see existing events
 type Schedule struct {
     Checks []MedicalCheck
@@ -41,22 +41,28 @@ type ValidationRule interface{
 
 // ScheduleRule is evaluated by a runner on a time-tick (like cron jobs)
 // ShouldTrigger decides if Execute must run
-type ScheduleRule interface{
+
+type ScheduledRule interface {
     Rule
     ShouldTrigger(now time.Time, user User) bool
-    Execute(user User, newCheck func(MedicalCheck) error, notify func())
+    Execute(
+        now time.Time,
+        user User,
+        newCheck func(MedicalCheck) error,
+        notify   func(Notification) error,
+    ) error
 }
 
 type Notification struct {
-    toUserID string 
-    Subject string 
-    Message string
+    ToUserID string  `json:"toUserID"`
+    Subject string  `json:"subject"`
+    Message string  `json:"message"`
 }
 
 type RawRule struct {
     ID string  `json:"id"`
     Type string   `json:"type"`
-    Enabled bool `json:"endabled"`
+    Enabled bool `json:"enabled"`
     Target string `json:"target"` // "user", "role", department, etc
     Frequency string `json:"frequency"` // e.g. "6mo" -  only scheduled rules
     Conditions map[string]any `json:"conditions,omitempty"`
@@ -101,44 +107,35 @@ func (r *CooldownRule) Validate(check MedicalCheck, schedule Schedule, _ User) e
     return nil
 }
 
-type ReccurringCheckRule struct {
-    id string
-    enabled bool 
-    frequencyMonths int
-    notifyDaysBefore int 
-    checkType string
-
-    lastRun map[string]time.Time
+type RecurringCheckRule struct {              // single “c”
+    id               string
+    enabled          bool
+    frequencyMonths  int
+    notifyDaysBefore int
+    checkType        string
+    lastRun          map[string]time.Time
 }
 
-func (r *ReccurringCheckRule ) ID() string {return r.id}
-func (r *ReccurringCheckRule) Enabled() bool {return r.enabled}
-func (r* ReccurringCheckRule) Type() string {return "recurringCheck"}
+func (r *RecurringCheckRule) ID() string      { return r.id }
+func (r *RecurringCheckRule) Enabled() bool   { return r.enabled }
+func (r *RecurringCheckRule) Type() string    { return "recurringCheck" }
 
-func (r *ReccurringCheckRule) ShouldTrigger(now time.Time, user User) bool {
-    lr, ok := r.lastRun[user.ID]
-    if !ok {
-        return true // Never run before
+func (r *RecurringCheckRule) ShouldTrigger(now time.Time, user User) bool {
+    if !r.enabled {
+        return false
     }
-    next := lr.AddDate(0, r.frequencyMonths, 0)
-    return !now.Before(next)
+    if lr, ok := r.lastRun[user.ID]; ok {
+        next := lr.AddDate(0, r.frequencyMonths, 0)
+        return !now.Before(next) // true when now ≥ next
+    }
+    return true // first-ever run
 }
 
-type ScheduledRule interface {
-    Rule
-    ShouldTrigger(now time.Time, user User) bool
-    Execute(
-        user User,
-        newCheck func(MedicalCheck) error,
-        notify   func(Notification) error,
-    ) error
-}
 
-func (r *ReccurringCheckRule) Execute(user User, newCheck func(MedicalCheck) error, notify func(Notification) error ) error {
-    now := time.Now()
 
-    // Create new medical check in the future 
+func (r *RecurringCheckRule) Execute(now time.Time, user User, newCheck func(MedicalCheck) error, notify func(Notification) error ) error {
     checkDate := now.AddDate(0,0,r.notifyDaysBefore)
+    // Create new medical check in the future 
     mc := MedicalCheck{
         ID: fmt.Sprintf("%s-%s-%d", r.checkType, user.ID, now.Unix()),
         UserID: user.ID, 
@@ -151,7 +148,7 @@ func (r *ReccurringCheckRule) Execute(user User, newCheck func(MedicalCheck) err
     }
 
     note := Notification{
-        toUserID: user.ID,
+        ToUserID: user.ID,
         Subject: fmt.Sprintf("Upcomming %s check", r.checkType),
         Message: fmt.Sprintf("You have a %s medical check on %s", r.checkType, mc.StartTime.Format(time.RFC822)),
     }
@@ -196,7 +193,7 @@ func BuildRule(rr RawRule) (Rule, error) {
             return nil, err
         }
 
-        return &ReccurringCheckRule{
+        return &RecurringCheckRule{
             id:               rr.ID,
             enabled:          rr.Enabled,
             frequencyMonths:  months,
@@ -266,7 +263,7 @@ func (e *Engine) RunScheduled(now time.Time, users []User,
     for _, r := range e.scheduled {
         for _, u := range users {
             if sr, ok := r.(ScheduledRule); ok && sr.ShouldTrigger(now, u) {
-                _ = sr.Execute(u, newCheck, notify) // ignore exec errors for demo
+                _ = sr.Execute(now, u, newCheck, notify) // ignore exec errors for demo
             }
         }
     }
