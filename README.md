@@ -1,6 +1,6 @@
 # 🚀 Automated Scheduling System
 
-<img src="a_logo_for_an_software_development_company 1.jpeg" width="240" height="auto" >
+<img src="https://github.com/user-attachments/assets/e91c5340-c966-4639-bc12-fe45b0bbaeb2" width="240" height="auto" >
 
 ## A capstone project for Discon Specialists
 
