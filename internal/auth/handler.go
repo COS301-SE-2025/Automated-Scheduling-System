@@ -7,6 +7,7 @@ import (
 	"Automated-Scheduling-Project/internal/email"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -20,18 +21,18 @@ var dbService database.Service = database.New()
 var DB *gorm.DB = dbService.Gorm()
 
 func RegisterHandler(c *gin.Context) {
-	username := c.PostForm("username")
-	email := c.PostForm("email")
+	// Sanitize and normalize inputs
+	username := strings.TrimSpace(c.PostForm("username"))
+	email := strings.ToLower(strings.TrimSpace(c.PostForm("email")))
 	password := c.PostForm("password")
 
 	if username == "" || email == "" || password == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Email and password are required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Username, email, and password are required"})
 		return
 	}
 
-	// Check if user is an employee
 	var extendedEmployee models.ExtendedEmployee
-	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("Useraccountemail = ?", email).First(&extendedEmployee).Error; err != nil {
+	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("useraccountemail = ?", email).First(&extendedEmployee).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "This email is not registered in the employee system. Please contact HR."})
 			return
@@ -40,42 +41,54 @@ func RegisterHandler(c *gin.Context) {
 		return
 	}
 
-	// Assumes that a user needs to be connected to an employee
-	// Check if user already exists
-	if extendedEmployee.User != nil {
-		c.JSON(http.StatusConflict, gin.H{"error": "User with that email already exists"})
+	if extendedEmployee.User != nil && extendedEmployee.User.ID != 0 {
+		c.JSON(http.StatusConflict, gin.H{"error": "An account for this email already exists"})
 		return
 	}
 
-	// Hash the password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
 		return
 	}
 
-	// Create new record
-	extendedEmployee.User = &gen_models.User{Username: username, EmployeeNumber: extendedEmployee.Employee.Employeenumber, Password: string(hashedPassword), Role: "User"}
-	if err := DB.Model(&gen_models.User{}).Create(&extendedEmployee.User).Error; err != nil {
+	newUser := &gen_models.User{
+		Username:       username,
+		EmployeeNumber: extendedEmployee.Employee.Employeenumber,
+		Password:       string(hashedPassword),
+		Role:           "User",
+	}
+
+	// changed to use a database transaction for the creation.
+	err = DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(newUser).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+
+	// Check if the transaction failed.
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User creation failed"})
 		return
 	}
 
-	// Generate JWT
+	// Generate JWT (now that the user is safely in the database)
 	token, err := GenerateJWT(email)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
+		// edge case: User was created but token generation failed.
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "User registered, but failed to generate session token"})
 		return
 	}
 
 	userResponse := models.UserResponse{
-		ID:             extendedEmployee.User.ID,
-		EmployeeNumber: extendedEmployee.User.EmployeeNumber,
-		Username:       extendedEmployee.User.Username,
+		ID:             newUser.ID,
+		EmployeeNumber: newUser.EmployeeNumber,
+		Username:       newUser.Username,
 		Name:           fmt.Sprintf("%s %s", extendedEmployee.Employee.Firstname, extendedEmployee.Employee.Lastname),
 		Email:          extendedEmployee.Employee.Useraccountemail,
 		EmployeeStatus: extendedEmployee.Employee.Employeestatus,
-		Role:           extendedEmployee.User.Role,
+		Role:           newUser.Role,
 	}
 
 	c.JSON(http.StatusOK, gin.H{

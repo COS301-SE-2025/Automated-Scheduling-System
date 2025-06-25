@@ -47,8 +47,8 @@ VALUES
 
 -- Insert data into the users table
 -- Password is set to: Pa$$w0rd!
-INSERT INTO users (id, username, password, forgot_password_link, role, employee_number)
+INSERT INTO users (username, password, forgot_password_link, role, employee_number)
 VALUES
-(1, 'johndoe', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'Admin', 'E001'),
-(2, 'janesmith', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E002'),
-(3, 'alicejohnson', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E003');
+('johndoe', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'Admin', 'E001'),
+('janesmith', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E002'),
+('alicejohnson', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E003');
