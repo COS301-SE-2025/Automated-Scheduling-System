@@ -16,9 +16,6 @@ import (
 	"encoding/hex"
 )
 
-// var dbService database.Service = database.New()
-// var DB *gorm.DB = dbService.Gorm()
-
 var DB *gorm.DB
 
 func RegisterHandler(c *gin.Context) {

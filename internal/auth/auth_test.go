@@ -126,9 +126,6 @@ func TestRegisterHandler_EmployeeNotFound_Unit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db, mock := newMockDB(t)
 	form := url.Values{"username": {testUsername}, "email": {testEmail}, "password": {testPassword}}
-
-	// 1. Mock the initial employee lookup to return gorm.ErrRecordNotFound.
-	// FIXED: This is the correct way to test the not-found error path.
 	mock.ExpectQuery(regexp.QuoteMeta(
 		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."terminationdate" FROM "employee" WHERE useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
 		WithArgs(testEmail, 1).

@@ -13,8 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// var dbService database.Service = database.New()
-// var DB *gorm.DB = dbService.Gorm()
 var DB *gorm.DB
 
 func GetAllUsersHandler(c *gin.Context) {
