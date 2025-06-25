@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import MainLayout from '../layouts/MainLayout';
 import FeatureGrid from '../components/ui/FeatureGrid';
 import FeatureBlock from '../components/ui/FeatureBlock';
-import { getEvents, type CalendarEvent } from '../services/eventService';
+import { getUserEvents, type CalendarEvent } from '../services/eventService';
 import { CalendarClock, Users, Calendar, HelpCircle, AlertCircle } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
@@ -15,11 +15,13 @@ const DashboardPage: React.FC = () => {
 
     useEffect(() => {
         const fetchUpcomingEvents = async () => {
+            if (!user) return;
+
             try {
                 setIsLoading(true);
-                const allEvents = await getEvents();
+                const userEvents = await getUserEvents();
 
-                const upcoming = allEvents
+                const upcoming = userEvents
                     .filter(event => event.start && new Date(event.start as string) > new Date())
                     .sort((a, b) => new Date(a.start! as string).getTime() - new Date(b.start! as string).getTime())
                     .slice(0, 4);
@@ -27,19 +29,19 @@ const DashboardPage: React.FC = () => {
                 setUpcomingEvents(upcoming);
                 setError(null);
             } catch (err) {
-                console.error("Failed to fetch events:", err);
-                setError("Could not load upcoming events.");
+                console.error("Failed to fetch user events:", err);
+                setError("Could not load your upcoming events.");
             } finally {
                 setIsLoading(false);
             }
         };
 
         fetchUpcomingEvents();
-    }, []);
+    }, [user]);
 
     const UpcomingEventsContent = () => {
         if (isLoading) {
-            return <p className="text-sm text-custom-text dark:text-dark-secondary">Loading events...</p>;
+            return <p className="text-sm text-custom-text dark:text-dark-secondary">Loading your events...</p>;
         }
         if (error) {
             return (
@@ -63,6 +65,7 @@ const DashboardPage: React.FC = () => {
                                 year: 'numeric',
                                 month: 'long',
                                 day: 'numeric',
+
                                 hour: 'numeric',
                                 minute: '2-digit'
                             })}
@@ -86,9 +89,11 @@ const DashboardPage: React.FC = () => {
 
             <FeatureGrid className="grid-cols-1 md:grid-cols-2 lg:grid-cols-2">
 
-                <FeatureBlock title="Upcoming Events" icon={<CalendarClock size={24} />}>
-                    <UpcomingEventsContent />
-                </FeatureBlock>
+                <Link to="/events" className='block'>
+                    <FeatureBlock title="Your Upcoming Events" icon={<CalendarClock size={24} />}>
+                        <UpcomingEventsContent />
+                    </FeatureBlock>
+                </Link>
 
                 {user?.role === 'Admin' && (
                     <Link to="/users" className="block">
