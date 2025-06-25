@@ -16,9 +16,9 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
-// --- Test Models (to match what handlers use, based on your schema) ---
 type Employee struct {
 	Employeenumber   string `gorm:"primaryKey"`
 	Firstname        string
@@ -41,7 +41,6 @@ type User struct {
 	Role               string
 }
 
-// --- Test Constants ---
 const (
 	AdminEmail        = "admin@example.com"
 	AdminUsername     = "testadmin"
@@ -49,27 +48,25 @@ const (
 	UserEmail         = "user@example.com"
 	UserUsername      = "testuser"
 	UserEmployeeNum   = "E002"
-	UnusedEmail       = "new.employee@example.com" // An employee who doesn't have a user account yet
+	UnusedEmail       = "new.employee@example.com"
 	UnusedEmployeeNum = "E003"
 	TestPassword      = "password123"
 )
 
-// --- Test Helpers ---
-
-// setupTestDB creates a fresh in-memory SQLite database for each test run.
 func setupTestDB(t *testing.T) *gorm.DB {
-	// THE FIX for "UNIQUE constraint failed"
-	// Removing "?cache=shared" ensures a truly new, empty DB for every call.
-	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{})
+
+	silentLogger := logger.Default.LogMode(logger.Silent)
+
+	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{
+		Logger: silentLogger,
+	})
 	require.NoError(t, err, "Failed to connect to in-memory database")
 	require.NoError(t, db.AutoMigrate(&Employee{}, &User{}), "Schema migration failed")
 
-	// Set the global variable directly.
 	DB = db
 	return db
 }
 
-// seedUsersAndEmployees populates the test database with predictable data.
 func seedUsersAndEmployees(t *testing.T, db *gorm.DB) (adminUser User, regularUser User) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(TestPassword), bcrypt.DefaultCost)
 	require.NoError(t, err)
@@ -80,20 +77,17 @@ func seedUsersAndEmployees(t *testing.T, db *gorm.DB) (adminUser User, regularUs
 		{Employeenumber: UnusedEmployeeNum, Firstname: "New", Lastname: "Employee", Useraccountemail: UnusedEmail, Employeestatus: "Active"},
 	}
 
-	// THE FIX IS HERE: Add the `&` to pass a pointer to the slice.
 	require.NoError(t, db.Create(&employees).Error)
 
 	adminUser = User{EmployeeNumber: AdminEmployeeNum, Username: AdminUsername, Password: string(hashedPassword), Role: "Admin"}
 	regularUser = User{EmployeeNumber: UserEmployeeNum, Username: UserUsername, Password: string(hashedPassword), Role: "User"}
 
-	// These lines are already correct from the previous fix.
 	require.NoError(t, db.Create(&adminUser).Error)
 	require.NoError(t, db.Create(&regularUser).Error)
 
 	return adminUser, regularUser
 }
 
-// performRequest is a helper to execute HTTP requests against a handler.
 func performRequest(t *testing.T, r http.Handler, method, path string, body []byte) *httptest.ResponseRecorder {
 	req, err := http.NewRequest(method, path, bytes.NewBuffer(body))
 	require.NoError(t, err)
@@ -103,11 +97,7 @@ func performRequest(t *testing.T, r http.Handler, method, path string, body []by
 	return w
 }
 
-// --- Test Suite ---
-
-// A dummy middleware to simulate checking the role from an auth token.
 func CheckAdminMiddleware(c *gin.Context) {
-	// For testing, we assume the role is passed in a header. A real app would get this from a JWT.
 	role := c.GetHeader("X-Test-Role")
 	if role != "Admin" {
 		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Access denied. Admins only."})
@@ -124,9 +114,8 @@ func TestGetAllUsersHandler_AdminAccess(t *testing.T) {
 	r := gin.New()
 	r.GET("/users", CheckAdminMiddleware, GetAllUsersHandler)
 
-	// Perform request as an Admin
 	req, _ := http.NewRequest("GET", "/users", nil)
-	req.Header.Set("X-Test-Role", "Admin") // Simulate admin user
+	req.Header.Set("X-Test-Role", "Admin")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -136,7 +125,6 @@ func TestGetAllUsersHandler_AdminAccess(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &users)
 	require.NoError(t, err)
 	require.Len(t, users, 2, "Should return the 2 seeded users")
-	// Verify one of the users to ensure data integrity
 	require.Equal(t, AdminUsername, users[0].Username)
 }
 
@@ -148,9 +136,8 @@ func TestGetAllUsersHandler_UserAccessDenied(t *testing.T) {
 	r := gin.New()
 	r.GET("/users", CheckAdminMiddleware, GetAllUsersHandler)
 
-	// Perform request as a regular User (or with no role)
 	req, _ := http.NewRequest("GET", "/users", nil)
-	req.Header.Set("X-Test-Role", "User") // Simulate non-admin user
+	req.Header.Set("X-Test-Role", "User")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -158,7 +145,6 @@ func TestGetAllUsersHandler_UserAccessDenied(t *testing.T) {
 }
 
 func TestAddUserHandler(t *testing.T) {
-	// Setup router once for all sub-tests
 	r := gin.New()
 	r.POST("/users", AddUserHandler)
 
@@ -166,17 +152,15 @@ func TestAddUserHandler(t *testing.T) {
 		db := setupTestDB(t)
 		_, _ = seedUsersAndEmployees(t, db)
 
-		// THE FIX: Add the "Role" field to the request struct.
 		addUserReq := models.AddUserRequest{
 			Username: "new.user",
 			Email:    UnusedEmail,
-			Password: "new-password-that-is-long", // Ensure password meets min=8
-			Role:     "User",                      // Added required role field
+			Password: "new-password-that-is-long",
+			Role:     "User",
 		}
 		body, _ := json.Marshal(addUserReq)
 		w := performRequest(t, r, "POST", "/users", body)
 
-		// Now the assertion for 201 Created should pass.
 		require.Equal(t, http.StatusCreated, w.Code, "Response body: %s", w.Body.String())
 
 		var createdUser models.UserResponse
@@ -185,17 +169,15 @@ func TestAddUserHandler(t *testing.T) {
 		require.Equal(t, "new.user", createdUser.Username)
 		require.Equal(t, UnusedEmail, createdUser.Email)
 
-		// Verify in DB
 		var userInDB User
 		err = db.First(&userInDB, "username = ?", "new.user").Error
 		require.NoError(t, err, "User should be found in the database")
 		require.Equal(t, UnusedEmployeeNum, userInDB.EmployeeNumber)
 	})
 
-	// The "Validation error" sub-test is already passing because it's supposed to fail binding.
 	t.Run("Failure - Validation error (invalid email)", func(t *testing.T) {
 		db := setupTestDB(t)
-		_ = db // Unused, but keeps setup consistent
+		_ = db
 
 		addUserReq := map[string]string{
 			"username": "bad.user",
@@ -212,17 +194,15 @@ func TestAddUserHandler(t *testing.T) {
 		db := setupTestDB(t)
 		_, _ = seedUsersAndEmployees(t, db)
 
-		// THE FIX: Add the "Role" field to the request struct.
 		addUserReq := models.AddUserRequest{
 			Username: "ghost.user",
 			Email:    "ghost@example.com",
 			Password: "password123",
-			Role:     "User", // Added required role field
+			Role:     "User",
 		}
 		body, _ := json.Marshal(addUserReq)
 		w := performRequest(t, r, "POST", "/users", body)
 
-		// Now the assertion for 404 Not Found should pass.
 		require.Equal(t, http.StatusNotFound, w.Code)
 	})
 
@@ -230,17 +210,15 @@ func TestAddUserHandler(t *testing.T) {
 		db := setupTestDB(t)
 		_, _ = seedUsersAndEmployees(t, db)
 
-		// THE FIX: Add the "Role" field to the request struct.
 		addUserReq := models.AddUserRequest{
 			Username: "another.admin",
 			Email:    AdminEmail,
 			Password: "password123",
-			Role:     "Admin", // Added required role field
+			Role:     "Admin",
 		}
 		body, _ := json.Marshal(addUserReq)
 		w := performRequest(t, r, "POST", "/users", body)
 
-		// Now the assertion for 404 Not Found should pass.
 		require.Equal(t, http.StatusNotFound, w.Code)
 	})
 }
@@ -265,7 +243,6 @@ func TestUpdateUserHandler(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "Manager", updatedUser.Role)
 
-		// Verify in DB
 		var userInDB User
 		err = db.First(&userInDB, regularUser.ID).Error
 		require.NoError(t, err)
@@ -291,8 +268,7 @@ func TestUpdateUserHandler(t *testing.T) {
 		newRole := "Manager"
 		updateReq := models.UpdateUserRequest{Role: &newRole}
 		body, _ := json.Marshal(updateReq)
-		w := performRequest(t, r, "PUT", "/users/99999", body) // Non-existent ID
-		// Your handler returns 401 Unauthorized in this case.
+		w := performRequest(t, r, "PUT", "/users/99999", body)
 		require.Equal(t, http.StatusUnauthorized, w.Code)
 	})
 }
