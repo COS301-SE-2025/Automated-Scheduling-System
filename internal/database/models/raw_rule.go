@@ -8,6 +8,7 @@ import (
 
 	"gorm.io/gorm"
 )
+
 type DBRule struct {
     ID string `gorm:"primaryKey;type;text"`
     Enabled bool `gorm:"no null; default:true"`
