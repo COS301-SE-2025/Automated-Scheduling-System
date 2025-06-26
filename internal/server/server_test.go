@@ -4,6 +4,7 @@ import (
 	"Automated-Scheduling-Project/internal/database/gen_models"
 
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -40,4 +41,14 @@ func setupTestServer(t *testing.T) http.Handler {
 	}
 
 	return s.RegisterRoutes()
+}
+
+func TestHealthRoute(t *testing.T) {
+	handler := setupTestServer(t)
+
+	req, _ := http.NewRequest("GET", "/health", nil)
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	require.Equal(t, http.StatusOK, rr.Code)
 }

@@ -86,7 +86,16 @@ describe('AuthContext', () => {
         });
 
         it('should initialize with stored auth data when available', async () => {
-            const mockUser: User = { id: 1, name: 'Test User', email: 'test@example.com' };
+            const mockUser: User = { 
+                id: 1, 
+                name: 'Test User', 
+                email: 'test@example.com',
+                employeeNumber: 'E123',
+                username: 'testuser',
+                terminationDate: null,
+                employeeStatus: 'Active',
+                role: 'Admin'
+            };
             const mockToken = 'stored-token';
 
             mockLocalStorage.getToken.mockReturnValue(mockToken);
@@ -106,10 +115,22 @@ describe('AuthContext', () => {
 
     describe('Login', () => {
         it('should handle successful login', async () => {
-            const mockUserToFetch: User = { id: 1, name: 'Test User', email: 'test@example.com' };
+            const mockUserToFetch: User = { 
+                id: 1, 
+                name: 'Test User', 
+                email: 'test@example.com',
+                employeeNumber: 'E123',
+                username: 'testuser',
+                terminationDate: null,
+                employeeStatus: 'Active',
+                role: 'Admin'
+            };
             const mockTokenFromLogin = 'new-token';
 
-            mockAuthService.login.mockResolvedValue({ token: mockTokenFromLogin });
+            // FIX: The login service now returns the user object along with the token.
+            mockAuthService.login.mockResolvedValue({ token: mockTokenFromLogin, user: mockUserToFetch });
+            
+            // This mock might be redundant now if the AuthProvider is optimized, but it's safe to keep.
             mockAuthService.fetchUserProfile.mockResolvedValue(mockUserToFetch);
 
             renderWithAuthProvider(<TestComponent />);
@@ -160,7 +181,16 @@ describe('AuthContext', () => {
     describe('Signup', () => {
         it('should handle successful signup', async () => {
             const mockResponse: AuthApiResponseData = {
-                user: { id: 2, name: 'New User', email: 'new@example.com' },
+                user: {
+                    id: 2, 
+                    name: 'New User', 
+                    email: 'new@example.com',
+                    employeeNumber: 'E456',
+                    username: 'newuser',
+                    terminationDate: null,
+                    employeeStatus: 'Active',
+                    role: 'User'
+                },
                 token: 'signup-token'
             };
 
@@ -210,7 +240,16 @@ describe('AuthContext', () => {
 
     describe('Logout', () => {
         it('should handle successful logout', async () => {
-            const mockUser: User = { id: 1, name: 'Test User', email: 'test@example.com' };
+            const mockUser: User = { 
+                id: 1, 
+                name: 'Test User', 
+                email: 'test@example.com',
+                employeeNumber: 'E123',
+                username: 'testuser',
+                terminationDate: null,
+                employeeStatus: 'Active',
+                role: 'Admin'
+            };
             
             mockLocalStorage.getToken.mockReturnValue('token'); 
             mockAuthService.fetchUserProfile.mockResolvedValue(mockUser); 
