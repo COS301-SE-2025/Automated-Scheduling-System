@@ -15,6 +15,7 @@ drop_tables:
 
 # Run seeder
 seed:
+	@go run cmd/migrate/main.go
 	@go run cmd/seed/main.go
 
 # Auto-generate models
