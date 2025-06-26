@@ -5,16 +5,13 @@ import (
 	"fmt"
 	"time"
     "errors"
+    "Automated-Scheduling-Project/internal/database/gen_models"
 )
 
-type User struct {
-    ID string
-    Role string
-}
 
 type MedicalCheck struct {
     ID string 
-    UserID string
+    UserID int64
     CheckType string
     StartTime  time.Time
     EndTime time.Time
@@ -36,7 +33,7 @@ type Rule interface{
 // Validation runs imediately when a check is proposed
 type ValidationRule interface{
     Rule
-    Validate(check MedicalCheck, shedule Schedule, user User) error
+    Validate(check MedicalCheck, shedule Schedule, user gen_models.User) error
 }
 
 // ScheduleRule is evaluated by a runner on a time-tick (like cron jobs)
@@ -44,19 +41,25 @@ type ValidationRule interface{
 
 type ScheduledRule interface {
     Rule
-    ShouldTrigger(now time.Time, user User) bool
+    ShouldTrigger(now time.Time, user gen_models.User) bool
     Execute(
         now time.Time,
-        user User,
+        user gen_models.User,
         newCheck func(MedicalCheck) error,
         notify   func(Notification) error,
     ) error
 }
 
 type Notification struct {
-    ToUserID string  `json:"toUserID"`
+    ToUserID int64  `json:"toUserID"`
     Subject string  `json:"subject"`
     Message string  `json:"message"`
+}
+
+type Period struct {
+    Years   int `json:"years,omitempty"`
+    Months  int `json:"months,omitempty"`
+    Days    int `json:"days,omitempty"`
 }
 
 type RawRule struct {
@@ -64,7 +67,7 @@ type RawRule struct {
     Type string   `json:"type"`
     Enabled bool `json:"enabled"`
     Target string `json:"target"` // "user", "role", department, etc
-    Frequency string `json:"frequency"` // e.g. "6mo" -  only scheduled rules
+    Frequency *Period `json:"frequency, omitempty"`  
     Conditions map[string]any `json:"conditions,omitempty"`
     Params  map[string]any  `json:"params,omitempty"`
     When string `json:"when,omitempty"`
@@ -96,7 +99,7 @@ func (r *CooldownRule) ID() string {return r.id}
 func (r *CooldownRule) Enabled() bool {return r.enabled}
 func (r *CooldownRule) Type() string {return "cooldown"}
 
-func (r *CooldownRule) Validate(check MedicalCheck, schedule Schedule, _ User) error {
+func (r *CooldownRule) Validate(check MedicalCheck, schedule Schedule, _ gen_models.User) error {
     if check.CheckType != r.checkType{
         return nil
     }
@@ -117,22 +120,22 @@ func (r *CooldownRule) Validate(check MedicalCheck, schedule Schedule, _ User) e
 type RecurringCheckRule struct {              // single “c”
     id               string
     enabled          bool
-    frequencyMonths  int
+    frequency        Period
     notifyDaysBefore int
     checkType        string
-    lastRun          map[string]time.Time
+    lastRun          map[int64]time.Time
 }
 
 func (r *RecurringCheckRule) ID() string      { return r.id }
 func (r *RecurringCheckRule) Enabled() bool   { return r.enabled }
 func (r *RecurringCheckRule) Type() string    { return "recurringCheck" }
 
-func (r *RecurringCheckRule) ShouldTrigger(now time.Time, user User) bool {
+func (r *RecurringCheckRule) ShouldTrigger(now time.Time, user gen_models.User) bool {
     if !r.enabled {
         return false
     }
     if lr, ok := r.lastRun[user.ID]; ok {
-        next := lr.AddDate(0, r.frequencyMonths, 0)
+        next := lr.AddDate(r.frequency.Years, r.frequency.Months, r.frequency.Days)
         return !now.Before(next) // true when now ≥ next
     }
     return true // first-ever run
@@ -140,11 +143,11 @@ func (r *RecurringCheckRule) ShouldTrigger(now time.Time, user User) bool {
 
 
 
-func (r *RecurringCheckRule) Execute(now time.Time, user User, newCheck func(MedicalCheck) error, notify func(Notification) error ) error {
+func (r *RecurringCheckRule) Execute(now time.Time, user gen_models.User, newCheck func(MedicalCheck) error, notify func(Notification) error ) error {
     checkDate := now.AddDate(0,0,r.notifyDaysBefore)
     // Create new medical check in the future 
     mc := MedicalCheck{
-        ID: fmt.Sprintf("%s-%s-%d", r.checkType, user.ID, now.Unix()),
+        ID: fmt.Sprintf("%s-%v-%d", r.checkType, user.ID, now.Unix()),
         UserID: user.ID, 
         CheckType: r.checkType,
         StartTime: checkDate,
@@ -189,24 +192,33 @@ func BuildRule(rr RawRule) (Rule, error) {
         }, nil
 
     case "recurringCheck":
-       
-        freqStr, pdaysAny := rr.Frequency, rr.Params["notifyDaysBefore"]
-        pdays := pdaysAny.(float64)
-        ct, _  := rr.Params["checkType"].(string)
-
-
-        months, err := parseMonths(freqStr)
-        if err != nil {
-            return nil, err
+        if rr.Frequency == nil {
+            return nil, fmt.Errorf("recurringCheck %q, frequency is required", rr.ID)
         }
+        per := *rr.Frequency
+        if per.Years == 0 && per.Months==0 && per.Days==0{
+            return nil, fmt.Errorf("recurringCheck %q: frequency cannot be 0", rr.ID)
+        }
+
+        pdAny, ok := rr.Params["notifyDaysBefore"]
+        if !ok{
+            return nil, fmt.Errorf("recurringCheck %q: param 'notifyDaysBefore' not set", rr.ID)
+        }
+
+        pDays, ok := pdAny.(float64)
+        if !ok {
+            return nil, fmt.Errorf("'notifyDaysBefore' must be numeric")
+        }
+
+        ct, _ := rr.Params["checkType"].(string)
 
         return &RecurringCheckRule{
             id:               rr.ID,
             enabled:          rr.Enabled,
-            frequencyMonths:  months,
-            notifyDaysBefore: int(pdays),
+            frequency:        per,
+            notifyDaysBefore: int(pDays),
             checkType:        ct,
-            lastRun:          make(map[string]time.Time),
+            lastRun:          make(map[int64]time.Time),
         }, nil
     case "action":
         if len(rr.Actions) == 0 {
@@ -222,18 +234,6 @@ func BuildRule(rr RawRule) (Rule, error) {
     default:
         return nil, fmt.Errorf("unknown rule type: %s", rr.Type)
     }
-}
-
-// parseMonths converts a string like "6mo" → 6.
-func parseMonths(s string) (int, error) {
-    var n int
-    if _, err := fmt.Sscanf(s, "%dmo", &n); err != nil {
-        return 0, fmt.Errorf("invalid frequency %q; expected e.g. '6mo'", s)
-    }
-    if n <= 0 {
-        return 0, errors.New("frequency must be >0 months")
-    }
-    return n, nil
 }
 
 type Engine struct {
@@ -260,7 +260,7 @@ func NewEngine(rs []Rule) *Engine {
 }
 
 // ValidateCheck runs all validation rules and returns the first violations.
-func (e *Engine) ValidateCheck(check MedicalCheck, sch Schedule, u User) []error {
+func (e *Engine) ValidateCheck(check MedicalCheck, sch Schedule, u gen_models.User) []error {
     var errs []error
     for _, r := range e.validations {
         if err := r.Validate(check, sch, u); err != nil {
@@ -273,7 +273,7 @@ func (e *Engine) ValidateCheck(check MedicalCheck, sch Schedule, u User) []error
 // RunScheduled iterates over all users and executes rules that hit.
 // Inject two delegate functions so the engine stays decoupled from persistence
 // and messaging layers.
-func (e *Engine) RunScheduled(now time.Time, users []User,
+func (e *Engine) RunScheduled(now time.Time, users []gen_models.User,
     newCheck func(MedicalCheck) error,
     notify func(Notification) error) {
 

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+    "Automated-Scheduling-Project/internal/database/gen_models"
 )
 
 func mustParse(t *testing.T, s string) time.Time {
@@ -25,19 +26,19 @@ func TestCooldownRule(t *testing.T) {
 	oldCheck := mustParse(t, "2025-05-01T12:00:00Z")
 	now      := mustParse(t, "2025-06-01T12:00:00Z")
 	sched := Schedule{Checks: []MedicalCheck{
-		{UserID: "u1", CheckType: "vision", StartTime: oldCheck},
+		{UserID: 1, CheckType: "vision", StartTime: oldCheck},
 	}}
 
 	err := rule.Validate(
-		MedicalCheck{UserID: "u1", CheckType: "vision", StartTime: now},
-		sched, User{})
+		MedicalCheck{UserID: 1, CheckType: "vision", StartTime: now},
+		sched, gen_models.User{})
 	require.NoError(t, err)
 
 	// Same scenario but only 10 days gap → expect error
 	sched.Checks[0].StartTime = mustParse(t, "2025-05-22T12:00:00Z")
 	err = rule.Validate(
-		MedicalCheck{UserID: "u1", CheckType: "vision", StartTime: now},
-		sched, User{})
+		MedicalCheck{UserID: 1, CheckType: "vision", StartTime: now},
+		sched, gen_models.User{})
 	require.Error(t, err)
 }
 
@@ -49,12 +50,12 @@ func TestRecurringCheckRule(t *testing.T) {
     rule := &RecurringCheckRule{
         id:               "rc",
         enabled:          true,
-        frequencyMonths:  6,
+        frequency:        Period{Months: 6},
         notifyDaysBefore: 7,
         checkType:        "hearing",
-        lastRun:          make(map[string]time.Time),
+        lastRun:          make(map[int64]time.Time),
     }
-    user := User{ID: "u42"}
+    user := gen_models.User{ID: 42}
     now  := mustParse(t, "2025-01-01T00:00:00Z")
 
     require.True(t, rule.ShouldTrigger(now, user), "first run should trigger")
@@ -72,10 +73,10 @@ func TestRecurringCheckRule(t *testing.T) {
     require.True(t, rule.ShouldTrigger(later, user))
 }
 /* ------------------------------------------------------------------------- */
-/* 3. Factory: JSON -> RawRule -> BuildRule                                  */
+/* 3. Build Rule: JSON -> RawRule -> BuildRule                                  */
 /* ------------------------------------------------------------------------- */
 
-func TestFactory(t *testing.T) {
+func TestBuildRule(t *testing.T) {
 	raw := `[{
 		"id":"cool1",
 		"type":"cooldown",
@@ -100,19 +101,19 @@ func TestEngineEndToEnd(t *testing.T) {
 	rc := &RecurringCheckRule{
 		id:              "rc",
 		enabled:         true,
-		frequencyMonths: 1,
+		frequency:       Period{Years: 1},
 		checkType:       "vision",
-		lastRun:         make(map[string]time.Time),
+		lastRun:         make(map[int64]time.Time),
 	}
 
 	engine := NewEngine([]Rule{cd, rc})
 
 	// User + initial schedule
-	user := User{ID: "u1"}
+	user := gen_models.User{ID: 1}
 	sched := Schedule{}
 
 	// propose first check – should pass
-	proposed := MedicalCheck{UserID: "u1", CheckType: "vision",
+	proposed := MedicalCheck{UserID: 1, CheckType: "vision",
 		StartTime: mustParse(t, "2025-01-01T09:00:00Z")}
 	require.Empty(t, engine.ValidateCheck(proposed, sched, user))
 
@@ -130,7 +131,7 @@ func TestEngineEndToEnd(t *testing.T) {
 	var generated []MedicalCheck
 	var notified []Notification
 
-	engine.RunScheduled(now, []User{user},
+	engine.RunScheduled(now, []gen_models.User{user},
 		func(mc MedicalCheck) error { generated = append(generated, mc); return nil },
 		func(n Notification) error { notified = append(notified, n); return nil })
 
@@ -141,17 +142,19 @@ func TestEngineEndToEnd(t *testing.T) {
 /* ------------------------------------------------------------------------- */
 /* 5. ActionRule basic behaviour                                             */
 /* ------------------------------------------------------------------------- */
-type stubNotifier func(string, string) error
+type stubNotifier func(int64, string) error
 
-func (f stubNotifier) Send(u, m string) error { return f(u, m) }
+func (f stubNotifier) Send(u int64, m string) error { return f(u, m) }
 
 // variables the stub will capture (must be package-level)
-var gotUser, gotMsg string
+var gotUser int64 
+var gotMsg string
 
 func TestActionRule_Notify(t *testing.T) {
 	// 1. register stub notifier
-	RegisterNotifier(stubNotifier(func(u, m string) error {
-		gotUser, gotMsg = u, m
+	RegisterNotifier(stubNotifier(func(u int64, m string) error {
+		gotUser = u
+        gotMsg =  m
 		return nil
 	}))
 	defer RegisterNotifier(nil) // clean up for other tests
@@ -173,16 +176,16 @@ func TestActionRule_Notify(t *testing.T) {
 
 	// 3a. condition FALSE – notifier should NOT be called
 	check1 := MedicalCheck{CheckType: "vision"}
-	user1  := User{ID: "u1", Role: "admin"}
+	user1  := gen_models.User{ID: 1, Role: "admin"}
 
 	require.NoError(t, ar.Validate(check1, Schedule{}, user1))
-	require.Equal(t, "", gotUser)
+	require.Equal(t, int64(0), gotUser)
 
 	// 3b. condition TRUE – notifier should be called
 	check2 := MedicalCheck{CheckType: "vision"}
-	user2  := User{ID: "u2", Role: "driver"}
+	user2  := gen_models.User{ID: 2, Role: "driver"}
 
 	require.NoError(t, ar.Validate(check2, Schedule{}, user2))
-	require.Equal(t, "u2", gotUser)
+	require.Equal(t, int64(2), gotUser)
 	require.Equal(t, "Time for your eye test", gotMsg)
 }
