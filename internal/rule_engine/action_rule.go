@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+    "Automated-Scheduling-Project/internal/database/gen_models"
 )
+
 type ActionRule struct {
 	id       string
 	enabled  bool
@@ -22,7 +24,7 @@ func (r *ActionRule) Type() string   { return "action" }
 // Validate is called by Engine.ValidateCheck.  If the optional 'when' condition
 // evaluates to true (or is empty) we execute each RawAction via runAction,
 // otherwise we silently skip.
-func (r *ActionRule) Validate(c MedicalCheck, _ Schedule, u User) error {
+func (r *ActionRule) Validate(c MedicalCheck, _ Schedule, u gen_models.User) error {
 	// ------------------------------------------------------------------
 	// 1. Evaluate the optional CEL condition
 	// ------------------------------------------------------------------
@@ -70,7 +72,7 @@ func (r *ActionRule) Validate(c MedicalCheck, _ Schedule, u User) error {
 //
 // Until then, notify actions are silently ignored.
 type Notifier interface {
-    Send(userID string, msg string) error
+    Send(userID int64, msg string) error
 }
 
 var notifier Notifier // defaults to nil – safe no‑op
@@ -111,8 +113,8 @@ func runAction(a RawAction, vars map[string]any) error {
             return errors.New("notify action requires string param 'message'")
         }
         userMap, _ := vars["user"].(map[string]any)
-        userID, _ := userMap["id"].(string)
-        if userID == "" {
+        userID, _ := userMap["id"].(int64)
+        if userID == 0 {
             return errors.New("notify action expects user.id in CEL context")
         }
         return notifier.Send(userID, msg)
