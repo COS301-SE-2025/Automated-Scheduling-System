@@ -31,6 +31,10 @@ run:
 ftest:
 	@cd frontend && yarn install --prefer-offline --no-fund && yarn run test --silent --watch=false
 
+# Run frontend linting
+flint:
+	@cd frontend && yarn install --prefer-offline --no-fund && yarn run lint
+
 # Create DB container
 docker-run:
 	@if docker compose up --build 2>/dev/null; then \
@@ -86,4 +90,4 @@ watch:
             fi; \
         fi
 
-.PHONY: all build run test clean watch docker-run docker-down itest
+.PHONY: all build run test clean watch docker-run docker-down itest flint

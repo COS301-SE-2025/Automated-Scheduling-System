@@ -6,10 +6,10 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventContentArg, DateSelectArg, EventClickArg } from '@fullcalendar/core';
-import type { DateClickArg } from '@fullcalendar/interaction'; 
+import type { DateClickArg } from '@fullcalendar/interaction';
 import { PlusCircle } from 'lucide-react';
-import EventFormModal, { type EventFormModalProps } from '../components/ui/EventFormModal'; 
-import EventDetailModal from '../components/ui/EventDetailModal'; 
+import EventFormModal, { type EventFormModalProps } from '../components/ui/EventFormModal';
+import EventDetailModal from '../components/ui/EventDetailModal';
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
 import * as eventService from '../services/eventService';
 import type { CalendarEvent } from '../services/eventService';
@@ -50,7 +50,7 @@ const CalendarPage: React.FC = () => {
     }, []);
 
     const handleAddEventClick = () => {
-        setSelectedDateInfo(null); 
+        setSelectedDateInfo(null);
         setEventToEdit(null);
         setIsModalOpen(true);
     };
@@ -148,22 +148,22 @@ const CalendarPage: React.FC = () => {
             const dateClick = selectedDateInfo as DateClickArg;
             return {
                 startStr: dateClick.dateStr,
-                endStr: dateClick.dateStr, 
-                allDay: !dateClick.dateStr.includes('T'), 
-                
+                endStr: dateClick.dateStr,
+                allDay: !dateClick.dateStr.includes('T'),
+
             };
         }
-        
+
         if ('startStr' in selectedDateInfo) {
             const selectableInfo = selectedDateInfo as DateSelectArg | (EventClickArg['event'] & { eventType?: string; relevantParties?: string });
-             return {
+            return {
                 startStr: selectableInfo.startStr,
                 endStr: selectableInfo.endStr,
                 allDay: selectableInfo.allDay,
                 title: 'title' in selectableInfo ? selectableInfo.title : undefined,
-                
+
                 eventType: ('extendedProps' in selectableInfo && selectableInfo.extendedProps?.eventType) ? selectableInfo.extendedProps.eventType : undefined,
-                
+
                 relevantParties: ('extendedProps' in selectableInfo && selectableInfo.extendedProps?.relevantParties) ? selectableInfo.extendedProps.relevantParties : undefined,
             };
         }
@@ -184,36 +184,54 @@ const CalendarPage: React.FC = () => {
                         Add Event
                     </button>
                 </div>
-                <div className="bg-white dark:bg-dark-div p-4 rounded-lg shadow">
-                    <FullCalendar
-                        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                        initialView="dayGridMonth"
-                        headerToolbar={{
-                            left: 'prev,next today',
-                            center: 'title',
-                            right: 'dayGridMonth,timeGridWeek,timeGridDay'
-                        }}
-                        editable={true}
-                        selectable={true}
-                        selectMirror={true}
-                        dayMaxEvents={true}
-                        eventClick={handleEventClick}
-                        dateClick={handleDateClick}
-                        select={handleSelect}
-                        events={events}
-                        eventContent={renderEventContent}
-                        ref={calendarRef}
-                    />
-                </div>
+
+                {isLoading && (
+                    <div className="text-center p-10 text-custom-text dark:text-dark-text">
+                        <p>Loading your calendar...</p>
+                    </div>
+                )}
+
+                {error && (
+                    <div className="text-center p-10 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg">
+                        <p className="font-semibold">Failed to load calendar</p>
+                        <p className="text-sm">{error}</p>
+                    </div>
+                )}
+
+                {!isLoading && !error && (
+                    <div className="bg-white dark:bg-dark-div p-4 rounded-lg shadow">
+                        <FullCalendar
+                            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                            initialView="dayGridMonth"
+                            headerToolbar={{
+                                left: 'prev,next today',
+                                center: 'title',
+                                right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                            }}
+                            editable={true}
+                            selectable={true}
+                            selectMirror={true}
+                            dayMaxEvents={true}
+                            eventClick={handleEventClick}
+                            dateClick={handleDateClick}
+                            select={handleSelect}
+                            events={events}
+                            eventContent={renderEventContent}
+                            ref={calendarRef}
+                        />
+                    </div>
+                )}
+
             </div>
+
             <EventFormModal
                 isOpen={isModalOpen}
                 onClose={() => {
                     setIsModalOpen(false);
-                    setSelectedDateInfo(null); 
+                    setSelectedDateInfo(null);
                     setEventToEdit(null);
                     const calendarApi = calendarRef.current?.getApi();
-                    calendarApi?.unselect(); 
+                    calendarApi?.unselect();
                 }}
                 onSave={handleSaveEvent}
                 initialData={prepareInitialModalData()}
@@ -279,7 +297,7 @@ function renderEventContent(eventInfo: EventContentArg) {
                 <span className="text-xs block truncate">Type: {eventType}</span>
             )}
             {!isMonthView && eventType && (
-                 <span className="text-xs block">Type: {eventType}</span>
+                <span className="text-xs block">Type: {eventType}</span>
             )}
             {!isMonthView && relevantParties && (
                 <span className="text-xs block">For: {relevantParties}</span>

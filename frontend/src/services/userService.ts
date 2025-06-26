@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import apiClient, { ApiError } from '../services/api';
 import type { User, AddUserData, UpdateUserData } from '../types/user';
 
