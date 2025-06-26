@@ -8,7 +8,6 @@ import type {
     
     LoginFormData,
     SignupFormData,
-    AuthSuccessPayload,
 } from '../types/auth.types';
 import { ApiError } from '../services/api'; 
 import type {User} from '../types/user'

@@ -29,6 +29,7 @@ interface UserModalProps {
     onClose: () => void;
     onSave: (data: AddUserData | UpdateUserData, options: { userId?: number }) => Promise<void>;
     user?: User;
+    apiError?: string | null;
 }
 
 const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, user }) => {
@@ -54,7 +55,7 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
                 reset({ username: '', email: '', password: '', confirmPassword: '', role: 'User' });
             }
         }
-    }, [isOpen, mode, user, reset]);
+    }, [isOpen, isEditMode, user, reset]);
 
     const onSubmit: SubmitHandler<AddUserFormData> = async (data) => {
         setApiError(null);

@@ -1,20 +1,12 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, type ReactNode } from 'react';
+import { ThemeContext } from './ThemeDefinition';
 
-type ThemeContextType = {
-    darkMode: boolean;
-    toggleDarkMode: () => void;
-};
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    // Check if user has previously set a theme preference
+export const ThemeProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [darkMode, setDarkMode] = useState(() => {
         const savedTheme = localStorage.getItem('darkMode');
         return savedTheme === 'true';
     });
 
-    // Update the HTML class when darkMode changes
     useEffect(() => {
         if (darkMode) {
             document.documentElement.classList.add('dark');
@@ -33,13 +25,4 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             {children}
         </ThemeContext.Provider>
     );
-};
-
-// Custom hook to use the theme context
-export const useTheme = (): ThemeContextType => {
-    const context = useContext(ThemeContext);
-    if (context === undefined) {
-        throw new Error('useTheme must be used within a ThemeProvider');
-    }
-    return context;
 };

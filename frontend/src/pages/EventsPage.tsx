@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react'; 
 import { useAuth } from '../hooks/useAuth';
 import MainLayout from '../layouts/MainLayout';
 import FeatureGrid from '../components/ui/FeatureGrid';
@@ -24,7 +24,7 @@ const EventsPage: React.FC = () => {
     const [eventToEdit, setEventToEdit] = useState<CalendarEvent | null>(null);
     const [eventToDelete, setEventToDelete] = useState<CalendarEvent | null>(null);
 
-    const fetchAndSetEvents = async () => {
+    const fetchAndSetEvents = useCallback(async () => {
         if (!user) return;
 
         try {
@@ -43,11 +43,12 @@ const EventsPage: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    };
+
+    }, [user]); 
 
     useEffect(() => {
         fetchAndSetEvents();
-    }, [user]);
+    }, [fetchAndSetEvents]);
 
     // --- Admin-specific Handlers ---
 
