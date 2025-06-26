@@ -57,12 +57,12 @@ docker-down:
 # Test the application
 test:
 	@echo "Testing..."
-	@go test ./... -v
+	@go test ./... -cover -covermode=atomic -coverprofile=coverage.out -v
 
 # Unit testing (auth only)
 utest:
 	@echo "Running Unit Tests"
-	@go test -v -tags=unit ./...
+	@go test -v -tags=unit ./... -covermode=atomic -coverprofile=coverage.out
 
 # Integrations Tests for the application
 itest:
