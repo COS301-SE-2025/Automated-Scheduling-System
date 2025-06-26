@@ -1,7 +1,6 @@
 package event
 
 import (
-	"Automated-Scheduling-Project/internal/database"
 	"Automated-Scheduling-Project/internal/database/gen_models"
 	"Automated-Scheduling-Project/internal/database/models"
 	"net/http"
@@ -11,8 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var dbService database.Service = database.New()
-var DB *gorm.DB = dbService.Gorm()
+var DB *gorm.DB
 
 func GetEventsHandler(c *gin.Context) {
 	var events []gen_models.Event
