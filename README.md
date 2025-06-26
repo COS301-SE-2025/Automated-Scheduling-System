@@ -89,8 +89,7 @@ Here’s the team behind **Automated Scheduling System**:
 ![Build](https://github.com/COS301-SE-2025/Automated-Scheduling-System/actions/workflows/go-test.yml/badge.svg)
 ![Issues](https://img.shields.io/github/issues/COS301-SE-2025/Automated-Scheduling-System)
 [![goreleaser](https://github.com/COS301-SE-2025/Automated-Scheduling-System/actions/workflows/release.yml/badge.svg)](https://github.com/COS301-SE-2025/Automated-Scheduling-System/actions/workflows/release.yml)
-[![codecov](https://codecov.io/gh/COS301-SE-2025/Automated-Scheduling-System/branch/dev/graph/badge.svg)](https://github.com/COS301-SE-2025/Automated-Scheduling-System)
-
+[![codecov](https://codecov.io/gh/COS301-SE-2025/Automated-Scheduling-System/branch/dev/graph/badge.svg)](https://codecov.io/gh/COS301-SE-2025/Automated-Scheduling-System/tree/dev)
 
 ## Technological  Requirements
  ### Frontend

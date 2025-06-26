@@ -25,10 +25,13 @@ jobs:
 
       - name: Build
         run: make build
+
       - name: Test with the Go CLI
         run: make test
+
       - name: Test frontend with Vitest
         run: make ftest
+
       - name: Golangci-lint
         uses: golangci/golangci-lint-action@v8.0.0
         with:
@@ -36,3 +39,7 @@ jobs:
 
       - name: Lint frontend with ESLint
         run: make flint
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+
