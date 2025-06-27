@@ -15,11 +15,19 @@
 | 📄 SRS Document                        | [Requirements](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Software-Requirements-Specification)                        |
 | 📄 Architectural Requirements Document | [Architectural](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/%F0%9F%8F%9B%EF%B8%8F-Architectural-Requirements-Document) |
 | 📄 User Manual                         | [User Manual](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/User-Manual)                                                 |
-| 📄 Coding Standards Document           | [Coding standards]()                                                                                                                          |
+| 📄 Coding Standards Document           | [Coding standards](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Coding-Standards-Document)                              |
 | 📊 Scrum Board                         | [Scrum Board](https://github.com/orgs/COS301-SE-2025/projects/145)                                                                            |
 | 📊 Sprint Planning                     | [Sprint Planning](https://github.com/orgs/COS301-SE-2025/projects/145/views/3?sliceBy%5Bvalue%5D=Task&pane=info)                              |
 | 📄 Getting Started                     | [Getting Started](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Getting-Started)                                         |
 | 📄 Previous Documentation              | [Previous Docs (Google Drive)](https://drive.google.com/drive/folders/1qHXDQRyW6HW9QMX4W1FLxzJk8N2bGqz8)                                      |
+
+---
+
+## 🎥 Demo Resources
+
+| Demo   | Video                                                                              | Presentation                                                                     |
+| ------ | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Demo 1 | [Demo 1](https://drive.google.com/drive/folders/1vOPVthLNlVF2fgY1ZBmNBSnBYhcFAFdi) | [Slides 1](https://www.canva.com/design/DAGorRU2lTc/os4bYH1iU9YRJyTcd99fxw/edit) |
 
 ---
 
@@ -97,7 +105,8 @@ Here’s the team behind **Automated Scheduling System**:
 ![Build](https://github.com/COS301-SE-2025/Automated-Scheduling-System/actions/workflows/go-test.yml/badge.svg)
 ![Issues](https://img.shields.io/github/issues/COS301-SE-2025/Automated-Scheduling-System)
 [![goreleaser](https://github.com/COS301-SE-2025/Automated-Scheduling-System/actions/workflows/release.yml/badge.svg)](https://github.com/COS301-SE-2025/Automated-Scheduling-System/actions/workflows/release.yml)
-[![codecov](https://codecov.io/gh/COS301-SE-2025/Automated-Scheduling-System/branch/dev/graph/badge.svg)](https://codecov.io/gh/COS301-SE-2025/Automated-Scheduling-System/tree/dev)
+[![codecov](https://codecov.io/gh/COS301-SE-2025/Automated-Scheduling-System/branch/dev/graph/badge.svg)](https://github.com/COS301-SE-2025/Automated-Scheduling-System)
+
 
 ## Technological  Requirements
  ### Frontend
