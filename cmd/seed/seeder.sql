@@ -12,7 +12,7 @@ CREATE TABLE users (
     id BIGSERIAL PRIMARY KEY,
     username VARCHAR(150) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
-    forgot_password_link VARCHAR(255),
+    forgot_password_link VARCHAR(255) UNIQUE,
     role VARCHAR(50) DEFAULT 'User',
     employee_number VARCHAR(200) NOT NULL,
     CONSTRAINT fk_employee FOREIGN KEY (employee_number) REFERENCES employee(EmployeeNumber) ON DELETE CASCADE

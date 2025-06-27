@@ -169,7 +169,7 @@ func ProfileHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, userResponse)
 }
 
-func forgotPasswordHandler(c *gin.Context) {
+func generateResetLinkHandler(c *gin.Context) {
 	type ForgotPasswordRequest struct {
 		Email string `json:"email" binding:"required,email"`
 	}
@@ -182,7 +182,7 @@ func forgotPasswordHandler(c *gin.Context) {
 
 	var extendedEmployee models.ExtendedEmployee
 	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("Useraccountemail = ?", req.Email).First(&extendedEmployee).Error; err != nil {
-		c.JSON(http.StatusOK, gin.H{"message": "If an account with this email exists, a password reset link has been sent."})
+		c.JSON(http.StatusNotFound, gin.H{"message": "If an account with this email exists, a password reset link has been sent."})
 		return
 	}
 
@@ -203,13 +203,15 @@ func forgotPasswordHandler(c *gin.Context) {
 		return
 	}
 
-	// Determine the scheme (http or https)
-	scheme := "http"
-	if c.Request.Header.Get("X-Forwarded-Proto") == "https" {
-		scheme = "https"
+	extendedEmployee.User.ForgotPasswordLink = resetToken
+
+	// Update user's forgotpassword field
+	if err := DB.Model(&gen_models.User{}).Where("id = ?", extendedEmployee.User.ID).Updates(extendedEmployee.User).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user's forgot password field."})
+		return
 	}
 
-	fullURL := fmt.Sprintf("%s://%s/reset-password?token=%s", scheme, c.Request.Host, resetToken)
+	fullURL := fmt.Sprintf("http://localhost:5173/reset-password/%s", resetToken) // Update host later
 
 	body := fmt.Sprintf("Click the link to reset your password: %s", fullURL)
 
@@ -231,4 +233,67 @@ func generateResetToken() (string, error) {
 
 	// Convert the byte slice to a hexadecimal string
 	return hex.EncodeToString(token), nil
+}
+
+func resetPasswordHandler(c *gin.Context) {
+	// Define a struct to match the expected JSON payload
+	type ResetPasswordRequest struct {
+		Email           string `json:"email" binding:"required,email"`
+		Password        string `json:"password" binding:"required"`
+		ConfirmPassword string `json:"confirmPassword" binding:"required"`
+	}
+
+	var req ResetPasswordRequest
+
+	// Bind the JSON body to the struct
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		return
+	}
+
+	// Access the fields from the struct
+	email := req.Email
+	password := req.Password
+
+	var extendedEmployee models.ExtendedEmployee
+	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("useraccountemail = ?", email).First(&extendedEmployee).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "This email is not registered in the employee system."})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to verify employee information"})
+		return
+	}
+
+	// Update User model with new password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+		return
+	}
+	extendedEmployee.User.Password = string(hashedPassword)
+
+	// Clear forgot password field
+	extendedEmployee.User.ForgotPasswordLink = ""
+
+	// Update User in database
+	if err := DB.Model(&gen_models.User{}).Where("id = ?", extendedEmployee.User.ID).Updates(extendedEmployee.User).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user forgot password field."})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Password has been successfully reset."})
+}
+
+func resetPasswordPageHandler(c *gin.Context) {
+	resetToken := c.Param("resetToken")
+
+	var user gen_models.User
+
+	if err := DB.Model(&gen_models.User{}).Where("forgot_password_link = ?", resetToken).First(&user).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid reset token."})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Reset token is valid."})
 }

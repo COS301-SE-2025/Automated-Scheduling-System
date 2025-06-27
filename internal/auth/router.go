@@ -5,7 +5,9 @@ import "github.com/gin-gonic/gin"
 func RegisterAuthRoutes(r *gin.Engine) {
 	r.POST("/register", RegisterHandler)
 	r.POST("/login", LoginHandler)
-	r.POST("/forgot-password", forgotPasswordHandler)
+	r.POST("/forgot-password", generateResetLinkHandler)
+	r.POST("/reset-password", resetPasswordHandler)
+	r.GET("/reset-password/:resetToken", resetPasswordPageHandler)
 
 	protected := r.Group("/api")
 	protected.Use(AuthMiddleware())
