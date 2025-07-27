@@ -10,6 +10,7 @@ type EventResponse struct {
 	AllDay          bool      `json:"allDay"`
 	EventType       string    `json:"eventType"`
 	RelevantParties string    `json:"relevantParties"`
+	Color           string    `json:"color,omitempty"`
 }
 
 type CreateEventRequest struct {
@@ -19,6 +20,7 @@ type CreateEventRequest struct {
 	AllDay          bool      `json:"allDay"`
 	EventType       string    `json:"eventType"`
 	RelevantParties string    `json:"relevantParties"`
+	Color           string    `json:"color"`
 }
 
 type UpdateEventRequest struct {
@@ -28,4 +30,5 @@ type UpdateEventRequest struct {
 	AllDay          *bool      `json:"allDay"`
 	EventType       *string    `json:"eventType"`
 	RelevantParties *string    `json:"relevantParties"`
+	Color           *string    `json:"color"`
 }

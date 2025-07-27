@@ -6,6 +6,7 @@ export interface CalendarEvent extends EventInput {
     id: string;
     eventType?: string;
     relevantParties?: string;
+    color?: string;
 }
 
 export const getEvents = async (): Promise<CalendarEvent[]> => {

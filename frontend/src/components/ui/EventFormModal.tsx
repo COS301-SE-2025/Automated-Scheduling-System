@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ColorPicker, type ColorPickerChangeEvent } from 'primereact/colorpicker';
 
 // Basic mock data for the types of events and roles people may have.
 // Moved here as they are specific to this form.
@@ -16,6 +17,7 @@ export interface EventFormModalProps {
         allDay: boolean;
         eventType: string;
         relevantParties: string;
+        color: string;
     }) => void;
     initialData?: {
         id?: string;
@@ -25,19 +27,22 @@ export interface EventFormModalProps {
         title?: string;
         eventType?: string;
         relevantParties?: string;
+        color?: string;
     };
 }
 
 const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave, initialData }) => {
-    const [id, setId] = useState(initialData?.id);
-    const [title, setTitle] = useState(initialData?.title || '');
-    const [eventDate, setEventDate] = useState(initialData?.startStr ? initialData.startStr.split('T')[0] : new Date().toISOString().split('T')[0]);
-    const [startTime, setStartTime] = useState(initialData?.startStr && initialData.startStr.includes('T') ? initialData.startStr.split('T')[1].substring(0,5) : '09:00');
-    const [endTime, setEndTime] = useState(initialData?.endStr && initialData.endStr.includes('T') ? initialData.endStr.split('T')[1].substring(0,5) : '10:00');
-    const [allDay, setAllDay] = useState(initialData?.allDay !== undefined ? initialData.allDay : true);
-    const [eventType, setEventType] = useState(initialData?.eventType || eventTypes[0]);
-    const [relevantParties, setRelevantParties] = useState(initialData?.relevantParties || parties[0]);
+    const [id, setId] = useState<string | undefined>(undefined);
+    const [title, setTitle] = useState('');
+    const [eventDate, setEventDate] = useState(new Date().toISOString().split('T')[0]);
+    const [startTime, setStartTime] = useState('09:00');
+    const [endTime, setEndTime] = useState('10:00');
+    const [allDay, setAllDay] = useState(true);
+    const [eventType, setEventType] = useState(eventTypes[0]);
+    const [relevantParties, setRelevantParties] = useState(parties[0]);
+    const [color, setColor] = useState('00bac8');
 
+    // Use useEffect to update state when the modal is opened or initialData changes.
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
@@ -48,17 +53,16 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                 if (initialData.startStr.includes('T')) {
                     setStartTime(initialData.startStr.split('T')[1].substring(0,5));
                 } else {
-                    // Reset time if it's an all-day event or date click without time
                     setStartTime('09:00');
                 }
                 if (initialData.endStr.includes('T')) {
                     setEndTime(initialData.endStr.split('T')[1].substring(0,5));
                 } else {
-                     // Reset time if it's an all-day event or date click without time
                     setEndTime('10:00');
                 }
                 setEventType(initialData.eventType || eventTypes[0]);
                 setRelevantParties(initialData.relevantParties || parties[0]);
+                setColor(initialData.color || '00bac8');
             } else {
                 // Reset to default for new event
                 setId(undefined);
@@ -69,6 +73,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                 setAllDay(true);
                 setEventType(eventTypes[0]);
                 setRelevantParties(parties[0]);
+                setColor('00bac8');
             }
         }
     }, [initialData, isOpen]);
@@ -78,7 +83,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
     const handleSubmit = () => {
         if (title) {
             const start = allDay ? eventDate : `${eventDate}T${startTime}`;
-            const end = allDay ? eventDate : `${eventDate}T${endTime}`; // For allDay, end date should ideally be exclusive or handled by FullCalendar
+            const end = allDay ? eventDate : `${eventDate}T${endTime}`;
             onSave({
                 id,
                 title,
@@ -86,7 +91,8 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                 end,
                 allDay,
                 eventType,
-                relevantParties
+                relevantParties,
+                color: color.startsWith('#') ? color.substring(1) : color
             });
         }
     };
@@ -105,6 +111,16 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         className="w-full p-3 border border-gray-300 dark:border-dark-input rounded-md shadow-sm focus:ring-custom-primary focus:border-custom-primary dark:bg-dark-input dark:text-dark-text dark:placeholder-gray-500"
+                    />
+                </div>
+
+                <div className="mb-4">
+                    <label htmlFor="color" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Event Color</label>
+                    <ColorPicker
+                        id="color"
+                        value={color.startsWith('#') ? color : `#${color}`}
+                        onChange={(e: ColorPickerChangeEvent) => setColor(e.value as string)}
+                        className="w-full"
                     />
                 </div>
 

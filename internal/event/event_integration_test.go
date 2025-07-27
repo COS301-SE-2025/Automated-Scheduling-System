@@ -74,6 +74,7 @@ func seedData(t *testing.T, db *gorm.DB) (*gen_models.User, *gen_models.Event) {
         AllDay:          false,
         EventType:       "Meeting",
         RelevantParties: "Development Team",
+        Color:           "#A78BFA", // purple
     }
     require.NoError(t, db.Create(&createdEvent).Error)
 
@@ -137,6 +138,7 @@ func TestGetEventsHandler(t *testing.T) {
     require.NoError(t, err)
     require.NotEmpty(t, responseEvents)
     require.Equal(t, seededEvent.Title, responseEvents[0].Title)
+    require.Equal(t, seededEvent.Color, responseEvents[0].Color)
 }
 
 func TestGetUserEventsHandler(t *testing.T) {
@@ -154,6 +156,7 @@ func TestGetUserEventsHandler(t *testing.T) {
         require.NoError(t, err)
         require.Len(t, responseEvents, 1)
         require.Equal(t, strconv.FormatInt(seededEvent.ID, 10), responseEvents[0].ID)
+        require.Equal(t, seededEvent.Color, responseEvents[0].Color)
     })
 
     t.Run("Failure - Get user events without auth", func(t *testing.T) {
@@ -176,6 +179,7 @@ func TestCreateEventHandler(t *testing.T) {
             End:             endTime,
             EventType:       "Meeting",
             RelevantParties: "Everyone",
+            Color:           "#34D399", // green
         }
         body, _ := json.Marshal(createReq)
         headers := map[string]string{"X-Test-Email": testUserEmail}
@@ -187,6 +191,7 @@ func TestCreateEventHandler(t *testing.T) {
         err := json.Unmarshal(w.Body.Bytes(), &createdEvent)
         require.NoError(t, err)
         require.Equal(t, createReq.Title, createdEvent.Title)
+        require.Equal(t, createReq.Color, createdEvent.Color)
         require.NotEmpty(t, createdEvent.ID)
 
         var eventInDB gen_models.Event
@@ -194,6 +199,7 @@ func TestCreateEventHandler(t *testing.T) {
         err = db.First(&eventInDB, eventID).Error
         require.NoError(t, err)
         require.Equal(t, createReq.Title, eventInDB.Title)
+        require.Equal(t, createReq.Color, eventInDB.Color)
     })
 
     t.Run("Failure - Invalid request body", func(t *testing.T) {
@@ -210,7 +216,8 @@ func TestUpdateEventHandler(t *testing.T) {
 
     t.Run("Success - Update event", func(t *testing.T) {
         newTitle := "Updated Team Meeting"
-        updateReq := models.UpdateEventRequest{Title: &newTitle}
+        newColor := "#F87171" // red
+        updateReq := models.UpdateEventRequest{Title: &newTitle, Color: &newColor}
         body, _ := json.Marshal(updateReq)
         path := fmt.Sprintf("/api/events/%d", seededEvent.ID)
 
@@ -221,6 +228,7 @@ func TestUpdateEventHandler(t *testing.T) {
         err := json.Unmarshal(w.Body.Bytes(), &updatedEvent)
         require.NoError(t, err)
         require.Equal(t, newTitle, updatedEvent.Title)
+        require.Equal(t, newColor, updatedEvent.Color)
     })
 
     t.Run("Failure - Event not found", func(t *testing.T) {
