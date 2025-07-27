@@ -107,6 +107,7 @@ const CalendarPage: React.FC = () => {
                     allDay: eventData.allDay,
                     eventType: eventData.eventType,
                     relevantParties: eventData.relevantParties,
+                    color: eventData.color,
                 });
                 setEvents(prevEvents => prevEvents.map(e => e.id === updatedEvent.id ? { ...e, ...updatedEvent } : e));
             } else { // Create new event
@@ -117,6 +118,7 @@ const CalendarPage: React.FC = () => {
                     allDay: eventData.allDay,
                     eventType: eventData.eventType,
                     relevantParties: eventData.relevantParties,
+                    color: eventData.color,
                 });
                 setEvents(prevEvents => [...prevEvents, newEvent]);
             }
@@ -140,6 +142,7 @@ const CalendarPage: React.FC = () => {
                 allDay: eventToEdit.allDay,
                 eventType: eventToEdit.extendedProps.eventType,
                 relevantParties: eventToEdit.extendedProps.relevantParties,
+                color: eventToEdit.extendedProps.color,
             };
         }
         if (!selectedDateInfo) return undefined;
@@ -165,6 +168,7 @@ const CalendarPage: React.FC = () => {
                 eventType: ('extendedProps' in selectableInfo && selectableInfo.extendedProps?.eventType) ? selectableInfo.extendedProps.eventType : undefined,
 
                 relevantParties: ('extendedProps' in selectableInfo && selectableInfo.extendedProps?.relevantParties) ? selectableInfo.extendedProps.relevantParties : undefined,
+                color: ('extendedProps' in selectableInfo && selectableInfo.extendedProps?.color) ? selectableInfo.extendedProps.color : undefined,
             };
         }
         return undefined;
@@ -264,29 +268,21 @@ function renderEventContent(eventInfo: EventContentArg) {
     const isMonthView = eventInfo.view.type === 'dayGridMonth';
     const eventType = eventInfo.event.extendedProps.eventType;
     const relevantParties = eventInfo.event.extendedProps.relevantParties;
-
-    let bgColorClass = 'bg-custom-primary dark:bg-dark-primary';
-
-    switch (eventType) {
-        case 'Meeting':
-            bgColorClass = 'bg-green-500 dark:bg-dark-green';
-            break;
-        case 'HealthCheck':
-            bgColorClass = 'bg-purple-500 dark:bg-dark-purple';
-            break;
-        case 'Training':
-            bgColorClass = 'bg-yellow-700 dark:bg-dark-brown';
-            break;
-        case 'Report':
-            bgColorClass = 'bg-red-500 dark:bg-dark-red';
-            break;
-    }
+    const rawColor = eventInfo.event.extendedProps.color || eventInfo.event.backgroundColor;
+    
+    // Ensure the color has a '#' prefix for CSS, otherwise use a default.
+    const color = rawColor && rawColor.startsWith('#') 
+        ? rawColor 
+        : rawColor 
+        ? `#${rawColor}` 
+        : '#243966';
 
     return (
         <div
             className={`overflow-hidden text-ellipsis whitespace-nowrap rounded h-full flex flex-col
                         ${isMonthView ? 'p-0.5 text-xs' : 'p-1 text-sm'}
-                        ${bgColorClass} text-white`}
+                        text-white`}
+            style={{ backgroundColor: color }}
             title={`${eventInfo.event.title} (${eventType} for ${relevantParties})`}
         >
             {eventInfo.timeText && !isMonthView && (

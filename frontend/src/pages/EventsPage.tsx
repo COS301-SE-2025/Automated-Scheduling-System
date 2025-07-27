@@ -110,6 +110,7 @@ const EventsPage: React.FC = () => {
             allDay: !!eventToEdit.allDay,
             eventType: eventToEdit.eventType,
             relevantParties: eventToEdit.relevantParties,
+            color: eventToEdit.color,
         };
     };
 

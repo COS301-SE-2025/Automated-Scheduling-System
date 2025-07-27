@@ -19,6 +19,7 @@ type Event struct {
 	StartTime       time.Time `gorm:"column:start_time;not null" json:"start_time"`
 	EndTime         time.Time `gorm:"column:end_time;not null" json:"end_time"`
 	AllDay          bool      `gorm:"column:all_day;not null" json:"all_day"`
+	Color           string    `gorm:"column:color" json:"color"`
 }
 
 // TableName Event's table name
