@@ -2,6 +2,7 @@ package event
 
 import (
 	"Automated-Scheduling-Project/internal/database/models"
+	"log"
 	"net/http"
 	"strconv"
 
@@ -107,18 +108,25 @@ func GetEventSchedulesHandler(c *gin.Context) {
 	}
 
 	// Map the database models to the desired API response format.
-	responseEvents := make([]models.EventScheduleResponse, len(schedules))
-	for i, s := range schedules {
-		responseEvents[i] = models.EventScheduleResponse{
+	responseEvents := make([]models.EventScheduleResponse, 0, len(schedules))
+	for _, s := range schedules {
+		// IMPORTANT: Check if the preloaded definition is nil before accessing it.
+		// This prevents a panic if a schedule has an orphaned reference.
+		if s.CustomEventDefinition.CustomEventID == 0 {
+			log.Printf("Warning: Skipping event schedule with ID %d because its event definition is missing.", s.CustomEventScheduleID)
+			continue // Skip this record and move to the next one
+		}
+
+		responseEvents = append(responseEvents, models.EventScheduleResponse{
 			ID:          s.CustomEventScheduleID,
-			Title:       s.CustomEventDefinition.EventName, // Title comes from the preloaded definition
+			Title:       s.CustomEventDefinition.EventName, // Now this is safe
 			Start:       s.EventStartDate,
 			End:         s.EventEndDate,
 			RoomName:    s.RoomName,
-			Facilitator: s.CustomEventDefinition.Facilitator, // Facilitator from definition
+			Facilitator: s.CustomEventDefinition.Facilitator, // And this is safe
 			Status:      s.StatusName,
 			AllDay:      false, // Implement your logic for AllDay if needed
-		}
+		})
 	}
 
 	c.JSON(http.StatusOK, responseEvents)

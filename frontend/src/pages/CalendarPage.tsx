@@ -35,12 +35,13 @@ const CalendarPage: React.FC = () => {
         const fetchEvents = async () => {
             try {
                 setIsLoading(true);
-                const fetchedEvents = await eventService.getUserEvents();
+                // Using correct getScheduledEvents function
+                const fetchedEvents = await eventService.getScheduledEvents();
                 setEvents(fetchedEvents);
                 setError(null);
             } catch (err) {
                 console.error("Failed to fetch events:", err);
-                setError("Failed to load calendar events. Please try again later.");
+                setError("Could not load calendar events.");
             } finally {
                 setIsLoading(false);
             }
@@ -85,8 +86,13 @@ const CalendarPage: React.FC = () => {
     const handleConfirmDelete = async () => {
         if (eventToDelete) {
             try {
-                await eventService.deleteEvent(eventToDelete.id);
-                setEvents(prevEvents => prevEvents.filter(e => e.id !== eventToDelete.id));
+                // Convert string ID to number for deleteScheduledEvent
+                await eventService.deleteScheduledEvent(Number(eventToDelete.id));
+                
+                // Update the events state
+                const calendarApi = calendarRef.current?.getApi();
+                calendarApi?.getEventById(eventToDelete.id)?.remove();
+                
             } catch (err) {
                 console.error('Failed to delete event:', err);
                 setError('Failed to delete event.');
@@ -99,29 +105,32 @@ const CalendarPage: React.FC = () => {
 
     const handleSaveEvent = async (eventData: EventSaveData) => {
         try {
-            if (eventData.id) { // Update existing event
-                const updatedEvent = await eventService.updateEvent(eventData.id, {
-                    title: eventData.title,
+            if (eventData.id) {
+                // Convert to format expected by updateScheduledEvent
+                const scheduleData: Partial<eventService.CreateSchedulePayload> = {
                     start: eventData.start,
                     end: eventData.end,
-                    allDay: eventData.allDay,
-                    eventType: eventData.eventType,
-                    relevantParties: eventData.relevantParties,
-                    color: eventData.color,
-                });
-                setEvents(prevEvents => prevEvents.map(e => e.id === updatedEvent.id ? { ...e, ...updatedEvent } : e));
-            } else { // Create new event
-                const newEvent = await eventService.createEvent({
-                    title: eventData.title,
+                    roomName: 'Default Room', // Add appropriate mapping
+                };
+                
+                await eventService.updateScheduledEvent(Number(eventData.id), scheduleData);
+            } else {
+                // Convert to format expected by createScheduledEvent
+                const scheduleData: eventService.CreateSchedulePayload = {
+                    customEventId: 1, // Appropriate ID based on event type
                     start: eventData.start,
                     end: eventData.end,
-                    allDay: eventData.allDay,
-                    eventType: eventData.eventType,
-                    relevantParties: eventData.relevantParties,
-                    color: eventData.color,
-                });
-                setEvents(prevEvents => [...prevEvents, newEvent]);
+                    roomName: 'Default Room', // Add appropriate mapping
+                    statusName: 'Scheduled',
+                };
+                
+                await eventService.createScheduledEvent(scheduleData);
             }
+            
+            // Refresh the calendar events
+            const calendarApi = calendarRef.current?.getApi();
+            calendarApi?.refetchEvents();
+            
         } catch (err) {
             console.error('Failed to save event:', err);
             setError('Failed to save event. Please check your connection and try again.');

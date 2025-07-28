@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import MainLayout from '../layouts/MainLayout';
 import { PlusCircle } from 'lucide-react';
-import CompetencyTable from '../components/competency/Competencytable';
+import CompetencyTable from '../components/competency/CompetencyTable';
 import CompetencyFilters from '../components/competency/CompetencyFilters';
 import CompetencyModal from '../components/competency/CompetencyModal';
 import type { Competency, AddCompetencyData, UpdateCompetencyData } from '../types/competency';

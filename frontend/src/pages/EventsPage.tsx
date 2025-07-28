@@ -29,9 +29,8 @@ const EventsPage: React.FC = () => {
 
         try {
             setIsLoading(true);
-            const fetchedEvents = user.role === 'Admin'
-                ? await eventService.getEvents()
-                : await eventService.getUserEvents();
+            // Replace existing calls with getScheduledEvents
+            const fetchedEvents = await eventService.getScheduledEvents();
 
             fetchedEvents.sort((a, b) => new Date(a.start as string).getTime() - new Date(b.start as string).getTime());
 
@@ -70,7 +69,8 @@ const EventsPage: React.FC = () => {
     const handleConfirmDelete = async () => {
         if (eventToDelete) {
             try {
-                await eventService.deleteEvent(eventToDelete.id);
+                // Convert string ID to number for deleteScheduledEvent
+                await eventService.deleteScheduledEvent(Number(eventToDelete.id));
                 setEvents(prevEvents => prevEvents.filter(e => e.id !== eventToDelete.id));
             } catch (err) {
                 console.error('Failed to delete event:', err);
@@ -85,9 +85,25 @@ const EventsPage: React.FC = () => {
     const handleSaveEvent = async (eventData: EventSaveData) => {
         try {
             if (eventData.id) {
-                await eventService.updateEvent(eventData.id, eventData);
+                // Convert to format expected by updateScheduledEvent
+                const scheduleData: Partial<eventService.CreateSchedulePayload> = {
+                    start: eventData.start,
+                    end: eventData.end,
+                    roomName: 'Default Room', // Add appropriate room mapping
+                };
+                
+                await eventService.updateScheduledEvent(Number(eventData.id), scheduleData);
             } else {
-                await eventService.createEvent(eventData);
+                // Convert to format expected by createScheduledEvent
+                const scheduleData: eventService.CreateSchedulePayload = {
+                    customEventId: 1, // Appropriate ID based on event type
+                    start: eventData.start,
+                    end: eventData.end,
+                    roomName: 'Default Room', // Add appropriate room mapping
+                    statusName: 'Scheduled',
+                };
+                
+                await eventService.createScheduledEvent(scheduleData);
             }
 
             await fetchAndSetEvents();

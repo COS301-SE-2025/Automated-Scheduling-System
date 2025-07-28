@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import MainLayout from '../layouts/MainLayout';
 import FeatureGrid from '../components/ui/FeatureGrid';
 import FeatureBlock from '../components/ui/FeatureBlock';
-import { getUserEvents, type CalendarEvent } from '../services/eventService';
+import { getEventDefinitions, getScheduledEvents, type CalendarEvent } from '../services/eventService';
 import { CalendarClock, Users, Calendar, HelpCircle, AlertCircle } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
@@ -19,7 +19,7 @@ const DashboardPage: React.FC = () => {
 
             try {
                 setIsLoading(true);
-                const userEvents = await getUserEvents();
+                const userEvents = await getScheduledEvents();
 
                 const upcoming = userEvents
                     .filter(event => event.start && new Date(event.start as string) > new Date())
@@ -29,7 +29,7 @@ const DashboardPage: React.FC = () => {
                 setUpcomingEvents(upcoming);
                 setError(null);
             } catch (err) {
-                console.error("Failed to fetch user events:", err);
+                console.error("Failed to fetch scheduled events:", err);
                 setError("Could not load your upcoming events.");
             } finally {
                 setIsLoading(false);

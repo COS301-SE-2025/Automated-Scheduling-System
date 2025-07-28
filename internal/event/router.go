@@ -1,5 +1,3 @@
-// internal/event/router.go
-
 package event
 
 import (
@@ -9,22 +7,19 @@ import (
 )
 
 func RegisterEventRoutes(r *gin.Engine) {
-
-	apiProtected := r.Group("/api")
-	apiProtected.Use(auth.AuthMiddleware())
+	api := r.Group("/api")
 	{
-		definitions := apiProtected.Group("/event-definitions")
-		{
-			definitions.POST("/", CreateEventDefinitionHandler)
-			definitions.GET("/", GetEventDefinitionsHandler)
-		}
+		api.GET("/event-schedules", GetEventSchedulesHandler)
 
-		schedules := apiProtected.Group("/event-schedules")
+		protected := api.Group("/")
+		protected.Use(auth.AuthMiddleware())
 		{
-			schedules.POST("/", CreateEventScheduleHandler)
-			schedules.GET("/", GetEventSchedulesHandler)
-			schedules.PUT("/:scheduleID", UpdateEventScheduleHandler)
-			schedules.DELETE("/:scheduleID", DeleteEventScheduleHandler)
+			protected.POST("/event-schedules", CreateEventScheduleHandler)
+			protected.PUT("/event-schedules/:scheduleID", UpdateEventScheduleHandler)
+			protected.DELETE("/event-schedules/:scheduleID", DeleteEventScheduleHandler)
+
+			protected.POST("/event-definitions", CreateEventDefinitionHandler)
+			protected.GET("/event-definitions", GetEventDefinitionsHandler)
 		}
 	}
 }
