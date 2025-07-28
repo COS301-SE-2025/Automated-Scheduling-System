@@ -29,4 +29,10 @@ func main() {
 	}
 
 	log.Println("All tables have been dropped.")
+
+	log.Println("Attempting to drop custom type 'event_source_enum'...")
+	if err := DB.Exec("DROP TYPE IF EXISTS event_source_enum").Error; err != nil {
+		log.Fatalf("Failed to drop custom type event_source_enum: %v", err)
+	}
+	log.Println("Custom type 'event_source_enum' has been dropped.")
 }
