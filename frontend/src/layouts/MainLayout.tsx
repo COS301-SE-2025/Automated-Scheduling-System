@@ -10,6 +10,7 @@ const navItems: NavItem[] = [
     { path: '/calendar', label: 'Calendar' },
     { path: '/events', label: 'Events' },
     { path: '/rules', label: 'Rules' },
+    { path: '/competencies', label: 'Competencies' },
     { path: '/main-help', label: 'Help' },
 ];
 
