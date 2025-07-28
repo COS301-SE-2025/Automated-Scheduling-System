@@ -1,7 +1,6 @@
 package event
 
 import (
-	"Automated-Scheduling-Project/internal/database/gen_models"
 	"Automated-Scheduling-Project/internal/database/models"
 	"net/http"
 	"strconv"
@@ -12,220 +11,175 @@ import (
 
 var DB *gorm.DB
 
-func GetEventsHandler(c *gin.Context) {
-	var events []gen_models.Event
-	if err := DB.Find(&events).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch events"})
-		return
-	}
+// ================================================================
+// Event Definition Handlers (for HR to manage course templates)
+// ================================================================
 
-	responseEvents := make([]models.EventResponse, 0)
-	for _, event := range events {
-		responseEvents = append(responseEvents, models.EventResponse{
-			ID:              strconv.FormatInt(event.ID, 10),
-			Title:           event.Title,
-			Start:           event.StartTime,
-			End:             event.EndTime,
-			AllDay:          event.AllDay,
-			EventType:       event.EventType,
-			RelevantParties: event.RelevantParties,
-		})
-	}
-
-	c.JSON(http.StatusOK, responseEvents)
-}
-
-func CreateEventHandler(c *gin.Context) {
-	var req models.CreateEventRequest
+// CreateEventDefinitionHandler handles creating a new event template.
+func CreateEventDefinitionHandler(c *gin.Context) {
+	var req models.CreateEventDefinitionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data: " + err.Error()})
 		return
 	}
 
-	newEvent := gen_models.Event{
-		Title:           req.Title,
-		StartTime:       req.Start,
-		EndTime:         req.End,
-		AllDay:          req.AllDay,
-		EventType:       req.EventType,
-		RelevantParties: req.RelevantParties,
-	}
-
-	if err := DB.Create(&newEvent).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create event"})
-		return
-	}
-
-	emailInterface, exists := c.Get("email")
+	createdBy, exists := c.Get("email")
 	if !exists {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not extract user from token to link event"})
-		return
-	}
-	email, ok := emailInterface.(string)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid email format in token"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "User identity not found in token"})
 		return
 	}
 
-	var extendedEmployee models.ExtendedEmployee
-	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("useraccountemail = ?", email).First(&extendedEmployee).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
+	definition := models.CustomEventDefinition{
+		EventName:           req.EventName,
+		ActivityDescription: req.ActivityDescription,
+		StandardDuration:    req.StandardDuration,
+		GrantsCertificateID: req.GrantsCertificateID,
+		Facilitator:         req.Facilitator,
+		CreatedBy:        createdBy.(string),
+	}
+
+	if err := DB.Create(&definition).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create event definition"})
 		return
 	}
 
-	userEvent := gen_models.UserEvent{
-		UserID:  extendedEmployee.User.ID,
-		EventID: newEvent.ID,
-	}
-	if err := DB.Create(&userEvent).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to link event to user"})
-		return
-	}
-
-	responseEvent := models.EventResponse{
-		ID:              strconv.FormatInt(newEvent.ID, 10),
-		Title:           newEvent.Title,
-		Start:           newEvent.StartTime,
-		End:             newEvent.EndTime,
-		AllDay:          newEvent.AllDay,
-		EventType:       newEvent.EventType,
-		RelevantParties: newEvent.RelevantParties,
-	}
-
-	c.JSON(http.StatusCreated, responseEvent)
+	c.JSON(http.StatusCreated, definition)
 }
 
-func UpdateEventHandler(c *gin.Context) {
-	eventIDStr := c.Param("eventID")
-	eventID, err := strconv.ParseInt(eventIDStr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Event ID"})
+// GetEventDefinitionsHandler returns a list of all available event templates.
+func GetEventDefinitionsHandler(c *gin.Context) {
+	var definitions []models.CustomEventDefinition
+	if err := DB.Find(&definitions).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event definitions"})
 		return
 	}
+	c.JSON(http.StatusOK, definitions)
+}
 
-	var req models.UpdateEventRequest
+// ================================================================
+// Event Schedule Handlers (for managing calendar instances)
+// ================================================================
+
+// CreateEventScheduleHandler creates a new scheduled instance of an event definition.
+func CreateEventScheduleHandler(c *gin.Context) {
+	var req models.CreateEventScheduleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data: " + err.Error()})
 		return
 	}
 
-	var eventToUpdate gen_models.Event
-	if err := DB.First(&eventToUpdate, eventID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Event not found"})
+	// Check if the referenced CustomEventID exists before creating a schedule for it.
+	var definition models.CustomEventDefinition
+	if err := DB.First(&definition, req.CustomEventID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Event definition with the specified ID not found"})
 		return
 	}
 
-	if req.Title != nil {
-		eventToUpdate.Title = *req.Title
+	schedule := models.CustomEventSchedule{
+		CustomEventID:    req.CustomEventID,
+		EventStartDate:   req.EventStartDate,
+		EventEndDate:     req.EventEndDate,
+		RoomName:         req.RoomName,
+		MaximumAttendees: req.MaximumAttendees,
+		MinimumAttendees: req.MinimumAttendees,
+		StatusName:       "Scheduled", // Default status
+		CustomEventDefinition: definition,
 	}
-	if req.Start != nil {
-		eventToUpdate.StartTime = *req.Start
-	}
-	if req.End != nil {
-		eventToUpdate.EndTime = *req.End
-	}
-	if req.AllDay != nil {
-		eventToUpdate.AllDay = *req.AllDay
-	}
-	if req.EventType != nil {
-		eventToUpdate.EventType = *req.EventType
-	}
-	if req.RelevantParties != nil {
-		eventToUpdate.RelevantParties = *req.RelevantParties
+	if req.StatusName != "" {
+		schedule.StatusName = req.StatusName
 	}
 
-	if err := DB.Save(&eventToUpdate).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event"})
+	if err := DB.Create(&schedule).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create event schedule"})
 		return
 	}
 
-	responseEvent := models.EventResponse{
-		ID:              strconv.FormatInt(eventToUpdate.ID, 10),
-		Title:           eventToUpdate.Title,
-		Start:           eventToUpdate.StartTime,
-		End:             eventToUpdate.EndTime,
-		AllDay:          eventToUpdate.AllDay,
-		EventType:       eventToUpdate.EventType,
-		RelevantParties: eventToUpdate.RelevantParties,
-	}
-
-	c.JSON(http.StatusOK, responseEvent)
+	c.JSON(http.StatusCreated, schedule)
 }
 
-func DeleteEventHandler(c *gin.Context) {
-	eventIDStr := c.Param("eventID")
-	eventID, err := strconv.ParseInt(eventIDStr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Event ID"})
+// GetEventSchedulesHandler fetches all scheduled events, suitable for a calendar view.
+func GetEventSchedulesHandler(c *gin.Context) {
+	var schedules []models.CustomEventSchedule
+	// Use Preload to automatically fetch the related CustomEventDefinition for each schedule.
+	if err := DB.Preload("CustomEventDefinition").Find(&schedules).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event schedules"})
 		return
 	}
 
-	if err := DB.Where("event_id = ?", eventID).Delete(&gen_models.UserEvent{}).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete event linkage"})
-		return
-	}
-
-	if err := DB.Delete(&gen_models.Event{}, eventID).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete event"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Event deleted successfully"})
-}
-
-func GetUserEventsHandler(c *gin.Context) {
-	emailInterface, exists := c.Get("email")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-	email, ok := emailInterface.(string)
-	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid email format"})
-		return
-	}
-
-	// Find the user by email
-	var extendedEmployee models.ExtendedEmployee
-	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("useraccountemail = ?", email).First(&extendedEmployee).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
-		return
-	}
-	userID := extendedEmployee.User.ID
-
-	// Get event IDs linked to this user
-	var userEvents []gen_models.UserEvent
-	if err := DB.Where("user_id = ?", userID).Find(&userEvents).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user events"})
-		return
-	}
-	eventIDs := make([]int64, 0, len(userEvents))
-	for _, ue := range userEvents {
-		eventIDs = append(eventIDs, ue.EventID)
-	}
-
-	// Get the events
-	var events []gen_models.Event
-	if len(eventIDs) > 0 {
-		if err := DB.Where("id IN ?", eventIDs).Find(&events).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch events"})
-			return
+	// Map the database models to the desired API response format.
+	responseEvents := make([]models.EventScheduleResponse, len(schedules))
+	for i, s := range schedules {
+		responseEvents[i] = models.EventScheduleResponse{
+			ID:          s.CustomEventScheduleID,
+			Title:       s.CustomEventDefinition.EventName, // Title comes from the preloaded definition
+			Start:       s.EventStartDate,
+			End:         s.EventEndDate,
+			RoomName:    s.RoomName,
+			Facilitator: s.CustomEventDefinition.Facilitator, // Facilitator from definition
+			Status:      s.StatusName,
+			AllDay:      false, // Implement your logic for AllDay if needed
 		}
 	}
 
-	// Map to response
-	responseEvents := make([]models.EventResponse, 0, len(events))
-	for _, event := range events {
-		responseEvents = append(responseEvents, models.EventResponse{
-			ID:              strconv.FormatInt(event.ID, 10),
-			Title:           event.Title,
-			Start:           event.StartTime,
-			End:             event.EndTime,
-			AllDay:          event.AllDay,
-			EventType:       event.EventType,
-			RelevantParties: event.RelevantParties,
-		})
+	c.JSON(http.StatusOK, responseEvents)
+}
+
+// UpdateEventScheduleHandler updates an existing scheduled event.
+func UpdateEventScheduleHandler(c *gin.Context) {
+	scheduleIDStr := c.Param("scheduleID")
+	scheduleID, err := strconv.Atoi(scheduleIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID format"})
+		return
 	}
 
-	c.JSON(http.StatusOK, responseEvents)
+	var req models.CreateEventScheduleRequest // Reuse create request struct for updates
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data: " + err.Error()})
+		return
+	}
+
+	var scheduleToUpdate models.CustomEventSchedule
+	if err := DB.First(&scheduleToUpdate, scheduleID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Event schedule not found"})
+		return
+	}
+
+	// Update fields from request
+	scheduleToUpdate.CustomEventID = req.CustomEventID
+	scheduleToUpdate.EventStartDate = req.EventStartDate
+	scheduleToUpdate.EventEndDate = req.EventEndDate
+	scheduleToUpdate.RoomName = req.RoomName
+	scheduleToUpdate.MaximumAttendees = req.MaximumAttendees
+	scheduleToUpdate.MinimumAttendees = req.MinimumAttendees
+	scheduleToUpdate.StatusName = req.StatusName
+
+	if err := DB.Save(&scheduleToUpdate).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event schedule"})
+		return
+	}
+
+	c.JSON(http.StatusOK, scheduleToUpdate)
+}
+
+// DeleteEventScheduleHandler deletes a scheduled event.
+func DeleteEventScheduleHandler(c *gin.Context) {
+	scheduleIDStr := c.Param("scheduleID")
+	scheduleID, err := strconv.Atoi(scheduleIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID format"})
+		return
+	}
+
+	result := DB.Delete(&models.CustomEventSchedule{}, scheduleID)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete event schedule"})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Event schedule not found or already deleted"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Event schedule deleted successfully"})
 }
