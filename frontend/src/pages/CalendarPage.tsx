@@ -160,7 +160,6 @@ const CalendarPage: React.FC = () => {
             
         } catch (err) {
             console.error('Failed to save event:', err);
-            setError('Failed to save event. Please check your connection and try again.');
         } finally {
             setIsModalOpen(false);
             setSelectedDateInfo(null);
