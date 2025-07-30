@@ -13,50 +13,35 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
     if (!isOpen || !event) return null;
 
     const { title, start, end, allDay, extendedProps } = event;
-    const eventType = extendedProps?.eventType || 'N/A';
-    const relevantParties = extendedProps?.relevantParties || 'N/A';
 
-    const formatDateTime = (date: Date | null, isAllDay: boolean, isEnd: boolean = false) => {
+    const formatDateTime = (date: Date | null) => {
         if (!date) return 'N/A';
-        if (isAllDay) {
-            const d = new Date(date);
-            if (isEnd) {
-                 d.setDate(d.getDate() - 1);
-            }
-            return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-        }
-        return new Date(date).toLocaleString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        return new Date(date).toLocaleString(undefined, {
+            year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
     };
+
+    const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
+        <div>
+            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</p>
+            <p className="text-custom-text dark:text-dark-text">{value || 'N/A'}</p>
+        </div>
+    );
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-            <div className="bg-custom-background dark:bg-dark-div p-6 rounded-lg shadow-xl w-full max-w-md">
+            <div className="bg-custom-background dark:bg-dark-div p-6 rounded-lg shadow-xl w-full max-w-lg">
                 <h2 className="text-xl font-semibold mb-4 text-custom-text dark:text-dark-text">Event Details</h2>
-                <div className="space-y-3">
-                    <div>
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Title</p>
-                        <p className="text-custom-text dark:text-dark-text">{title}</p>
-                    </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Start</p>
-                        <p className="text-custom-text dark:text-dark-text">{formatDateTime(start, allDay)}</p>
-                    </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">End</p>
-                        <p className="text-custom-text dark:text-dark-text">{formatDateTime(end, allDay, allDay)}</p>
-                    </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">All-day</p>
-                        <p className="text-custom-text dark:text-dark-text">{allDay ? 'Yes' : 'No'}</p>
-                    </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Event Type</p>
-                        <p className="text-custom-text dark:text-dark-text">{eventType}</p>
-                    </div>
-                    <div>
-                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Relevant Parties</p>
-                        <p className="text-custom-text dark:text-dark-text">{relevantParties}</p>
-                    </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <DetailItem label="Title" value={title} />
+                    <DetailItem label="Event Type" value={extendedProps.eventType} />
+                    <DetailItem label="Start" value={formatDateTime(start)} />
+                    <DetailItem label="End" value={formatDateTime(end)} />
+                    <DetailItem label="Location" value={extendedProps.roomName} />
+                    <DetailItem label="Status" value={extendedProps.statusName} />
+                    <DetailItem label="Max Attendees" value={extendedProps.maxAttendees} />
+                    <DetailItem label="Min Attendees" value={extendedProps.minAttendees} />
+                    <DetailItem label="Created On" value={formatDateTime(new Date(extendedProps.creationDate))} />
                 </div>
                 <div className="mt-6 flex justify-end space-x-3">
                     <button

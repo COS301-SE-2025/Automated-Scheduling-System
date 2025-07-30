@@ -26,6 +26,7 @@ type CustomEventDefinition struct {
 type CustomEventSchedule struct {
 	CustomEventScheduleID int `gorm:"primaryKey;autoIncrement"`
 	CustomEventID         int // Foreign key to CustomEventDefinition
+	Title                 string    
 	EventStartDate        time.Time
 	EventEndDate          time.Time
 	RoomName              string
@@ -54,6 +55,7 @@ type CreateEventDefinitionRequest struct {
 type CreateEventScheduleRequest struct {
 	CustomEventID    int       `json:"customEventId" binding:"required"`
 	EventStartDate   time.Time `json:"start" binding:"required"`
+	Title            string    `json:"title" binding:"required"`
 	EventEndDate     time.Time `json:"end" binding:"required"`
 	RoomName         string    `json:"roomName"`
 	MaximumAttendees int       `json:"maxAttendees"`

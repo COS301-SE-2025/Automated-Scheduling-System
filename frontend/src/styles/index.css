@@ -99,6 +99,7 @@ body {
 
 .fc .fc-event {
   @apply shadow-none border-b text-sm !important;
+  display: block !important; 
 }
 
 .fc .fc-daygrid-day.fc-day-selected .fc-daygrid-day-frame,
@@ -134,4 +135,55 @@ body {
 
 .fc .fc-timegrid-event .fc-event-main {
   @apply p-1 !important; 
+}
+
+/* Custom Event Styling */
+.custom-calendar-event {
+  @apply w-full h-full p-1 text-white rounded-sm overflow-hidden cursor-pointer;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.custom-calendar-event:hover {
+  filter: brightness(1.1);
+}
+
+.custom-event-content {
+  @apply flex flex-col h-full;
+}
+
+.custom-event-time {
+  @apply font-semibold text-xs;
+}
+
+.custom-event-title {
+  @apply font-medium text-sm leading-tight truncate;
+}
+
+.custom-event-type {
+  @apply text-xs opacity-80 truncate;
+}
+
+
+.multi-day-arrow-left,
+.multi-day-arrow-right {
+    content: '';
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-color: transparent;
+}
+
+.multi-day-arrow-left {
+    left: -6px; 
+    border-width: 6px 6px 6px 0; 
+    border-right-color: inherit; 
+}
+
+.multi-day-arrow-right {
+    right: -6px; 
+    border-width: 6px 0 6px 6px; 
+    border-left-color: inherit; 
 }

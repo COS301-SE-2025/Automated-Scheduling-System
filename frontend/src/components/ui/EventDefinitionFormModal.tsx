@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import * as eventService from '../../services/eventService';
+import type { EventDefinition, CreateEventDefinitionPayload  } from '../../services/eventService';
 import MessageBox from './MessageBox';
 
 const eventDefinitionSchema = z.object({
@@ -18,8 +19,8 @@ type EventDefinitionFormData = z.infer<typeof eventDefinitionSchema>;
 export interface EventDefinitionFormModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (definition: eventService.EventDefinition) => void;
-    initialData?: eventService.EventDefinition;
+    onSave: (data: CreateEventDefinitionPayload) => void;
+    initialData?: EventDefinition;
 }
 
 const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isOpen, onClose, onSave, initialData }) => {
@@ -55,27 +56,19 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
 
     const onSubmit = async (data: EventDefinitionFormData) => {
         setApiError(null);
-        try {
-            const payload = {
-                ...data,
-                ActivityDescription: data.ActivityDescription || '',
-                Facilitator: data.Facilitator || '',
-                GrantsCertificateID: data.GrantsCertificateID === null ? undefined : data.GrantsCertificateID,
-            };
+        
+        // --- CHANGE 2: Remove all API logic from the modal ---
+        // Just prepare the payload and pass it to the parent via onSave
+        const payload: CreateEventDefinitionPayload = {
+            ...data,
+            ActivityDescription: data.ActivityDescription || '',
+            Facilitator: data.Facilitator || '',
+            GrantsCertificateID: data.GrantsCertificateID === null ? undefined : data.GrantsCertificateID,
+        };
 
-            let savedDefinition;
-            if (isEditMode && initialData) {
-                savedDefinition = await eventService.updateEventDefinition(initialData.CustomEventID, payload);
-            } else {
-                savedDefinition = await eventService.createEventDefinition(payload);
-            }
-            
-            onSave(savedDefinition);
-            onClose();
-        } catch (err) {
-            console.error("Failed to save event definition:", err);
-            setApiError("An error occurred while saving the event definition. Please try again.");
-        }
+        // The parent component will now handle the saving.
+        // We pass the raw payload, not the result of an API call.
+        onSave(payload);
     };
 
     if (!isOpen) return null;
