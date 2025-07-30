@@ -14,6 +14,7 @@ const TableNameCustomEventSchedule = "custom_event_schedules"
 type CustomEventSchedule struct {
 	CustomEventScheduleID int32     `gorm:"column:custom_event_schedule_id;primaryKey;autoIncrement:true" json:"custom_event_schedule_id"`
 	CustomEventID         int32     `gorm:"column:custom_event_id;not null" json:"custom_event_id"`
+	Title                 string    `gorm:"column:title;not null" json:"title"`
 	EventStartDate        time.Time `gorm:"column:event_start_date;not null" json:"event_start_date"`
 	EventEndDate          time.Time `gorm:"column:event_end_date;not null" json:"event_end_date"`
 	RoomName              string    `gorm:"column:room_name" json:"room_name"`

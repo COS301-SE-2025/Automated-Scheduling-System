@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import MainLayout from '../layouts/MainLayout';
 import * as eventService from '../services/eventService';
-import type { EventDefinition } from '../services/eventService';
+import type { EventDefinition, CreateEventDefinitionPayload  } from '../services/eventService';
 import { Edit, Trash2, AlertCircle, BookCopy } from 'lucide-react';
 import EventDefinitionFormModal from '../components/ui/EventDefinitionFormModal';
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
@@ -51,11 +51,25 @@ const EventDefinitionsPage: React.FC = () => {
         setIsDeleteModalOpen(true);
     };
 
-    const handleSaveDefinition = async (savedDefinition: EventDefinition) => {
-        await fetchDefinitions(); // Refetch all definitions to get the latest state
-        setIsFormModalOpen(false);
-        setDefinitionToEdit(null);
+    const handleSaveDefinition = async (definitionData: CreateEventDefinitionPayload) => {
+        try {
+            if (definitionToEdit) {
+                // Assuming you have an update function in your service
+                await eventService.updateEventDefinition(definitionToEdit.CustomEventID, definitionData);
+            } else {
+                await eventService.createEventDefinition(definitionData);
+            }
+            
+            await fetchDefinitions(); // Refetch all definitions to get the latest state
+            setIsFormModalOpen(false);
+            setDefinitionToEdit(null);
+        } catch (err) {
+            console.error("Failed to save event definition:", err);
+            // Optionally, set an error state to show in the modal or on the page
+            setError("Failed to save the definition.");
+        }
     };
+
     
     const handleDeletionSuccess = () => {
         if (!definitionToDelete) return;

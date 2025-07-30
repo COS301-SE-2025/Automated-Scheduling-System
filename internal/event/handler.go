@@ -2,7 +2,7 @@ package event
 
 import (
 	"Automated-Scheduling-Project/internal/database/models"
-	"log"
+	//"log"
 	"net/http"
 	"strconv"
 
@@ -132,66 +132,60 @@ func CreateEventScheduleHandler(c *gin.Context) {
 	}
 
 	// Check if the referenced CustomEventID exists before creating a schedule for it.
-	var definition models.CustomEventDefinition
-	if err := DB.First(&definition, req.CustomEventID).Error; err != nil {
+	var count int64
+	if err := DB.Model(&models.CustomEventDefinition{}).Where("custom_event_id = ?", req.CustomEventID).Count(&count).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error while checking for event definition"})
+		return
+	}
+	if count == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Event definition with the specified ID not found"})
 		return
 	}
 
+	// Only set the foreign key `CustomEventID`.
 	schedule := models.CustomEventSchedule{
-		CustomEventID:    req.CustomEventID,
+		CustomEventID:    req.CustomEventID, // FK
+		Title:            req.Title,
 		EventStartDate:   req.EventStartDate,
 		EventEndDate:     req.EventEndDate,
 		RoomName:         req.RoomName,
 		MaximumAttendees: req.MaximumAttendees,
 		MinimumAttendees: req.MinimumAttendees,
-		StatusName:       "Scheduled", // Default status
-		CustomEventDefinition: definition,
+		StatusName:       "Scheduled", 
 	}
+
 	if req.StatusName != "" {
 		schedule.StatusName = req.StatusName
 	}
 
+	// GORM will now only insert into the `custom_event_schedules` table.
 	if err := DB.Create(&schedule).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create event schedule"})
 		return
 	}
 
+    // After creating, preload the definition for the response so the frontend gets the full object.
+    if err := DB.Preload("CustomEventDefinition").First(&schedule, schedule.CustomEventScheduleID).Error; err != nil {
+         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch created schedule for response"})
+        return
+    }
+
 	c.JSON(http.StatusCreated, schedule)
+
 }
 
 // GetEventSchedulesHandler fetches all scheduled events, suitable for a calendar view.
 func GetEventSchedulesHandler(c *gin.Context) {
-	var schedules []models.CustomEventSchedule
-	// Use Preload to automatically fetch the related CustomEventDefinition for each schedule.
-	if err := DB.Preload("CustomEventDefinition").Find(&schedules).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event schedules"})
-		return
-	}
+    var schedules []models.CustomEventSchedule
+    // Use Preload to automatically fetch the related CustomEventDefinition for each schedule.
+    if err := DB.Preload("CustomEventDefinition").Find(&schedules).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event schedules"})
+        return
+    }
 
-	// Map the database models to the desired API response format.
-	responseEvents := make([]models.EventScheduleResponse, 0, len(schedules))
-	for _, s := range schedules {
-		// IMPORTANT: Check if the preloaded definition is nil before accessing it.
-		// This prevents a panic if a schedule has an orphaned reference.
-		if s.CustomEventDefinition.CustomEventID == 0 {
-			log.Printf("Warning: Skipping event schedule with ID %d because its event definition is missing.", s.CustomEventScheduleID)
-			continue // Skip this record and move to the next one
-		}
-
-		responseEvents = append(responseEvents, models.EventScheduleResponse{
-			ID:          s.CustomEventScheduleID,
-			Title:       s.CustomEventDefinition.EventName, // Now this is safe
-			Start:       s.EventStartDate,
-			End:         s.EventEndDate,
-			RoomName:    s.RoomName,
-			Facilitator: s.CustomEventDefinition.Facilitator, // And this is safe
-			Status:      s.StatusName,
-			AllDay:      false, // Implement your logic for AllDay if needed
-		})
-	}
-
-	c.JSON(http.StatusOK, responseEvents)
+    // Directly return the full schedule objects.
+    // The frontend will receive the complete data, including the nested definition.
+    c.JSON(http.StatusOK, schedules)
 }
 
 // UpdateEventScheduleHandler updates an existing scheduled event.
@@ -217,6 +211,7 @@ func UpdateEventScheduleHandler(c *gin.Context) {
 
 	// Update fields from request
 	scheduleToUpdate.CustomEventID = req.CustomEventID
+	scheduleToUpdate.Title = req.Title
 	scheduleToUpdate.EventStartDate = req.EventStartDate
 	scheduleToUpdate.EventEndDate = req.EventEndDate
 	scheduleToUpdate.RoomName = req.RoomName

@@ -13,38 +13,41 @@ export interface EventDefinition {
 }
 
 export type CreateEventDefinitionPayload = Omit<EventDefinition, 'CustomEventID' | 'CreatedBy' | 'CreationDate'>;
-export interface ScheduledEventResponse {
-    id: number;
-    title: string;
-    start: string; 
-    end: string;   
-    roomName?: string;
-    facilitator?: string;
-    status?: string;
-    allDay: boolean;
-    // Add new properties from backend
-    eventType?: string;
-    relevantParties?: string;
+
+// This interface matches the full data structure sent by the backend for a scheduled event.
+export interface BackendScheduledEvent {
+    CustomEventScheduleID: number;
+    CustomEventID: number;
+    Title: string;
+    EventStartDate: string;
+    EventEndDate: string;
+    RoomName?: string;
+    MaximumAttendees?: number;
+    MinimumAttendees?: number;
+    StatusName: string;
+    CreationDate: string;
+    CustomEventDefinition: EventDefinition; // The nested definition object
 }
 
 export interface CalendarEvent extends EventInput {
     id: string; 
-    title: string;
-    start: string;
-    end: string;
-    allDay: boolean;
     extendedProps: {
+        scheduleId: number;
+        definitionId: number;
+        eventType: string;
         roomName?: string;
+        maxAttendees?: number;
+        minAttendees?: number;
+        statusName: string;
+        creationDate: string;
         facilitator?: string;
-        status?: string;
-        // Add new properties
-        eventType?: string;
-        relevantParties?: string;
+        relevantParties?: string; // Added for consistency
     };
 }
 
 export interface CreateSchedulePayload {
     customEventId: number;
+    title: string;
     start: string; 
     end: string;   
     roomName?: string;
@@ -79,19 +82,24 @@ export const deleteEventDefinition = async (definitionId: number): Promise<void>
 
 // --- Event Schedule API Calls (for the calendar) ---
 export const getScheduledEvents = async (): Promise<CalendarEvent[]> => {
-    const response = await api<ScheduledEventResponse[]>('api/event-schedules', { method: 'GET' });
-    return response.map((event: ScheduledEventResponse) => ({
-        id: String(event.id),
-        title: event.title,
-        start: event.start,
-        end: event.end,
-        allDay: event.allDay,
+    const response = await api<BackendScheduledEvent[]>('api/event-schedules');
+    return response.map(event => ({
+        id: String(event.CustomEventScheduleID),
+        title: event.Title,
+        start: event.EventStartDate,
+        end: event.EventEndDate,
+        allDay: false,
         extendedProps: {
-            roomName: event.roomName,
-            facilitator: event.facilitator,
-            status: event.status,
-            eventType: event.eventType,
-            relevantParties: event.relevantParties,
+            scheduleId: event.CustomEventScheduleID,
+            definitionId: event.CustomEventID,
+            eventType: event.CustomEventDefinition.EventName,
+            roomName: event.RoomName,
+            maxAttendees: event.MaximumAttendees,
+            minAttendees: event.MinimumAttendees,
+            statusName: event.StatusName,
+            creationDate: event.CreationDate,
+            facilitator: event.CustomEventDefinition.Facilitator,
+            relevantParties: 'All', // Placeholder, adjust if you have this data
         }
     }));
 };

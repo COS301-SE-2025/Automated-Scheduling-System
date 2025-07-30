@@ -1,5 +1,5 @@
 import MainLayout from '../layouts/MainLayout';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -7,13 +7,12 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import type { EventContentArg, DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import type { DateClickArg } from '@fullcalendar/interaction';
-import { PlusCircle } from 'lucide-react';
 import EventFormModal, { type EventFormModalProps } from '../components/ui/EventFormModal';
 import EventDefinitionFormModal from '../components/ui/EventDefinitionFormModal';
 import EventDetailModal from '../components/ui/EventDetailModal';
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
 import * as eventService from '../services/eventService';
-import type { CalendarEvent } from '../services/eventService';
+import type { CalendarEvent, CreateEventDefinitionPayload  } from '../services/eventService';
 
 type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
 type SelectedInfoType = DateSelectArg | DateClickArg | (EventClickArg['event'] & { eventType?: string; relevantParties?: string });
@@ -67,11 +66,38 @@ const CalendarPage: React.FC = () => {
         setIsDefinitionModalOpen(true);
     };
 
-    const handleSaveDefinition = (newDefinition: eventService.EventDefinition) => {
-        setEventDefinitions(prev => [...prev, newDefinition]);
-        setIsDefinitionModalOpen(false);
-        // Re-open the schedule modal for convenience
-        setIsModalOpen(true);
+    const fetchAndSetData = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            const [schedules, definitions] = await Promise.all([
+                eventService.getScheduledEvents(),
+                eventService.getEventDefinitions()
+            ]);
+            setEvents(schedules);
+            setEventDefinitions(definitions);
+            setError(null);
+        } catch (err) {
+            console.error("Failed to fetch calendar data:", err);
+            setError("Could not load calendar data.");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []); // Empty dependency array means this function is stable
+
+    useEffect(() => {
+        // Now the effect just calls the function
+        fetchAndSetData();
+    }, [fetchAndSetData]); // Depend on the stable function
+
+    const handleSaveDefinition = async (definitionData: CreateEventDefinitionPayload) => {
+        try {
+            await eventService.createEventDefinition(definitionData);
+            await fetchAndSetData(); // Refetch everything
+            setIsDefinitionModalOpen(false);
+        } catch (err) {
+            console.error("Failed to save new event definition:", err);
+            setError("Could not create the new event type.");
+        }
     };
 
     const handleDateClick = (clickInfo: DateClickArg) => {
@@ -114,6 +140,7 @@ const CalendarPage: React.FC = () => {
     const handleSaveEvent = async (eventData: EventSaveData) => {
         try {
             const scheduleData: eventService.CreateSchedulePayload = {
+                title: eventData.title,
                 customEventId: eventData.customEventId,
                 start: new Date(eventData.start).toISOString(),
                 end: new Date(eventData.end).toISOString(),
@@ -129,9 +156,7 @@ const CalendarPage: React.FC = () => {
                 await eventService.createScheduledEvent(scheduleData);
             }
             
-            // Refresh the calendar events
-            const calendarApi = calendarRef.current?.getApi();
-            calendarApi?.refetchEvents();
+            await fetchAndSetData();
             
         } catch (err) {
             console.error('Failed to save event:', err);
@@ -144,20 +169,27 @@ const CalendarPage: React.FC = () => {
     };
 
     const prepareInitialModalData = (): EventFormModalProps['initialData'] | undefined => {
+        const toLocalISOString = (date: Date) => {
+            const tzoffset = (new Date()).getTimezoneOffset() * 60000; //offset in milliseconds
+            const localISOTime = (new Date(date.getTime() - tzoffset)).toISOString().slice(0, 16);
+            return localISOTime;
+        };
+
         if (eventToEdit) {
             return {
                 id: eventToEdit.id,
-                startStr: eventToEdit.startStr,
-                endStr: eventToEdit.endStr,
+                title: eventToEdit.title,
+                startStr: eventToEdit.start ? toLocalISOString(eventToEdit.start) : '',
+                endStr: eventToEdit.end ? toLocalISOString(eventToEdit.end) : '',
+                customEventId: eventToEdit.extendedProps.definitionId,
+                roomName: eventToEdit.extendedProps.roomName,
+                maximumAttendees: eventToEdit.extendedProps.maxAttendees,
+                minimumAttendees: eventToEdit.extendedProps.minAttendees,
+                statusName: eventToEdit.extendedProps.statusName,
             };
         }
+        
         if (!selectedDateInfo) return undefined;
-
-        const toLocalISOString = (date: Date) => {
-            const tzoffset = (new Date()).getTimezoneOffset() * 60000; //offset in milliseconds
-            const localISOTime = (new Date(date.getTime() - tzoffset)).toISOString().slice(0, -1);
-            return localISOTime.substring(0, 16);
-        };
 
         if ('date' in selectedDateInfo && !('startStr' in selectedDateInfo)) {
             const dateClick = selectedDateInfo as DateClickArg;
@@ -252,11 +284,13 @@ const CalendarPage: React.FC = () => {
                 eventDefinitions={eventDefinitions}
                 onNeedDefinition={handleOpenDefinitionModal}
             />
-            <EventDefinitionFormModal
-                isOpen={isDefinitionModalOpen}
-                onClose={() => setIsDefinitionModalOpen(false)}
-                onSave={handleSaveDefinition}
-            />
+            {isDefinitionModalOpen && (
+                <EventDefinitionFormModal
+                    isOpen={isDefinitionModalOpen}
+                    onClose={() => setIsDefinitionModalOpen(false)}
+                    onSave={handleSaveDefinition}
+                />
+            )}
             <EventDetailModal
                 isOpen={isDetailModalOpen}
                 onClose={() => setIsDetailModalOpen(false)}
@@ -283,39 +317,34 @@ const CalendarPage: React.FC = () => {
 export default CalendarPage;
 
 function renderEventContent(eventInfo: EventContentArg) {
+    const { extendedProps } = eventInfo.event;
     const isMonthView = eventInfo.view.type === 'dayGridMonth';
-    const eventType = eventInfo.event.extendedProps.eventType;
-    const relevantParties = eventInfo.event.extendedProps.relevantParties;
-    const rawColor = eventInfo.event.extendedProps.color || eventInfo.event.backgroundColor;
-    
-    // Ensure the color has a '#' prefix for CSS, otherwise use a default.
-    const color = rawColor && rawColor.startsWith('#') 
-        ? rawColor 
-        : rawColor 
-        ? `#${rawColor}` 
-        : '#243966';
+    const timeText = eventInfo.timeText && !isMonthView ? eventInfo.timeText : '';
+
+    // Use a default color if none is provided by the event data
+    const eventColor = extendedProps.color || '#243966';
 
     return (
         <div
-            className={`overflow-hidden text-ellipsis whitespace-nowrap rounded h-full flex flex-col
-                        ${isMonthView ? 'p-0.5 text-xs' : 'p-1 text-sm'}
-                        text-white`}
-            style={{ backgroundColor: color }}
-            title={`${eventInfo.event.title} (${eventType} for ${relevantParties})`}
+            className="custom-calendar-event"
+            style={{ 
+                backgroundColor: eventColor,
+                borderLeft: `3px solid ${eventColor}` 
+            }}
+            title={`${eventInfo.event.title} (${extendedProps.eventType})`}
         >
-            {eventInfo.timeText && !isMonthView && (
-                <span className="font-semibold mr-1">{eventInfo.timeText}</span>
-            )}
-            <span className="font-medium">{eventInfo.event.title}</span>
-            {isMonthView && eventType && (
-                <span className="text-xs block truncate">Type: {eventType}</span>
-            )}
-            {!isMonthView && eventType && (
-                <span className="text-xs block">Type: {eventType}</span>
-            )}
-            {!isMonthView && relevantParties && (
-                <span className="text-xs block">For: {relevantParties}</span>
-            )}
+            <div className="custom-event-content">
+                {/* For week/day views, show the time */}
+                {timeText && <span className="custom-event-time">{timeText}</span>}
+                
+                {/* Always show the event title */}
+                <span className="custom-event-title">{eventInfo.event.title}</span>
+
+                {/* In month view, also show the event type if space allows */}
+                {isMonthView && extendedProps.eventType && (
+                    <span className="custom-event-type">{extendedProps.eventType}</span>
+                )}
+            </div>
         </div>
     );
 }

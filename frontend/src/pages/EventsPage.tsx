@@ -4,10 +4,9 @@ import MainLayout from '../layouts/MainLayout';
 import FeatureGrid from '../components/ui/FeatureGrid';
 import FeatureBlock from '../components/ui/FeatureBlock';
 import * as eventService from '../services/eventService';
-import type { CalendarEvent, EventDefinition } from '../services/eventService';
+import type { CalendarEvent, EventDefinition, CreateEventDefinitionPayload  } from '../services/eventService';
 import { Edit, Trash2, AlertCircle, CalendarClock, Link as LinkIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
 import EventFormModal, { type EventFormModalProps } from '../components/ui/EventFormModal';
 import EventDefinitionFormModal from '../components/ui/EventDefinitionFormModal';
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
@@ -67,13 +66,16 @@ const EventsPage: React.FC = () => {
         setIsDefinitionModalOpen(true);
     };
 
-    const handleSaveDefinition = (newDefinition: eventService.EventDefinition) => {
-        setEventDefinitions(prev => [...prev, newDefinition]);
-        setIsDefinitionModalOpen(false);
-        // Re-open the schedule modal for convenience
-        setIsFormModalOpen(true);
+    const handleSaveDefinition = async (definitionData: CreateEventDefinitionPayload) => {
+        try {
+            await eventService.createEventDefinition(definitionData);
+            await fetchAndSetData(); // Refetch everything
+            setIsDefinitionModalOpen(false);
+        } catch (err) {
+            console.error("Failed to save new event definition:", err);
+            setError("Could not create the new event type.");
+        }
     };
-
     const handleStartEdit = (event: CalendarEvent) => {
         setEventToEdit(event);
         setIsFormModalOpen(true);
@@ -94,6 +96,7 @@ const EventsPage: React.FC = () => {
     const handleSaveEvent = async (eventData: EventSaveData) => {
         try {
             const scheduleData: eventService.CreateSchedulePayload = {
+                title: eventData.title,
                 customEventId: eventData.customEventId,
                 start: new Date(eventData.start).toISOString(),
                 end: new Date(eventData.end).toISOString(),
@@ -131,8 +134,14 @@ const EventsPage: React.FC = () => {
         
         return {
             id: eventToEdit.id,
+            title: eventToEdit.title,
             startStr: eventToEdit.start ? toLocalISOString(eventToEdit.start as string) : '',
             endStr: eventToEdit.end ? toLocalISOString(eventToEdit.end as string) : '',
+            customEventId: eventToEdit.extendedProps.definitionId,
+            roomName: eventToEdit.extendedProps.roomName,
+            maximumAttendees: eventToEdit.extendedProps.maxAttendees,
+            minimumAttendees: eventToEdit.extendedProps.minAttendees,
+            statusName: eventToEdit.extendedProps.statusName,
         };
     };
 
@@ -198,11 +207,13 @@ const EventsPage: React.FC = () => {
                         eventDefinitions={eventDefinitions}
                         onNeedDefinition={handleOpenDefinitionModal}
                     />
-                    <EventDefinitionFormModal
-                        isOpen={isDefinitionModalOpen}
-                        onClose={() => setIsDefinitionModalOpen(false)}
-                        onSave={handleSaveDefinition}
-                    />
+                    {isDefinitionModalOpen && (
+                        <EventDefinitionFormModal
+                            isOpen={isDefinitionModalOpen}
+                            onClose={() => setIsDefinitionModalOpen(false)}
+                            onSave={handleSaveDefinition}
+                        />
+                    )}
                     {eventToDelete && (
                         <EventDeleteConfirmationModal
                             isOpen={isDeleteModalOpen}
