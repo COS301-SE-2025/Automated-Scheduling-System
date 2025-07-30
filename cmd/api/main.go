@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"Automated-Scheduling-Project/internal/auth"
+	"Automated-Scheduling-Project/internal/competency"
 	"Automated-Scheduling-Project/internal/database"
 	"Automated-Scheduling-Project/internal/event"
+	"Automated-Scheduling-Project/internal/matrix"
 	"Automated-Scheduling-Project/internal/server"
 	"Automated-Scheduling-Project/internal/user"
 )
@@ -48,6 +50,9 @@ func main() {
 	auth.DB = dbConnection
 	user.DB = dbConnection
 	event.DB = dbConnection
+	competency.DB = dbConnection
+	matrix.DB = dbConnection
+
 
 	server := server.NewServer()
 

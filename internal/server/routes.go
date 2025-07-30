@@ -2,7 +2,9 @@ package server
 
 import (
 	"Automated-Scheduling-Project/internal/auth"
+	"Automated-Scheduling-Project/internal/competency"
 	"Automated-Scheduling-Project/internal/event"
+	"Automated-Scheduling-Project/internal/matrix"
 	"Automated-Scheduling-Project/internal/user"
 	"net/http"
 
@@ -29,6 +31,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 	auth.RegisterAuthRoutes(r)
 	user.RegisterUserRoutes(r)
 	event.RegisterEventRoutes(r)
+	matrix.RegisterMatrixRoutes(r)
+	competency.RegisterCompetencyRoutes(r)
 
 	return r
 }
