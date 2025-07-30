@@ -22,6 +22,9 @@ export interface ScheduledEventResponse {
     facilitator?: string;
     status?: string;
     allDay: boolean;
+    // Add new properties from backend
+    eventType?: string;
+    relevantParties?: string;
 }
 
 export interface CalendarEvent extends EventInput {
@@ -29,10 +32,14 @@ export interface CalendarEvent extends EventInput {
     title: string;
     start: string;
     end: string;
+    allDay: boolean;
     extendedProps: {
         roomName?: string;
         facilitator?: string;
         status?: string;
+        // Add new properties
+        eventType?: string;
+        relevantParties?: string;
     };
 }
 
@@ -58,6 +65,17 @@ export const createEventDefinition = async (definitionData: CreateEventDefinitio
     });
 };
 
+export const updateEventDefinition = async (definitionId: number, definitionData: Partial<CreateEventDefinitionPayload>): Promise<EventDefinition> => {
+    return api<EventDefinition>(`api/event-definitions/${definitionId}`, {
+        method: 'PUT',
+        data: definitionData,
+    });
+};
+
+export const deleteEventDefinition = async (definitionId: number): Promise<void> => {
+    await api(`api/event-definitions/${definitionId}`, { method: 'DELETE' });
+};
+
 
 // --- Event Schedule API Calls (for the calendar) ---
 export const getScheduledEvents = async (): Promise<CalendarEvent[]> => {
@@ -72,6 +90,8 @@ export const getScheduledEvents = async (): Promise<CalendarEvent[]> => {
             roomName: event.roomName,
             facilitator: event.facilitator,
             status: event.status,
+            eventType: event.eventType,
+            relevantParties: event.relevantParties,
         }
     }));
 };

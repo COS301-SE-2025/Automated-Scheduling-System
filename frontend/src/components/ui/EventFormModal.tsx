@@ -1,262 +1,143 @@
 import React, { useState, useEffect } from 'react';
-import { ColorPicker, type ColorPickerChangeEvent } from 'primereact/colorpicker';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import * as eventService from '../../services/eventService';
 import MessageBox from './MessageBox';
 
-// Basic mock data for the types of events and roles people may have.
-// Moved here as they are specific to this form.
-const eventTypes = ['Meeting', 'HealthCheck', 'Training', 'Report'];
-const parties = ['HR team', 'Employees', 'Supervisors'];
+const scheduleSchema = z.object({
+    customEventId: z.number({ required_error: "You must select an event type." }).min(1, "You must select an event type."),
+    start: z.string().min(1, "Start date is required."),
+    end: z.string().min(1, "End date is required."),
+    roomName: z.string().optional(),
+    maximumAttendees: z.number().optional().nullable(),
+    minimumAttendees: z.number().optional().nullable(),
+    statusName: z.string().optional(),
+}).refine(data => new Date(data.start) < new Date(data.end), {
+    message: "End date must be after start date.",
+    path: ["end"],
+});
+
+type ScheduleFormData = z.infer<typeof scheduleSchema>;
 
 export interface EventFormModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (eventData: {
-        id?: string;
-        title: string;
-        start: string;
-        end: string;
-        allDay: boolean;
-        eventType: string;
-        relevantParties: string;
-        color: string;
-    }) => void;
+    onSave: (eventData: { id?: string } & ScheduleFormData) => void;
     initialData?: {
         id?: string;
         startStr: string;
         endStr: string;
-        allDay: boolean;
-        title?: string;
-        eventType?: string;
-        relevantParties?: string;
-        color?: string;
     };
+    eventDefinitions: eventService.EventDefinition[];
+    onNeedDefinition: () => void;
 }
 
-const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave, initialData }) => {
-    const [id, setId] = useState<string | undefined>(undefined);
-    const [title, setTitle] = useState('');
-    const [eventDate, setEventDate] = useState(new Date().toISOString().split('T')[0]);
-    const [startTime, setStartTime] = useState('09:00');
-    const [endTime, setEndTime] = useState('10:00');
-    const [allDay, setAllDay] = useState(true);
-    const [eventType, setEventType] = useState(eventTypes[0]);
-    const [relevantParties, setRelevantParties] = useState(parties[0]);
-    const [color, setColor] = useState('00bac8');
-    const [validationErrors, setValidationErrors] = useState<string[]>([]);
+const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave, initialData, eventDefinitions, onNeedDefinition }) => {
+    const [apiError, setApiError] = useState<string | null>(null);
+    const isEditMode = !!initialData?.id;
 
-    // Use useEffect to update state when the modal is opened or initialData changes.
+    const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<ScheduleFormData>({
+        resolver: zodResolver(scheduleSchema),
+    });
+
     useEffect(() => {
         if (isOpen) {
-            setValidationErrors([]);
-            if (initialData) {
-                setId(initialData.id);
-                setTitle(initialData.title || '');
-                setEventDate(initialData.startStr.split('T')[0]);
-                setAllDay(initialData.allDay);
-                if (initialData.startStr.includes('T')) {
-                    setStartTime(initialData.startStr.split('T')[1].substring(0,5));
-                } else {
-                    setStartTime('09:00');
-                }
-                if (initialData.endStr.includes('T')) {
-                    setEndTime(initialData.endStr.split('T')[1].substring(0,5));
-                } else {
-                    setEndTime('10:00');
-                }
-                setEventType(initialData.eventType || eventTypes[0]);
-                setRelevantParties(initialData.relevantParties || parties[0]);
-                setColor(initialData.color || '00bac8');
-            } else {
-                // Reset to default for new event
-                setId(undefined);
-                setTitle('');
-                setEventDate(new Date().toISOString().split('T')[0]);
-                setStartTime('09:00');
-                setEndTime('10:00');
-                setAllDay(true);
-                setEventType(eventTypes[0]);
-                setRelevantParties(parties[0]);
-                setColor('00bac8');
+            if (!isEditMode && eventDefinitions.length === 0) {
+                onNeedDefinition();
+                return;
             }
+            reset({
+                start: initialData?.startStr || new Date().toISOString(),
+                end: initialData?.endStr || new Date().toISOString(),
+                roomName: '',
+                maximumAttendees: 0,
+                minimumAttendees: 0,
+                statusName: 'Scheduled',
+            });
+            setApiError(null);
         }
-    }, [initialData, isOpen]);
+    }, [isOpen, initialData, reset, eventDefinitions, isEditMode, onNeedDefinition]);
+
+    const onSubmit = async (data: ScheduleFormData) => {
+        setApiError(null);
+        try {
+            onSave({ id: initialData?.id, ...data });
+        } catch (err) {
+            console.error("Failed to save event schedule:", err);
+            setApiError("An error occurred while saving. Please try again.");
+        }
+    };
 
     if (!isOpen) return null;
 
-    const validateForm = (): boolean => {
-        const errors: string[] = [];
-        
-        if (!title.trim()) {
-            errors.push("Event title is required");
-        }
-        
-        if (!allDay) {
-            // Compare start and end times when not an all-day event
-            const startDateTime = new Date(`${eventDate}T${startTime}`);
-            const endDateTime = new Date(`${eventDate}T${endTime}`);
-            
-            if (startDateTime >= endDateTime) {
-                errors.push("Start time must be earlier than end time");
-            }
-        }
-        
-        setValidationErrors(errors);
-        return errors.length === 0;
-    };
-
-    const handleSubmit = () => {
-        if (validateForm()) {
-            const start = allDay ? eventDate : `${eventDate}T${startTime}`;
-            const end = allDay ? eventDate : `${eventDate}T${endTime}`;
-            onSave({
-                id,
-                title,
-                start,
-                end,
-                allDay,
-                eventType,
-                relevantParties,
-                color: color.startsWith('#') ? color.substring(1) : color
-            });
-        }
-    };
-
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-            <div className="bg-custom-background dark:bg-dark-div p-6 rounded-lg shadow-xl w-full max-w-lg">
-                <h2 className="text-xl font-semibold mb-6 text-custom-text dark:text-dark-text">{initialData?.id ? 'Edit Event' : 'Add New Event'}</h2>
-                
-                {validationErrors.length > 0 && (
-                    <MessageBox type="error" title="Submission Error">
-                        {validationErrors.map((error, index) => (
-                            <p key={index}>{error}</p>
-                        ))}
-                    </MessageBox>
-                )}
-
-                <div className="mb-4">
-                    <label htmlFor="eventTitle" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Event Title</label>
-                    <input
-                        id="eventTitle"
-                        type="text"
-                        placeholder="Enter event title"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        className={`w-full p-3 border rounded-md shadow-sm focus:ring-custom-primary focus:border-custom-primary dark:bg-dark-input dark:text-dark-text dark:placeholder-gray-500 ${
-                            validationErrors.includes("Event title is required") 
-                                ? "border-red-500 dark:border-red-500" 
-                                : "border-gray-300 dark:border-dark-input"
-                        }`}
-                    />
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-gray-600 bg-opacity-50 p-4">
+            <div className="relative w-full max-w-lg mx-auto bg-white dark:bg-dark-div rounded-lg shadow-xl">
+                <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
+                    <h3 className="text-xl font-semibold text-custom-primary dark:text-dark-primary">
+                        {isEditMode ? 'Edit Scheduled Event' : 'Schedule New Event'}
+                    </h3>
+                    <button type="button" onClick={onClose}>
+                         <svg className="w-6 h-6 text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
                 </div>
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-6">
+                    {apiError && <MessageBox type="error" title="Operation Failed">{apiError}</MessageBox>}
+                    
+                    <div>
+                        <label htmlFor="customEventId" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Event Type</label>
+                        <Controller
+                            name="customEventId"
+                            control={control}
+                            render={({ field }) => (
+                                <select {...field} onChange={e => field.onChange(parseInt(e.target.value))} className="w-full p-2 border rounded-md dark:bg-dark-input">
+                                    <option value="">Select an event type...</option>
+                                    {eventDefinitions.map(def => (
+                                        <option key={def.CustomEventID} value={def.CustomEventID}>{def.EventName}</option>
+                                    ))}
+                                </select>
+                            )}
+                        />
+                        {errors.customEventId && <p className="text-red-500 text-xs mt-1">{errors.customEventId.message}</p>}
+                    </div>
 
-                <div className="mb-4">
-                    <label htmlFor="color" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Event Color</label>
-                    <ColorPicker
-                        id="color"
-                        value={color.startsWith('#') ? color : `#${color}`}
-                        onChange={(e: ColorPickerChangeEvent) => setColor(e.value as string)}
-                        className="w-full"
-                    />
-                </div>
-
-                <div className="mb-4">
-                    <label htmlFor="eventType" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Event Type</label>
-                    <select
-                        id="eventType"
-                        value={eventType}
-                        onChange={(e) => setEventType(e.target.value)}
-                        className="w-full p-3 border border-gray-300 dark:border-dark-input rounded-md shadow-sm focus:ring-custom-primary focus:border-custom-primary dark:bg-dark-input dark:text-dark-text"
-                    >
-                        {eventTypes.map(type => (
-                            <option key={type} value={type}>{type}</option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="mb-4">
-                    <label htmlFor="relevantParties" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Relevant Parties</label>
-                    <select
-                        id="relevantParties"
-                        value={relevantParties}
-                        onChange={(e) => setRelevantParties(e.target.value)}
-                        className="w-full p-3 border border-gray-300 dark:border-dark-input rounded-md shadow-sm focus:ring-custom-primary focus:border-custom-primary dark:bg-dark-input dark:text-dark-text"
-                    >
-                        {parties.map(party => (
-                            <option key={party} value={party}>{party}</option>
-                        ))}
-                    </select>
-                </div>
-
-                <div className="mb-4">
-                    <label htmlFor="eventDate" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Date</label>
-                    <input
-                        id="eventDate"
-                        type="date"
-                        value={eventDate}
-                        onChange={(e) => setEventDate(e.target.value)}
-                        className="w-full p-3 border border-gray-300 dark:border-dark-input rounded-md shadow-sm focus:ring-custom-primary focus:border-custom-primary dark:bg-dark-input dark:text-dark-text"
-                    />
-                </div>
-
-                <div className="mb-4 flex items-center">
-                    <input
-                        id="allDay"
-                        type="checkbox"
-                        checked={allDay}
-                        onChange={(e) => setAllDay(e.target.checked)}
-                        className="h-4 w-4 text-custom-primary dark:text-dark-primary border-gray-300 dark:border-dark-input rounded focus:ring-custom-primary dark:focus:ring-dark-primary dark:ring-offset-dark-div dark:bg-dark-input"
-                    />
-                    <label htmlFor="allDay" className="ml-2 block text-sm text-custom-text dark:text-dark-text">All-day event</label>
-                </div>
-
-                {!allDay && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label htmlFor="startTime" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Start Time</label>
-                            <input
-                                id="startTime"
-                                type="time"
-                                value={startTime}
-                                onChange={(e) => setStartTime(e.target.value)}
-                                className={`w-full p-3 border rounded-md shadow-sm focus:ring-custom-primary focus:border-custom-primary dark:bg-dark-input dark:text-dark-text ${
-                                    validationErrors.includes("Start time must be earlier than end time") 
-                                        ? "border-red-500 dark:border-red-500" 
-                                        : "border-gray-300 dark:border-dark-input"
-                                }`}
-                            />
+                            <label htmlFor="start" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Start Date & Time</label>
+                            <input id="start" type="datetime-local" {...register('start')} className="w-full p-2 border rounded-md dark:bg-dark-input" />
+                            {errors.start && <p className="text-red-500 text-xs mt-1">{errors.start.message}</p>}
                         </div>
                         <div>
-                            <label htmlFor="endTime" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">End Time</label>
-                            <input
-                                id="endTime"
-                                type="time"
-                                value={endTime}
-                                onChange={(e) => setEndTime(e.target.value)}
-                                className={`w-full p-3 border rounded-md shadow-sm focus:ring-custom-primary focus:border-custom-primary dark:bg-dark-input dark:text-dark-text ${
-                                    validationErrors.includes("Start time must be earlier than end time") 
-                                        ? "border-red-500 dark:border-red-500" 
-                                        : "border-gray-300 dark:border-dark-input"
-                                }`}
-                            />
+                            <label htmlFor="end" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">End Date & Time</label>
+                            <input id="end" type="datetime-local" {...register('end')} className="w-full p-2 border rounded-md dark:bg-dark-input" />
+                            {errors.end && <p className="text-red-500 text-xs mt-1">{errors.end.message}</p>}
                         </div>
                     </div>
-                )}
 
-                <div className="flex justify-end space-x-3 pt-2">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-custom-text dark:text-dark-text rounded-md shadow-sm hover:bg-gray-100 dark:hover:bg-dark-accent focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:focus:ring-offset-dark-div"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        className="px-4 py-2 bg-custom-primary hover:bg-opacity-90 dark:hover:bg-opacity-90 text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-custom-primary dark:focus:ring-offset-dark-div dark:focus:ring-dark-primary"
-                    >
-                        {initialData?.id ? 'Save Changes' : 'Save Event'}
-                    </button>
-                </div>
+                    <div>
+                        <label htmlFor="roomName" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Location</label>
+                        <input id="roomName" {...register('roomName')} className="w-full p-2 border rounded-md dark:bg-dark-input" />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label htmlFor="minimumAttendees" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Min Attendees</label>
+                            <input id="minimumAttendees" type="number" {...register('minimumAttendees', { valueAsNumber: true })} className="w-full p-2 border rounded-md dark:bg-dark-input" />
+                        </div>
+                        <div>
+                            <label htmlFor="maximumAttendees" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Max Attendees</label>
+                            <input id="maximumAttendees" type="number" {...register('maximumAttendees', { valueAsNumber: true })} className="w-full p-2 border rounded-md dark:bg-dark-input" />
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-end pt-4 space-x-3">
+                        <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 border rounded-md">Cancel</button>
+                        <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-custom-primary text-white rounded-md hover:bg-custom-primary-hover">
+                            {isSubmitting ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Schedule Event')}
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );

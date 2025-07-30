@@ -4,11 +4,12 @@ import MainLayout from '../layouts/MainLayout';
 import FeatureGrid from '../components/ui/FeatureGrid';
 import FeatureBlock from '../components/ui/FeatureBlock';
 import * as eventService from '../services/eventService';
-import type { CalendarEvent } from '../services/eventService';
+import type { CalendarEvent, EventDefinition } from '../services/eventService';
 import { PlusCircle, Edit, Trash2, AlertCircle, CalendarClock, Link as LinkIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import EventFormModal, { type EventFormModalProps } from '../components/ui/EventFormModal';
+import EventDefinitionFormModal from '../components/ui/EventDefinitionFormModal';
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
 
 type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
@@ -16,28 +17,33 @@ type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
 const EventsPage: React.FC = () => {
     const { user } = useAuth();
     const [events, setEvents] = useState<CalendarEvent[]>([]);
+    const [eventDefinitions, setEventDefinitions] = useState<EventDefinition[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
+    const [isDefinitionModalOpen, setIsDefinitionModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [eventToEdit, setEventToEdit] = useState<CalendarEvent | null>(null);
     const [eventToDelete, setEventToDelete] = useState<CalendarEvent | null>(null);
 
-    const fetchAndSetEvents = useCallback(async () => {
+    const fetchAndSetData = useCallback(async () => {
         if (!user) return;
 
         try {
             setIsLoading(true);
-            // Replace existing calls with getScheduledEvents
-            const fetchedEvents = await eventService.getScheduledEvents();
+            const [fetchedEvents, fetchedDefinitions] = await Promise.all([
+                eventService.getScheduledEvents(),
+                eventService.getEventDefinitions()
+            ]);
 
             fetchedEvents.sort((a, b) => new Date(a.start as string).getTime() - new Date(b.start as string).getTime());
 
             setEvents(fetchedEvents);
+            setEventDefinitions(fetchedDefinitions);
             setError(null);
         } catch (err) {
-            console.error("Failed to fetch events:", err);
+            console.error("Failed to fetch events data:", err);
             setError("Could not load events. Please try again later.");
         } finally {
             setIsLoading(false);
@@ -46,13 +52,25 @@ const EventsPage: React.FC = () => {
     }, [user]); 
 
     useEffect(() => {
-        fetchAndSetEvents();
-    }, [fetchAndSetEvents]);
+        fetchAndSetData();
+    }, [fetchAndSetData]);
 
     // --- Admin-specific Handlers ---
 
     const handleAddEventClick = () => {
         setEventToEdit(null);
+        setIsFormModalOpen(true);
+    };
+
+    const handleOpenDefinitionModal = () => {
+        setIsFormModalOpen(false); // Close schedule modal if open
+        setIsDefinitionModalOpen(true);
+    };
+
+    const handleSaveDefinition = (newDefinition: eventService.EventDefinition) => {
+        setEventDefinitions(prev => [...prev, newDefinition]);
+        setIsDefinitionModalOpen(false);
+        // Re-open the schedule modal for convenience
         setIsFormModalOpen(true);
     };
 
@@ -66,47 +84,32 @@ const EventsPage: React.FC = () => {
         setIsDeleteModalOpen(true);
     };
 
-    const handleConfirmDelete = async () => {
-        if (eventToDelete) {
-            try {
-                // Convert string ID to number for deleteScheduledEvent
-                await eventService.deleteScheduledEvent(Number(eventToDelete.id));
-                setEvents(prevEvents => prevEvents.filter(e => e.id !== eventToDelete.id));
-            } catch (err) {
-                console.error('Failed to delete event:', err);
-                setError('Failed to delete event.');
-            } finally {
-                setIsDeleteModalOpen(false);
-                setEventToDelete(null);
-            }
-        }
+    const handleDeletionSuccess = () => {
+        if (!eventToDelete) return;
+        setEvents(prevEvents => prevEvents.filter(e => e.id !== eventToDelete.id));
+        setIsDeleteModalOpen(false);
+        setEventToDelete(null);
     };
 
     const handleSaveEvent = async (eventData: EventSaveData) => {
         try {
+            const scheduleData: eventService.CreateSchedulePayload = {
+                customEventId: eventData.customEventId,
+                start: new Date(eventData.start).toISOString(),
+                end: new Date(eventData.end).toISOString(),
+                roomName: eventData.roomName,
+                maxAttendees: eventData.maximumAttendees ?? undefined,
+                minAttendees: eventData.minimumAttendees ?? undefined,
+                statusName: eventData.statusName,
+            };
+
             if (eventData.id) {
-                // Convert to format expected by updateScheduledEvent
-                const scheduleData: Partial<eventService.CreateSchedulePayload> = {
-                    start: eventData.start,
-                    end: eventData.end,
-                    roomName: 'Default Room', // Add appropriate room mapping
-                };
-                
                 await eventService.updateScheduledEvent(Number(eventData.id), scheduleData);
             } else {
-                // Convert to format expected by createScheduledEvent
-                const scheduleData: eventService.CreateSchedulePayload = {
-                    customEventId: 1, // Appropriate ID based on event type
-                    start: eventData.start,
-                    end: eventData.end,
-                    roomName: 'Default Room', // Add appropriate room mapping
-                    statusName: 'Scheduled',
-                };
-                
                 await eventService.createScheduledEvent(scheduleData);
             }
 
-            await fetchAndSetEvents();
+            await fetchAndSetData();
         } catch (err) {
             console.error('Failed to save event:', err);
             setError('Failed to save event. Please check your input and try again.');
@@ -118,15 +121,18 @@ const EventsPage: React.FC = () => {
 
     const prepareInitialModalData = (): EventFormModalProps['initialData'] | undefined => {
         if (!eventToEdit) return undefined;
+
+        const toLocalISOString = (date: Date | string) => {
+            const d = new Date(date);
+            const tzoffset = d.getTimezoneOffset() * 60000;
+            const localISOTime = new Date(d.getTime() - tzoffset).toISOString().slice(0, 16);
+            return localISOTime;
+        };
+        
         return {
             id: eventToEdit.id,
-            title: eventToEdit.title,
-            startStr: eventToEdit.start ? new Date(eventToEdit.start as string).toISOString() : '',
-            endStr: eventToEdit.end ? new Date(eventToEdit.end as string).toISOString() : '',
-            allDay: !!eventToEdit.allDay,
-            eventType: eventToEdit.eventType,
-            relevantParties: eventToEdit.relevantParties,
-            color: eventToEdit.color,
+            startStr: eventToEdit.start ? toLocalISOString(eventToEdit.start as string) : '',
+            endStr: eventToEdit.end ? toLocalISOString(eventToEdit.end as string) : '',
         };
     };
 
@@ -160,13 +166,20 @@ const EventsPage: React.FC = () => {
                     </p>
                 </div>
                 {user?.role === 'Admin' && (
-                    <button
-                        onClick={handleAddEventClick}
-                        className="flex items-center px-4 py-2 bg-custom-primary text-white rounded-lg shadow hover:bg-custom-primary-hover focus:outline-none focus:ring-2 focus:ring-custom-primary focus:ring-opacity-50 transition ease-in-out duration-150"
-                    >
-                        <PlusCircle size={20} className="mr-2" />
-                        Add Event
-                    </button>
+                    <div className="flex space-x-2">
+                        <button
+                            onClick={handleOpenDefinitionModal}
+                            className="flex items-center rounded-md bg-custom-primary px-2 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-gray-500 transition ease-in-out duration-150"
+                         >
+                            Add Event Type
+                         </button>
+                         <button
+                            onClick={handleAddEventClick}
+                            className="block rounded-md bg-custom-secondary px-2 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-custom-third focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-custom-secondary"
+                         >                            
+                            Schedule Event
+                         </button>
+                     </div>
                 )}
             </div>
 
@@ -182,12 +195,20 @@ const EventsPage: React.FC = () => {
                         onClose={() => setIsFormModalOpen(false)}
                         onSave={handleSaveEvent}
                         initialData={prepareInitialModalData()}
+                        eventDefinitions={eventDefinitions}
+                        onNeedDefinition={handleOpenDefinitionModal}
+                    />
+                    <EventDefinitionFormModal
+                        isOpen={isDefinitionModalOpen}
+                        onClose={() => setIsDefinitionModalOpen(false)}
+                        onSave={handleSaveDefinition}
                     />
                     {eventToDelete && (
                         <EventDeleteConfirmationModal
                             isOpen={isDeleteModalOpen}
                             onClose={() => setIsDeleteModalOpen(false)}
-                            onConfirm={handleConfirmDelete}
+                            onDeleteSuccess={handleDeletionSuccess}
+                            eventId={Number(eventToDelete.id)}
                             eventName={eventToDelete.title || 'this event'}
                         />
                     )}

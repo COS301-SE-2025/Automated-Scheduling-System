@@ -14,6 +14,7 @@ import RulesPage from '../pages/RulesPage';
 import LandingPage from '../pages/LandingPage';
 import LandingHelpPage from '../pages/LandingHelpPage';
 import MainHelpPage from '../pages/MainHelpPage';
+import EventDefinitionsPage from '../pages/EventDefinitionsPage';
 import { useAuth } from '../hooks/useAuth';
 
 const ProtectedRouteElement: React.FC = () => {
@@ -99,6 +100,7 @@ const AppRoutes: React.FC = () => {
                 <Route element={<AdminRouteElement />}>
                     <Route path="/users" element={<UsersPage />} />
                     <Route path="/competencies" element={<CompetencyPage />} />
+                    <Route path="/event-definitions" element={<EventDefinitionsPage />} />
                 </Route>
             </Route>
             
