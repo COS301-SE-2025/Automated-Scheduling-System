@@ -164,14 +164,17 @@ func CreateEventScheduleHandler(c *gin.Context) {
 		return
 	}
 
-    // After creating, preload the definition for the response so the frontend gets the full object.
-    if err := DB.Preload("CustomEventDefinition").First(&schedule, schedule.CustomEventScheduleID).Error; err != nil {
-         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch created schedule for response"})
+    // After creating, fetch and return the entire updated list of schedules.
+    // This ensures the frontend state is always consistent.
+    var allSchedules []models.CustomEventSchedule
+    if err := DB.Preload("CustomEventDefinition").Order("event_start_date asc").Find(&allSchedules).Error; err != nil {
+        // The creation succeeded, but we can't return the list.
+        // Return the single created item as a fallback.
+        c.JSON(http.StatusCreated, schedule)
         return
     }
 
-	c.JSON(http.StatusCreated, schedule)
-
+    c.JSON(http.StatusCreated, allSchedules)
 }
 
 // GetEventSchedulesHandler fetches all scheduled events, suitable for a calendar view.
@@ -183,8 +186,6 @@ func GetEventSchedulesHandler(c *gin.Context) {
         return
     }
 
-    // Directly return the full schedule objects.
-    // The frontend will receive the complete data, including the nested definition.
     c.JSON(http.StatusOK, schedules)
 }
 
@@ -197,7 +198,7 @@ func UpdateEventScheduleHandler(c *gin.Context) {
 		return
 	}
 
-	var req models.CreateEventScheduleRequest // Reuse create request struct for updates
+	var req models.CreateEventScheduleRequest 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data: " + err.Error()})
 		return
@@ -219,12 +220,21 @@ func UpdateEventScheduleHandler(c *gin.Context) {
 	scheduleToUpdate.MinimumAttendees = req.MinimumAttendees
 	scheduleToUpdate.StatusName = req.StatusName
 
-	if err := DB.Save(&scheduleToUpdate).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event schedule"})
-		return
-	}
+    if err := DB.Save(&scheduleToUpdate).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event schedule in database"})
+        return
+    }
 
-	c.JSON(http.StatusOK, scheduleToUpdate)
+    // FIX: After updating, fetch and return the entire updated list of schedules.
+    var allSchedules []models.CustomEventSchedule
+    if err := DB.Preload("CustomEventDefinition").Order("event_start_date asc").Find(&allSchedules).Error; err != nil {
+        // The update succeeded, but we can't return the list.
+        // Return the single updated item as a fallback.
+        c.JSON(http.StatusOK, scheduleToUpdate)
+        return
+    } 
+
+    c.JSON(http.StatusOK, allSchedules)
 }
 
 // DeleteEventScheduleHandler deletes a scheduled event.

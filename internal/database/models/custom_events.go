@@ -34,8 +34,7 @@ type CustomEventSchedule struct {
 	MinimumAttendees      int
 	StatusName            string
 	CreationDate          time.Time `gorm:"autoCreateTime"`
-
-	CustomEventDefinition CustomEventDefinition `gorm:"foreignKey:CustomEventID"`
+	CustomEventDefinition CustomEventDefinition `gorm:"foreignKey:CustomEventID;references:CustomEventID"`
 }
 
 // =====================================================================
