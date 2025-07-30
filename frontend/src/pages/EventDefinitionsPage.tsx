@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import MainLayout from '../layouts/MainLayout';
 import * as eventService from '../services/eventService';
@@ -6,12 +6,16 @@ import type { EventDefinition, CreateEventDefinitionPayload  } from '../services
 import { Edit, Trash2, AlertCircle, BookCopy } from 'lucide-react';
 import EventDefinitionFormModal from '../components/ui/EventDefinitionFormModal';
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
+import EventDefinitionFilters from '../components/ui/EventDefinitionFilters';
 
 const EventDefinitionsPage: React.FC = () => {
     const { user } = useAuth();
     const [definitions, setDefinitions] = useState<EventDefinition[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filters, setFilters] = useState({ facilitator: '' });
 
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -35,6 +39,23 @@ const EventDefinitionsPage: React.FC = () => {
     useEffect(() => {
         fetchDefinitions();
     }, [fetchDefinitions]);
+
+    const availableFilterOptions = useMemo(() => ({
+        facilitators: Array.from(new Set(definitions.map(d => d.Facilitator).filter(Boolean))).sort(),
+    }), [definitions]);
+
+    const filteredDefinitions = useMemo(() => {
+        return definitions.filter(def => {
+            const term = searchTerm.toLowerCase();
+            const matchesSearch = !term || 
+                def.EventName.toLowerCase().includes(term) || 
+                def.ActivityDescription.toLowerCase().includes(term);
+            
+            const matchesFacilitator = !filters.facilitator || def.Facilitator === filters.facilitator;
+
+            return matchesSearch && matchesFacilitator;
+        });
+    }, [definitions, searchTerm, filters]);
 
     const handleAddClick = () => {
         setDefinitionToEdit(null);
@@ -94,7 +115,7 @@ const EventDefinitionsPage: React.FC = () => {
                 </div>
             );
         }
-        if (definitions.length === 0) {
+        if (definitions.length === 0 && !isLoading) {
             return (
                 <div className="mt-6 text-center py-10 bg-white dark:bg-dark-input rounded-md shadow">
                     <p className="text-custom-third dark:text-dark-secondary">No event definitions found. Get started by adding one!</p>
@@ -119,7 +140,7 @@ const EventDefinitionsPage: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-dark-input">
-                                    {definitions.map((def) => (
+                                    {filteredDefinitions.map((def) => (
                                         <tr key={def.CustomEventID}>
                                             <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 dark:text-white sm:pl-6">{def.EventName}</td>
                                             <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300">{def.StandardDuration}</td>
@@ -162,6 +183,13 @@ const EventDefinitionsPage: React.FC = () => {
                         </button>
                     </div>
                 </div>
+
+                <EventDefinitionFilters
+                    onSearch={setSearchTerm}
+                    onFilterChange={(name, value) => setFilters(prev => ({ ...prev, [name]: value }))}
+                    filters={filters}
+                    availableFacilitators={availableFilterOptions.facilitators}
+                />
 
                 {renderContent()}
             </div>
