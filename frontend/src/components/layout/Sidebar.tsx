@@ -122,12 +122,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                                             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 sm:w-1 h-6 sm:h-8 bg-gradient-to-b from-custom-secondary to-custom-third rounded-r-full"></div>
                                         )}
 
-                                        <div className={`${isCollapsed ? 'w-3 h-3' : 'w-1.5 sm:w-2 h-1.5 sm:h-2'} rounded-full ${isCollapsed ? '' : 'mr-2 sm:mr-3'} flex-shrink-0 transition-all duration-200
-                                            ${isActive
-                                                ? 'bg-custom-secondary shadow-sm'
-                                                : 'bg-gray-400/60 dark:bg-gray-500/60 group-hover:bg-custom-secondary/60'
-                                            }`}>
-                                        </div>
+                                        {item.icon && (
+                                            <div className={`flex-shrink-0 transition-all duration-200 ${isCollapsed ? '' : 'mr-3'}`}>
+                                                {item.icon}
+                                            </div>
+                                        )}
 
                                         {!isCollapsed && (
                                             <span className="relative z-10 truncate">{item.label}</span>
