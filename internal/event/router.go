@@ -20,6 +20,8 @@ func RegisterEventRoutes(r *gin.Engine) {
 
 			protected.POST("/event-definitions", CreateEventDefinitionHandler)
 			protected.GET("/event-definitions", GetEventDefinitionsHandler)
+			protected.PUT("/event-definitions/:definitionID", UpdateEventDefinitionHandler)
+			protected.DELETE("/event-definitions/:definitionID", DeleteEventDefinitionHandler)
 		}
 	}
 }

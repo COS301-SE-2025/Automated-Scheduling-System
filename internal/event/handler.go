@@ -57,6 +57,68 @@ func GetEventDefinitionsHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, definitions)
 }
 
+// UpdateEventDefinitionHandler updates an existing event definition.
+func UpdateEventDefinitionHandler(c *gin.Context) {
+    definitionIDStr := c.Param("definitionID")
+    definitionID, err := strconv.Atoi(definitionIDStr)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Definition ID format"})
+        return
+    }
+
+    var req models.CreateEventDefinitionRequest // Reuse create request struct for updates
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data: " + err.Error()})
+        return
+    }
+
+    var definitionToUpdate models.CustomEventDefinition
+    if err := DB.First(&definitionToUpdate, definitionID).Error; err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Event definition not found"})
+        return
+    }
+
+    // Update fields from request
+    definitionToUpdate.EventName = req.EventName
+    definitionToUpdate.ActivityDescription = req.ActivityDescription
+    definitionToUpdate.StandardDuration = req.StandardDuration
+    definitionToUpdate.GrantsCertificateID = req.GrantsCertificateID
+    definitionToUpdate.Facilitator = req.Facilitator
+
+    if err := DB.Save(&definitionToUpdate).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event definition"})
+        return
+    }
+
+    c.JSON(http.StatusOK, definitionToUpdate)
+}
+
+// DeleteEventDefinitionHandler deletes an event definition.
+func DeleteEventDefinitionHandler(c *gin.Context) {
+    definitionIDStr := c.Param("definitionID")
+    definitionID, err := strconv.Atoi(definitionIDStr)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Definition ID format"})
+        return
+    }
+
+    // Using GORM's delete method. It will automatically handle the "where" clause.
+    // It's important to check for foreign key constraints on the database side.
+    // If a scheduled event references this definition, this delete might fail
+    // unless ON DELETE CASCADE is set up.
+    result := DB.Delete(&models.CustomEventDefinition{}, definitionID)
+    if result.Error != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete event definition. It may be in use by a scheduled event."})
+        return
+    }
+    if result.RowsAffected == 0 {
+        c.JSON(http.StatusNotFound, gin.H{"error": "Event definition not found or already deleted"})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{"message": "Event definition deleted successfully"})
+}
+
 // ================================================================
 // Event Schedule Handlers (for managing calendar instances)
 // ================================================================

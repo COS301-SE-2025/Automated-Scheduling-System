@@ -9,6 +9,7 @@ import type { EventContentArg, DateSelectArg, EventClickArg } from '@fullcalenda
 import type { DateClickArg } from '@fullcalendar/interaction';
 import { PlusCircle } from 'lucide-react';
 import EventFormModal, { type EventFormModalProps } from '../components/ui/EventFormModal';
+import EventDefinitionFormModal from '../components/ui/EventDefinitionFormModal';
 import EventDetailModal from '../components/ui/EventDetailModal';
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
 import * as eventService from '../services/eventService';
@@ -20,6 +21,7 @@ type SelectedInfoType = DateSelectArg | DateClickArg | (EventClickArg['event'] &
 const CalendarPage: React.FC = () => {
     const { user } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isDefinitionModalOpen, setIsDefinitionModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [clickedEventInfo, setClickedEventInfo] = useState<EventClickArg['event'] | null>(null);
@@ -28,31 +30,47 @@ const CalendarPage: React.FC = () => {
     const [eventToDelete, setEventToDelete] = useState<EventClickArg['event'] | null>(null);
     const calendarRef = useRef<FullCalendar>(null);
     const [events, setEvents] = useState<CalendarEvent[]>([]);
+    const [eventDefinitions, setEventDefinitions] = useState<eventService.EventDefinition[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const fetchEvents = async () => {
+        const fetchInitialData = async () => {
             try {
                 setIsLoading(true);
-                // Using correct getScheduledEvents function
-                const fetchedEvents = await eventService.getScheduledEvents();
-                setEvents(fetchedEvents);
+                const [schedules, definitions] = await Promise.all([
+                    eventService.getScheduledEvents(),
+                    eventService.getEventDefinitions()
+                ]);
+                setEvents(schedules);
+                setEventDefinitions(definitions);
                 setError(null);
             } catch (err) {
-                console.error("Failed to fetch events:", err);
-                setError("Could not load calendar events.");
+                console.error("Failed to fetch calendar data:", err);
+                setError("Could not load calendar data.");
             } finally {
                 setIsLoading(false);
             }
         };
 
-        fetchEvents();
+        fetchInitialData();
     }, []);
 
     const handleAddEventClick = () => {
         setSelectedDateInfo(null);
         setEventToEdit(null);
+        setIsModalOpen(true);
+    };
+
+    const handleOpenDefinitionModal = () => {
+        setIsModalOpen(false); // Close schedule modal if open
+        setIsDefinitionModalOpen(true);
+    };
+
+    const handleSaveDefinition = (newDefinition: eventService.EventDefinition) => {
+        setEventDefinitions(prev => [...prev, newDefinition]);
+        setIsDefinitionModalOpen(false);
+        // Re-open the schedule modal for convenience
         setIsModalOpen(true);
     };
 
@@ -83,47 +101,31 @@ const CalendarPage: React.FC = () => {
         setIsDeleteModalOpen(true);
     };
 
-    const handleConfirmDelete = async () => {
-        if (eventToDelete) {
-            try {
-                // Convert string ID to number for deleteScheduledEvent
-                await eventService.deleteScheduledEvent(Number(eventToDelete.id));
-                
-                // Update the events state
-                const calendarApi = calendarRef.current?.getApi();
-                calendarApi?.getEventById(eventToDelete.id)?.remove();
-                
-            } catch (err) {
-                console.error('Failed to delete event:', err);
-                setError('Failed to delete event.');
-            } finally {
-                setIsDeleteModalOpen(false);
-                setEventToDelete(null);
-            }
-        }
+    const handleDeletionSuccess = () => {
+        if (!eventToDelete) return;
+        // Update the events state by removing the event from the calendar
+        const calendarApi = calendarRef.current?.getApi();
+        calendarApi?.getEventById(eventToDelete.id)?.remove();
+        
+        setIsDeleteModalOpen(false);
+        setEventToDelete(null);
     };
 
     const handleSaveEvent = async (eventData: EventSaveData) => {
         try {
+            const scheduleData: eventService.CreateSchedulePayload = {
+                customEventId: eventData.customEventId,
+                start: new Date(eventData.start).toISOString(),
+                end: new Date(eventData.end).toISOString(),
+                roomName: eventData.roomName,
+                maxAttendees: eventData.maximumAttendees ?? undefined,
+                minAttendees: eventData.minimumAttendees ?? undefined,
+                statusName: eventData.statusName,
+            };
+
             if (eventData.id) {
-                // Convert to format expected by updateScheduledEvent
-                const scheduleData: Partial<eventService.CreateSchedulePayload> = {
-                    start: eventData.start,
-                    end: eventData.end,
-                    roomName: 'Default Room', // Add appropriate mapping
-                };
-                
                 await eventService.updateScheduledEvent(Number(eventData.id), scheduleData);
             } else {
-                // Convert to format expected by createScheduledEvent
-                const scheduleData: eventService.CreateSchedulePayload = {
-                    customEventId: 1, // Appropriate ID based on event type
-                    start: eventData.start,
-                    end: eventData.end,
-                    roomName: 'Default Room', // Add appropriate mapping
-                    statusName: 'Scheduled',
-                };
-                
                 await eventService.createScheduledEvent(scheduleData);
             }
             
@@ -145,39 +147,31 @@ const CalendarPage: React.FC = () => {
         if (eventToEdit) {
             return {
                 id: eventToEdit.id,
-                title: eventToEdit.title,
                 startStr: eventToEdit.startStr,
                 endStr: eventToEdit.endStr,
-                allDay: eventToEdit.allDay,
-                eventType: eventToEdit.extendedProps.eventType,
-                relevantParties: eventToEdit.extendedProps.relevantParties,
-                color: eventToEdit.extendedProps.color,
             };
         }
         if (!selectedDateInfo) return undefined;
 
-        if ('dateStr' in selectedDateInfo && !('startStr' in selectedDateInfo)) {
+        const toLocalISOString = (date: Date) => {
+            const tzoffset = (new Date()).getTimezoneOffset() * 60000; //offset in milliseconds
+            const localISOTime = (new Date(date.getTime() - tzoffset)).toISOString().slice(0, -1);
+            return localISOTime.substring(0, 16);
+        };
+
+        if ('date' in selectedDateInfo && !('startStr' in selectedDateInfo)) {
             const dateClick = selectedDateInfo as DateClickArg;
             return {
-                startStr: dateClick.dateStr,
-                endStr: dateClick.dateStr,
-                allDay: !dateClick.dateStr.includes('T'),
-
+                startStr: toLocalISOString(dateClick.date),
+                endStr: toLocalISOString(new Date(dateClick.date.getTime() + 60 * 60 * 1000)), // Default to 1 hour
             };
         }
 
-        if ('startStr' in selectedDateInfo) {
-            const selectableInfo = selectedDateInfo as DateSelectArg | (EventClickArg['event'] & { eventType?: string; relevantParties?: string });
+        if ('start' in selectedDateInfo) {
+            const selectableInfo = selectedDateInfo as DateSelectArg;
             return {
-                startStr: selectableInfo.startStr,
-                endStr: selectableInfo.endStr,
-                allDay: selectableInfo.allDay,
-                title: 'title' in selectableInfo ? selectableInfo.title : undefined,
-
-                eventType: ('extendedProps' in selectableInfo && selectableInfo.extendedProps?.eventType) ? selectableInfo.extendedProps.eventType : undefined,
-
-                relevantParties: ('extendedProps' in selectableInfo && selectableInfo.extendedProps?.relevantParties) ? selectableInfo.extendedProps.relevantParties : undefined,
-                color: ('extendedProps' in selectableInfo && selectableInfo.extendedProps?.color) ? selectableInfo.extendedProps.color : undefined,
+                startStr: toLocalISOString(selectableInfo.start),
+                endStr: toLocalISOString(selectableInfo.end),
             };
         }
         return undefined;
@@ -188,14 +182,21 @@ const CalendarPage: React.FC = () => {
         <MainLayout pageTitle='Calendar'>
             <div>
                 <div className="flex justify-between items-center mb-4">
-                    <h1 className="text-2xl font-semibold text-custom-text dark:text-dark-text">Calendar - {user?.name || 'User'}</h1>
-                    <button
-                        onClick={handleAddEventClick}
-                        className="flex items-center px-4 py-2 bg-custom-primary text-white rounded-lg shadow hover:bg-custom-primary-hover focus:outline-none focus:ring-2 focus:ring-custom-primary focus:ring-opacity-50 transition ease-in-out duration-150"
-                    >
-                        <PlusCircle size={20} className="mr-2" />
-                        Add Event
-                    </button>
+                    <h1 className="text-2xl font-semibold text-custom-text dark:text-dark-text">Calendar</h1>
+                    <div className="flex space-x-2">
+                        <button
+                            onClick={handleOpenDefinitionModal}
+                            className="flex items-center rounded-md bg-custom-primary px-2 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-gray-500 transition ease-in-out duration-150"
+                         >
+                            Add Event Type
+                        </button>
+                        <button
+                            onClick={handleAddEventClick}
+                            className="block rounded-md bg-custom-secondary px-2 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-custom-third focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-custom-secondary"
+                        >
+                            Schedule Event
+                        </button>
+                    </div>
                 </div>
 
                 {isLoading && (
@@ -248,6 +249,13 @@ const CalendarPage: React.FC = () => {
                 }}
                 onSave={handleSaveEvent}
                 initialData={prepareInitialModalData()}
+                eventDefinitions={eventDefinitions}
+                onNeedDefinition={handleOpenDefinitionModal}
+            />
+            <EventDefinitionFormModal
+                isOpen={isDefinitionModalOpen}
+                onClose={() => setIsDefinitionModalOpen(false)}
+                onSave={handleSaveDefinition}
             />
             <EventDetailModal
                 isOpen={isDetailModalOpen}
@@ -263,7 +271,8 @@ const CalendarPage: React.FC = () => {
                         setIsDeleteModalOpen(false);
                         setEventToDelete(null);
                     }}
-                    onConfirm={handleConfirmDelete}
+                    onDeleteSuccess={handleDeletionSuccess}
+                    eventId={Number(eventToDelete.id)}
                     eventName={eventToDelete.title}
                 />
             )}

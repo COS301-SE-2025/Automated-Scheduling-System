@@ -9,6 +9,7 @@ const navItems: NavItem[] = [
     { path: '/users', label: 'Users' },
     { path: '/calendar', label: 'Calendar' },
     { path: '/events', label: 'Events' },
+    { path: '/event-definitions', label: 'Event Definitions' },
     { path: '/rules', label: 'Rules' },
     { path: '/competencies', label: 'Competencies' },
     { path: '/main-help', label: 'Help' },
