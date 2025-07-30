@@ -5,7 +5,7 @@ import FeatureGrid from '../components/ui/FeatureGrid';
 import FeatureBlock from '../components/ui/FeatureBlock';
 import * as eventService from '../services/eventService';
 import type { CalendarEvent, EventDefinition } from '../services/eventService';
-import { PlusCircle, Edit, Trash2, AlertCircle, CalendarClock, Link as LinkIcon } from 'lucide-react';
+import { Edit, Trash2, AlertCircle, CalendarClock, Link as LinkIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import EventFormModal, { type EventFormModalProps } from '../components/ui/EventFormModal';
