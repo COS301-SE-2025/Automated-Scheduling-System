@@ -1,7 +1,6 @@
 package models
 
 import (
-	rules "Automated-Scheduling-Project/internal/rule_engine"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -16,20 +15,41 @@ type DBRule struct {
 	Body    RawRuleJSON `gorm:"type:json"`
 }
 
-// Wrapper for RawRule
-type RawRuleJSON rules.RawRule
-
-func (r RawRuleJSON) Value() (driver.Value, error) {
-	return json.Marshal(rules.RawRule(r))
+// RawRuleJSON represents the JSON structure for rules
+// This is a local copy to avoid import cycles
+type RawRuleJSON struct {
+	ID         string                 `json:"id"`
+	Type       string                 `json:"type"`
+	Enabled    bool                   `json:"enabled"`
+	Target     string                 `json:"target,omitempty"`
+	Frequency  *Period                `json:"frequency,omitempty"`
+	Conditions map[string]interface{} `json:"conditions,omitempty"`
+	Params     map[string]interface{} `json:"params,omitempty"`
+	When       string                 `json:"when,omitempty"`
+	Actions    []RawAction            `json:"actions,omitempty"`
 }
 
-func (r *RawRuleJSON) Scan(v any) error {
+type Period struct {
+	Years  int `json:"years,omitempty"`
+	Months int `json:"months,omitempty"`
+	Days   int `json:"days,omitempty"`
+}
+
+type RawAction struct {
+	Type   string                 `json:"type"`
+	Params map[string]interface{} `json:"params,omitempty"`
+}
+
+func (r RawRuleJSON) Value() (driver.Value, error) {
+	return json.Marshal(r)
+}
+
+func (r *RawRuleJSON) Scan(v interface{}) error {
 	bytes, ok := v.([]byte)
 	if !ok {
 		return fmt.Errorf("unexpected DB type %T for RawRule", v)
 	}
-	return json.Unmarshal(bytes, (*rules.RawRule)(r))
-
+	return json.Unmarshal(bytes, r)
 }
 
 // GORM Json helpers

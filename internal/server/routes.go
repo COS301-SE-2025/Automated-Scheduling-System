@@ -3,6 +3,7 @@ package server
 import (
 	"Automated-Scheduling-Project/internal/auth"
 	"Automated-Scheduling-Project/internal/event"
+	"Automated-Scheduling-Project/internal/rules"
 	"Automated-Scheduling-Project/internal/user"
 	"net/http"
 
@@ -23,9 +24,32 @@ func (s *Server) RegisterRoutes() http.Handler {
 	r.GET("/", s.HelloWorldHandler)
 
 	r.GET("/health", s.healthHandler)
+
+	// Initialize database connections for modules
+	event.DB = s.db.Gorm()
+	rules.DB = s.db.Gorm()
+
+	// Initialize rule engine
+	if err := event.InitializeRuleEngine(); err != nil {
+		// Log error but don't fail startup
+		// In production, you might want to handle this differently
+	}
+
+	// Register routes
 	auth.RegisterAuthRoutes(r)
 	user.RegisterUserRoutes(r)
 	event.RegisterEventRoutes(r)
+
+	// Register rule management routes
+	ruleProtected := r.Group("/api/rules")
+	ruleProtected.Use(auth.AuthMiddleware())
+	{
+		ruleProtected.GET("", rules.GetRulesHandler)
+		ruleProtected.POST("", rules.CreateRuleHandler)
+		ruleProtected.PUT("/:ruleID", rules.UpdateRuleHandler)
+		ruleProtected.DELETE("/:ruleID", rules.DeleteRuleHandler)
+		ruleProtected.POST("/trigger-scheduled", rules.TriggerScheduledRulesHandler)
+	}
 
 	return r
 }

@@ -3,6 +3,7 @@ package event
 import (
 	"Automated-Scheduling-Project/internal/database/gen_models"
 	"Automated-Scheduling-Project/internal/database/models"
+	"Automated-Scheduling-Project/internal/event_rules"
 	"net/http"
 	"strconv"
 
@@ -11,6 +12,22 @@ import (
 )
 
 var DB *gorm.DB
+var RuleBridge *event_rules.EventRuleBridge
+
+// InitializeRuleEngine loads rules from database and initializes the rule bridge
+func InitializeRuleEngine() error {
+	if DB == nil {
+		return nil // DB not initialized yet
+	}
+
+	engine, err := event_rules.LoadRulesFromDatabase(DB)
+	if err != nil {
+		return err
+	}
+
+	RuleBridge = event_rules.NewEventRuleBridge(engine)
+	return nil
+}
 
 func GetEventsHandler(c *gin.Context) {
 	var events []gen_models.Event
@@ -42,20 +59,7 @@ func CreateEventHandler(c *gin.Context) {
 		return
 	}
 
-	newEvent := gen_models.Event{
-		Title:           req.Title,
-		StartTime:       req.Start,
-		EndTime:         req.End,
-		AllDay:          req.AllDay,
-		EventType:       req.EventType,
-		RelevantParties: req.RelevantParties,
-	}
-
-	if err := DB.Create(&newEvent).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create event"})
-		return
-	}
-
+	// Get user information first
 	emailInterface, exists := c.Get("email")
 	if !exists {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not extract user from token to link event"})
@@ -70,6 +74,58 @@ func CreateEventHandler(c *gin.Context) {
 	var extendedEmployee models.ExtendedEmployee
 	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("useraccountemail = ?", email).First(&extendedEmployee).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Create the new event (without saving to DB yet)
+	newEvent := gen_models.Event{
+		Title:           req.Title,
+		StartTime:       req.Start,
+		EndTime:         req.End,
+		AllDay:          req.AllDay,
+		EventType:       req.EventType,
+		RelevantParties: req.RelevantParties,
+	}
+
+	// Validate against rules if rule bridge is initialized
+	if RuleBridge != nil {
+		// Get existing events for this user
+		var userEvents []gen_models.UserEvent
+		if err := DB.Where("user_id = ?", extendedEmployee.User.ID).Find(&userEvents).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user events for validation"})
+			return
+		}
+
+		var existingEvents []gen_models.Event
+		if len(userEvents) > 0 {
+			eventIDs := make([]int64, len(userEvents))
+			for i, ue := range userEvents {
+				eventIDs[i] = ue.EventID
+			}
+			if err := DB.Where("id IN ?", eventIDs).Find(&existingEvents).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch existing events for validation"})
+				return
+			}
+		}
+
+		// Validate the new event
+		violations := RuleBridge.ValidateEventScheduling(newEvent, extendedEmployee.User.ID, existingEvents, *extendedEmployee.User)
+		if len(violations) > 0 {
+			errorMsg := "Event scheduling violates business rules: "
+			for i, v := range violations {
+				if i > 0 {
+					errorMsg += "; "
+				}
+				errorMsg += v.Error()
+			}
+			c.JSON(http.StatusBadRequest, gin.H{"error": errorMsg})
+			return
+		}
+	}
+
+	// If we get here, the event passed validation, so create it
+	if err := DB.Create(&newEvent).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create event"})
 		return
 	}
 
