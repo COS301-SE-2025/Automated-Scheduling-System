@@ -3,7 +3,6 @@ package main
 import (
 	"Automated-Scheduling-Project/internal/database"
 	"Automated-Scheduling-Project/internal/database/models"
-	rules "Automated-Scheduling-Project/internal/rule_engine"
 	"context"
 	"log"
 
@@ -25,12 +24,12 @@ func main() {
 
 	log.Println("Database migration successful")
 
-	rulesToSeed := []rules.RawRule{
+	rulesToSeed := []models.RawRuleJSON{
 		{
 			ID:        "vision-6mo",
 			Type:      "recurringCheck",
 			Enabled:   true,
-			Frequency: &rules.Period{Months: 6},
+			Frequency: &models.Period{Months: 6},
 			Params: map[string]any{
 				"checkType":        "vision",
 				"notifyDaysBefore": 14,
@@ -41,7 +40,7 @@ func main() {
 			Type:    "action",
 			Enabled: true,
 			When:    "user.role == 'driver' && check['checkType'] == 'vision'",
-			Actions: []rules.RawAction{
+			Actions: []models.RawAction{
 				{
 					Type:   "notify",
 					Params: map[string]any{"message": "Driver vision check added"},
