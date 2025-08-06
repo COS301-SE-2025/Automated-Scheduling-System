@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import * as eventService from '../../services/eventService';
 import MessageBox from './MessageBox';
+import { HexColorPicker } from 'react-colorful';
 
 const scheduleSchema = z.object({
     title: z.string().min(1, "Title is required."),
@@ -14,9 +15,21 @@ const scheduleSchema = z.object({
     maximumAttendees: z.number().optional().nullable(),
     minimumAttendees: z.number().optional().nullable(),
     statusName: z.string().optional(),
+    color: z.string().optional(),
 }).refine(data => new Date(data.start) < new Date(data.end), {
     message: "End date must be after start date.",
     path: ["end"],
+}).refine(data => {
+    if (
+        typeof data.minimumAttendees === "number" &&
+        typeof data.maximumAttendees === "number"
+    ) {
+        return data.maximumAttendees >= data.minimumAttendees;
+    }
+    return true;
+}, {
+    message: "Maximum attendees cannot be less than minimum attendees.",
+    path: ["maximumAttendees"],
 });
 
 type ScheduleFormData = z.infer<typeof scheduleSchema>;
@@ -35,6 +48,7 @@ export interface EventFormModalProps {
         maximumAttendees?: number;
         minimumAttendees?: number;
         statusName?: string;
+        color?: string;
     };
     eventDefinitions: eventService.EventDefinition[];
     onNeedDefinition: () => void;
@@ -46,6 +60,9 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
 
     const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<ScheduleFormData>({
         resolver: zodResolver(scheduleSchema),
+        defaultValues: {
+            color: '#3788d8' // Default color
+        }
     });
 
     const showNoDefinitionsMessage = isOpen && !isEditMode && eventDefinitions.length === 0;
@@ -63,6 +80,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                     maximumAttendees: initialData.maximumAttendees || 0,
                     minimumAttendees: initialData.minimumAttendees || 0,
                     statusName: initialData.statusName || 'Scheduled',
+                    color: initialData.color || '#3788d8',
                 });
             } else {
                 // In add mode, use defaults
@@ -75,6 +93,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                     maximumAttendees: 0,
                     minimumAttendees: 0,
                     statusName: 'Scheduled',
+                    color: '#3788d8',
                 });
             }
             setApiError(null);
@@ -167,11 +186,32 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                             <div>
                                 <label htmlFor="minimumAttendees" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Min Attendees</label>
                                 <input id="minimumAttendees" type="number" {...register('minimumAttendees', { valueAsNumber: true })} className="w-full p-2 border rounded-md dark:bg-dark-input" />
+                                {errors.minimumAttendees && <p className="text-red-500 text-xs mt-1">{errors.minimumAttendees.message}</p>}
                             </div>
                             <div>
                                 <label htmlFor="maximumAttendees" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Max Attendees</label>
                                 <input id="maximumAttendees" type="number" {...register('maximumAttendees', { valueAsNumber: true })} className="w-full p-2 border rounded-md dark:bg-dark-input" />
+                                {errors.maximumAttendees && <p className="text-red-500 text-xs mt-1">{errors.maximumAttendees.message}</p>}
                             </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Event Color</label>
+                            <Controller
+                                name="color"
+                                control={control}
+                                render={({ field }) => (
+                                    <div className="flex items-center gap-4">
+                                        <HexColorPicker color={field.value} onChange={field.onChange} style={{width: 140, height: 140}} />
+                                        <div className="w-4 h-4 rounded-full border" style={{ backgroundColor: field.value }} />
+                                        <input
+                                            {...field}
+                                            className="w-full p-2 border rounded-md dark:bg-dark-input"
+                                            placeholder="#3788d8"
+                                        />
+                                    </div>
+                                )}
+                            />
                         </div>
 
                         <div className="flex items-center justify-end pt-4 space-x-3">

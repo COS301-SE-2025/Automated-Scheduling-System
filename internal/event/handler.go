@@ -151,7 +151,8 @@ func CreateEventScheduleHandler(c *gin.Context) {
 		RoomName:         req.RoomName,
 		MaximumAttendees: req.MaximumAttendees,
 		MinimumAttendees: req.MinimumAttendees,
-		StatusName:       "Scheduled", 
+		StatusName:       "Scheduled",
+		Color:            req.Color, 
 	}
 
 	if req.StatusName != "" {
@@ -219,6 +220,7 @@ func UpdateEventScheduleHandler(c *gin.Context) {
 	scheduleToUpdate.MaximumAttendees = req.MaximumAttendees
 	scheduleToUpdate.MinimumAttendees = req.MinimumAttendees
 	scheduleToUpdate.StatusName = req.StatusName
+	scheduleToUpdate.Color = req.Color
 
     if err := DB.Save(&scheduleToUpdate).Error; err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event schedule in database"})

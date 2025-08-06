@@ -19,7 +19,6 @@ const EventsPage: React.FC = () => {
     const [eventDefinitions, setEventDefinitions] = useState<EventDefinition[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isDefinitionModalOpen, setIsDefinitionModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -142,6 +141,7 @@ const EventsPage: React.FC = () => {
             maximumAttendees: eventToEdit.extendedProps.maxAttendees,
             minimumAttendees: eventToEdit.extendedProps.minAttendees,
             statusName: eventToEdit.extendedProps.statusName,
+            color: eventToEdit.extendedProps.color,
         };
     };
 
@@ -274,7 +274,7 @@ const AdminView: React.FC<AdminViewProps> = ({ events, onEdit, onDelete }) => {
                                             {new Date(event.start as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </p>
                                         <p className="text-xs mt-1 text-custom-text dark:text-dark-secondary">
-                                            Type: {event.eventType || 'General'} | For: {event.relevantParties || 'All'}
+                                            Type: {event.extendedProps.eventType || 'General'} | For: {event.relevantParties || 'All'}
                                         </p>
                                     </div>
                                     <div className="flex items-center space-x-2">

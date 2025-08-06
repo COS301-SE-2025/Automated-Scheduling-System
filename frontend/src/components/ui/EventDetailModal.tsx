@@ -14,6 +14,10 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
 
     const { title, start, end, allDay, extendedProps } = event;
 
+    const actualEndDate = extendedProps.isMultiDay && extendedProps.originalEnd
+        ? new Date(extendedProps.originalEnd)
+        : end;
+
     const formatDateTime = (date: Date | null) => {
         if (!date) return 'N/A';
         return new Date(date).toLocaleString(undefined, {
@@ -36,7 +40,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
                     <DetailItem label="Title" value={title} />
                     <DetailItem label="Event Type" value={extendedProps.eventType} />
                     <DetailItem label="Start" value={formatDateTime(start)} />
-                    <DetailItem label="End" value={formatDateTime(end)} />
+                    <DetailItem label="End" value={formatDateTime(actualEndDate)} />
                     <DetailItem label="Location" value={extendedProps.roomName} />
                     <DetailItem label="Status" value={extendedProps.statusName} />
                     <DetailItem label="Max Attendees" value={extendedProps.maxAttendees} />

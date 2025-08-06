@@ -33,6 +33,7 @@ type CustomEventSchedule struct {
 	MaximumAttendees      int
 	MinimumAttendees      int
 	StatusName            string
+	Color                 string    `json:"color"`
 	CreationDate          time.Time `gorm:"autoCreateTime"`
 	CustomEventDefinition CustomEventDefinition `gorm:"foreignKey:CustomEventID;references:CustomEventID"`
 }
@@ -60,6 +61,7 @@ type CreateEventScheduleRequest struct {
 	MaximumAttendees int       `json:"maxAttendees"`
 	MinimumAttendees int       `json:"minAttendees"`
 	StatusName       string    `json:"statusName"`
+	Color            string    `json:"color"`
 }
 
 // JSON structure for returning a scheduled event to the front-end

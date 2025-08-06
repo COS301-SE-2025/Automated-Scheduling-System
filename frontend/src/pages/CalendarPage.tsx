@@ -5,14 +5,14 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import type { EventContentArg, DateSelectArg, EventClickArg } from '@fullcalendar/core';
+import type { EventContentArg, DateSelectArg, EventClickArg, EventDropArg} from '@fullcalendar/core';
 import type { DateClickArg } from '@fullcalendar/interaction';
 import EventFormModal, { type EventFormModalProps } from '../components/ui/EventFormModal';
 import EventDefinitionFormModal from '../components/ui/EventDefinitionFormModal';
 import EventDetailModal from '../components/ui/EventDetailModal';
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
 import * as eventService from '../services/eventService';
-import type { CalendarEvent, CreateEventDefinitionPayload  } from '../services/eventService';
+import type { CalendarEvent, CreateEventDefinitionPayload } from '../services/eventService';
 
 type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
 type SelectedInfoType = DateSelectArg | DateClickArg | (EventClickArg['event'] & { eventType?: string; relevantParties?: string });
@@ -73,7 +73,33 @@ const CalendarPage: React.FC = () => {
                 eventService.getScheduledEvents(),
                 eventService.getEventDefinitions()
             ]);
-            setEvents(schedules);
+
+            const processedSchedules = schedules.map(event => {
+                if (!event.start || !event.end) return event;
+
+                const startDate = new Date(event.start as string);
+                const endDate = new Date(event.end as string);
+
+                // Check if the event spans across midnight into another day
+                if (startDate.toDateString() !== endDate.toDateString()) {
+                    // Make it appear as a 2-hour event on the start day for rendering
+                    const displayEndDate = new Date(startDate);
+                    displayEndDate.setHours(startDate.getHours() + 2);
+
+                    return {
+                        ...event,
+                        end: displayEndDate.toISOString(), // Visually shorten the event
+                        extendedProps: {
+                            ...event.extendedProps,
+                            isMultiDay: true, // Add a flag
+                            originalEnd: event.end, // Store the real end date
+                        }
+                    };
+                }
+                return event;
+            });
+
+            setEvents(processedSchedules);
             setEventDefinitions(definitions);
             setError(null);
         } catch (err) {
@@ -82,17 +108,16 @@ const CalendarPage: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, []); // Empty dependency array means this function is stable
+    }, []);
 
     useEffect(() => {
-        // Now the effect just calls the function
         fetchAndSetData();
-    }, [fetchAndSetData]); // Depend on the stable function
+    }, [fetchAndSetData]); 
 
     const handleSaveDefinition = async (definitionData: CreateEventDefinitionPayload) => {
         try {
             await eventService.createEventDefinition(definitionData);
-            await fetchAndSetData(); // Refetch everything
+            await fetchAndSetData(); 
             setIsDefinitionModalOpen(false);
         } catch (err) {
             console.error("Failed to save new event definition:", err);
@@ -129,12 +154,44 @@ const CalendarPage: React.FC = () => {
 
     const handleDeletionSuccess = () => {
         if (!eventToDelete) return;
-        // Update the events state by removing the event from the calendar
         const calendarApi = calendarRef.current?.getApi();
         calendarApi?.getEventById(eventToDelete.id)?.remove();
         
         setIsDeleteModalOpen(false);
         setEventToDelete(null);
+    };
+
+    const handleEventDrop = async (dropInfo: EventDropArg) => {
+        const { event } = dropInfo;
+        if (!event.id || !event.start) {
+            console.error("Event drop failed: missing event ID or start date.");
+            dropInfo.revert(); 
+            return;
+        }
+
+        try {
+            const scheduleData: eventService.CreateSchedulePayload = {
+                title: event.title,
+                customEventId: event.extendedProps.definitionId,
+                roomName: event.extendedProps.roomName,
+                maxAttendees: event.extendedProps.maxAttendees,
+                minAttendees: event.extendedProps.minAttendees,
+                statusName: event.extendedProps.statusName,
+                color: event.extendedProps.color,
+                start: event.start.toISOString(),
+                end: event.end ? event.end.toISOString() : event.start.toISOString(),
+            };
+
+            await eventService.updateScheduledEvent(Number(event.id), scheduleData);
+            
+            // Optional: refetch all data to ensure consistency, though FullCalendar updates the UI optimistically.
+            await fetchAndSetData();
+
+        } catch (err) {
+            console.error('Failed to update event after drop:', err);
+            // If the API call fails, revert the event to its original position
+            dropInfo.revert(); 
+        }
     };
 
     const handleSaveEvent = async (eventData: EventSaveData) => {
@@ -148,6 +205,7 @@ const CalendarPage: React.FC = () => {
                 maxAttendees: eventData.maximumAttendees ?? undefined,
                 minAttendees: eventData.minimumAttendees ?? undefined,
                 statusName: eventData.statusName,
+                color: eventData.color,
             };
 
             if (eventData.id) {
@@ -168,23 +226,27 @@ const CalendarPage: React.FC = () => {
     };
 
     const prepareInitialModalData = (): EventFormModalProps['initialData'] | undefined => {
-        const toLocalISOString = (date: Date) => {
-            const tzoffset = (new Date()).getTimezoneOffset() * 60000; //offset in milliseconds
-            const localISOTime = (new Date(date.getTime() - tzoffset)).toISOString().slice(0, 16);
+        const toLocalISOString = (date: Date | string) => {
+            const d = typeof date === 'string' ? new Date(date) : date;
+            const tzoffset = d.getTimezoneOffset() * 60000;
+            const localISOTime = new Date(d.getTime() - tzoffset).toISOString().slice(0, 16);
             return localISOTime;
         };
 
         if (eventToEdit) {
+            // Use the original end date for multi-day events when editing
+            const endDate = eventToEdit.extendedProps.originalEnd || eventToEdit.end;
             return {
                 id: eventToEdit.id,
                 title: eventToEdit.title,
                 startStr: eventToEdit.start ? toLocalISOString(eventToEdit.start) : '',
-                endStr: eventToEdit.end ? toLocalISOString(eventToEdit.end) : '',
+                endStr: endDate ? toLocalISOString(endDate as string) : '',
                 customEventId: eventToEdit.extendedProps.definitionId,
                 roomName: eventToEdit.extendedProps.roomName,
                 maximumAttendees: eventToEdit.extendedProps.maxAttendees,
                 minimumAttendees: eventToEdit.extendedProps.minAttendees,
                 statusName: eventToEdit.extendedProps.statusName,
+                color: eventToEdit.extendedProps.color,
             };
         }
         
@@ -260,6 +322,7 @@ const CalendarPage: React.FC = () => {
                             eventClick={handleEventClick}
                             dateClick={handleDateClick}
                             select={handleSelect}
+                            eventDrop={handleEventDrop} // Add this prop
                             events={events}
                             eventContent={renderEventContent}
                             ref={calendarRef}
@@ -316,34 +379,43 @@ const CalendarPage: React.FC = () => {
 export default CalendarPage;
 
 function renderEventContent(eventInfo: EventContentArg) {
-    const { extendedProps } = eventInfo.event;
+    const { extendedProps, title } = eventInfo.event;
     const isMonthView = eventInfo.view.type === 'dayGridMonth';
     const timeText = eventInfo.timeText && !isMonthView ? eventInfo.timeText : '';
-
-    // Use a default color if none is provided by the event data
-    const eventColor = extendedProps.color || '#243966';
+    
+    const eventStyle = {
+        backgroundColor: extendedProps.color || '#3788d8',
+        color: '#ffffff',
+        padding: '2px 4px',
+        borderRadius: '3px',
+        borderColor: '#6b6f72ff',
+        display: 'flex',
+        gap: '4px',
+        height: '100%',
+    };
 
     return (
         <div
+            style={eventStyle}
             className="custom-calendar-event"
-            style={{ 
-                backgroundColor: eventColor,
-                borderLeft: `3px solid ${eventColor}` 
-            }}
-            title={`${eventInfo.event.title} (${extendedProps.eventType})`}
+            title={`${title} (${extendedProps.eventType})`}
         >
-            <div className="custom-event-content">
-                {/* For week/day views, show the time */}
-                {timeText && <span className="custom-event-time">{timeText}</span>}
-                
-                {/* Always show the event title */}
-                <span className="custom-event-title">{eventInfo.event.title}</span>
 
-                {/* In month view, also show the event type if space allows */}
-                {isMonthView && extendedProps.eventType && (
-                    <span className="custom-event-type">{extendedProps.eventType}</span>
-                )}
-            </div>
+            {/* Always show the event title */}
+            <span className="custom-event-title flex-grow">{title}</span>
+            
+            {/* Show event type if available */}
+            {extendedProps.eventType && (
+                <span className="custom-event-type ml-1 opacity-80 text-xs">{extendedProps.eventType}</span>
+            )}
+
+            {/* Add an icon if it's a multi-day event */}
+            {extendedProps.isMultiDay && (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                    <title>This event spans multiple days</title>
+                    <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+            )}
         </div>
     );
 }
