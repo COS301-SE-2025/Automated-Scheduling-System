@@ -93,6 +93,7 @@ CREATE TABLE custom_event_schedules (
     maximum_attendees INT,
     minimum_attendees INT,
     status_name VARCHAR(50) DEFAULT 'Scheduled', -- e.g., 'Scheduled', 'Cancelled', 'Full'
+    color VARCHAR(7) DEFAULT '#3788d8',
     creation_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 

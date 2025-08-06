@@ -26,6 +26,7 @@ export interface BackendScheduledEvent {
     MinimumAttendees?: number;
     StatusName: string;
     CreationDate: string;
+    color: string;
     CustomEventDefinition: EventDefinition; // The nested definition object
 }
 
@@ -42,6 +43,7 @@ export interface CalendarEvent extends EventInput {
         creationDate: string;
         facilitator?: string;
         relevantParties?: string; // Added for consistency
+        color: string;
     };
 }
 
@@ -54,6 +56,7 @@ export interface CreateSchedulePayload {
     maxAttendees?: number;
     minAttendees?: number;
     statusName?: string;
+    color?: string;
 }
 
 // --- Event Definition API Calls ---
@@ -99,7 +102,8 @@ export const getScheduledEvents = async (): Promise<CalendarEvent[]> => {
             statusName: event.StatusName,
             creationDate: event.CreationDate,
             facilitator: event.CustomEventDefinition.Facilitator,
-            relevantParties: 'All', // Placeholder, adjust if you have this data
+            relevantParties: 'All', // Placeholder
+            color: event.color,
         }
     }));
 };
