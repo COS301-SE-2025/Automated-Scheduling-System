@@ -105,12 +105,12 @@ describe('localStorage utilities', () => {
     describe('User operations', () => {
         const mockUser: User = {
             id: 1,
+            employeeNumber: 'E001',
+            username: 'john.doe',
             name: 'John Doe',
             email: 'john@example.com',
-            employeeNumber: 'EMP001',
-            username: 'johndoe',
             terminationDate: null,
-            employeeStatus: 'active',
+            employeeStatus: 'Active',
             role: 'User'
         };
 
@@ -192,13 +192,13 @@ describe('localStorage utilities', () => {
             const token = 'auth-token-123';
             const user: User = {
                 id: 1,
+                employeeNumber: 'E002',
+                username: 'jane.doe',
                 name: 'Jane Doe',
                 email: 'jane@example.com',
-                employeeNumber: 'EMP002',
-                username: 'janedoe',
                 terminationDate: null,
-                employeeStatus: 'active',
-                role: 'User'
+                employeeStatus: 'Active',
+                role: 'Admin'
             };
 
             saveToken(token);
@@ -222,34 +222,34 @@ describe('localStorage utilities', () => {
 
         it('should handle different user variations', () => {
             const users: User[] = [
-                {
-                    id: 1,
-                    name: 'Alice Smith',
+                { 
+                    id: 1, 
+                    employeeNumber: 'E003',
+                    username: 'alice.smith',
+                    name: 'Alice Smith', 
                     email: 'alice@example.com',
-                    employeeNumber: 'EMP003',
-                    username: 'alicesmith',
                     terminationDate: null,
-                    employeeStatus: 'active',
+                    employeeStatus: 'Active',
                     role: 'User'
                 },
-                {
-                    id: 2,
-                    name: 'Bob Johnson',
+                { 
+                    id: 2, 
+                    employeeNumber: 'E004',
+                    username: 'bob.johnson',
+                    name: 'Bob Johnson', 
                     email: 'bob@example.com',
-                    employeeNumber: 'EMP004',
-                    username: 'bobjohnson',
                     terminationDate: null,
-                    employeeStatus: 'active',
-                    role: 'User'
+                    employeeStatus: 'Active',
+                    role: 'Admin'
                 },
-                {
-                    id: 3,
-                    name: 'Charlie Brown',
+                { 
+                    id: 3, 
+                    employeeNumber: 'E005',
+                    username: 'charlie.brown',
+                    name: 'Charlie Brown', 
                     email: 'charlie@example.com',
-                    employeeNumber: 'EMP005',
-                    username: 'charliebrown',
-                    terminationDate: null,
-                    employeeStatus: 'active',
+                    terminationDate: '2024-12-31',
+                    employeeStatus: 'Terminated',
                     role: 'User'
                 }
             ];

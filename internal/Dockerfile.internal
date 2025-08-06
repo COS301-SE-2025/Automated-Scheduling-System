@@ -1,0 +1,26 @@
+# Separate stages because they get cached by Docker
+# Docker won't redownload modules if dependencies don't change
+
+# Build stage
+# 1.14-alpine is recent version optimized for Go development
+FROM golang:1.24-alpine AS build
+
+WORKDIR /app
+
+COPY ../go.mod ../go.sum ./
+RUN go mod download
+
+COPY . .
+RUN go build -o main ./cmd/api/main.go
+
+# Runtime stage
+# alpine 3.20.1 is a stable version
+FROM alpine:3.20.1
+
+WORKDIR /app
+
+COPY --from=build /app/main .
+
+EXPOSE 8080
+
+CMD ["./main"]

@@ -4,13 +4,14 @@
 all: build test
 
 build:
-	@echo "Building..."
-	
-	
+	@echo "Building Frontend with NPM..."
+	@cd frontend/ && npm install --prefer-offline --no-fund && npm run build
+	@echo "Building Backend with GO..."
 	@go build -o main cmd/api/main.go
+	@echo "Done building..."
 
 # Run migrations
-drop_tables:
+drop-tables:
 	@go run cmd/drop_all_tables/main.go
 
 # Run seeder
@@ -24,17 +25,17 @@ gen:
 
 # Run the application
 run:
-	@go run cmd/api/main.go &
-	@cd frontend && yarn install --prefer-offline --no-fund
-	@cd frontend && npm run dev
+	@make watch &
+	@cd frontend && npm install --prefer-offline --no-fund && npm run dev
+
 
 # Run frontend tests
 ftest:
-	@cd frontend && yarn install --prefer-offline --no-fund && yarn run test --silent --watch=false
+	@cd frontend && npm install --prefer-offline --no-fund && npm run test --silent --watch=false
 
 # Run frontend linting
 flint:
-	@cd frontend && yarn install --prefer-offline --no-fund && yarn run lint
+	@cd frontend && npm install --prefer-offline --no-fund && npm run lint
 
 # Create DB container
 docker-run:
@@ -52,6 +53,15 @@ docker-down:
 	else \
 		echo "Falling back to Docker Compose V1"; \
 		docker-compose down; \
+	fi
+
+docker-db:
+	@echo "Starting database only..."
+	@if docker compose up -d scheduling_db 2>/dev/null; then \
+		: ; \
+	else \
+		echo "Falling back to Docker Compose V1"; \
+		docker-compose up -d scheduling_db; \
 	fi
 
 # Test the application
