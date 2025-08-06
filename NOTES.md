@@ -1,4 +1,4 @@
-Use yarn for npm packages instead of npm
+Use npm for npm packages instead of yarn, because UP wifi blocks it
 
 ## To use postgres cli:
 1. sudo service postgresql start
