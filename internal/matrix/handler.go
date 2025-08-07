@@ -65,7 +65,7 @@ func GetJobMatrixEntriesHandler(c *gin.Context) {
 
 // Updates a job matrix entry.
 func UpdateJobMatrixEntryHandler(c *gin.Context) {
-    idStr := c.Param("matrixID") // Assuming the route is /matrix/:matrixID
+    idStr := c.Param("matrixID")
     
     var req models.UpdateJobMatrixRequest
     if err := c.ShouldBindJSON(&req); err != nil {
