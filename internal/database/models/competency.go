@@ -46,7 +46,7 @@ type CustomJobMatrix struct {
 }
 
 func (CustomJobMatrix) TableName() string {
-	return "custom_job_matrix" // <-- This is the crucial fix
+	return "custom_job_matrix"
 }
 
 // JSON structure for creating a job matrix entry

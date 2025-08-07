@@ -2,6 +2,7 @@ package competency
 
 import (
 	"Automated-Scheduling-Project/internal/database/models"
+    "errors"
 	"net/http"
 	"strconv"
 
@@ -62,7 +63,7 @@ func GetCompetencyDefinitionByIDHandler(c *gin.Context) {
 
     var competency models.CompetencyDefinition
     if err := DB.Preload("Prerequisites").First(&competency, id).Error; err != nil {
-        if err == gorm.ErrRecordNotFound {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
             c.JSON(http.StatusNotFound, gin.H{"error": "Competency not found"})
         } else {
             c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch competency"})
@@ -84,7 +85,11 @@ func UpdateCompetencyDefinitionHandler(c *gin.Context) {
 
     var competency models.CompetencyDefinition
     if err := DB.First(&competency, id).Error; err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Competency not found"})
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+             c.JSON(http.StatusNotFound, gin.H{"error": "Competency not found"})
+        } else {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not retrieve competency for update"})
+        }
         return
     }
 
@@ -97,15 +102,19 @@ func UpdateCompetencyDefinitionHandler(c *gin.Context) {
     competency.CompetencyName = req.CompetencyName
     competency.Description = req.Description
     competency.CompetencyTypeName = req.CompetencyTypeName
-    competency.ExpiryPeriodMonths = req.ExpiryPeriodMonths
+    competency.Source = req.Source
+    if req.ExpiryPeriodMonths != nil {
+        competency.ExpiryPeriodMonths = req.ExpiryPeriodMonths
+    }
     if req.IsActive != nil {
         competency.IsActive = *req.IsActive
     }
+	
+	if err := DB.Save(&competency).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update competency: " + err.Error()})
+		return
+	}
 
-    if err := DB.Save(&competency).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update competency"})
-        return
-    }
     c.JSON(http.StatusOK, competency)
 }
 
@@ -144,7 +153,7 @@ func AddPrerequisiteHandler(c *gin.Context) {
         return
     }
 
-    // A competency cannot be a prerequisite for itself.
+    // acompetency cannot be a prerequisite for itself.
     if competencyID == req.PrerequisiteCompetencyID {
         c.JSON(http.StatusBadRequest, gin.H{"error": "A competency cannot be a prerequisite for itself."})
         return
