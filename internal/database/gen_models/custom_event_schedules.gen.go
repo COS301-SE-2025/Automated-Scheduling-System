@@ -21,6 +21,7 @@ type CustomEventSchedule struct {
 	MaximumAttendees      int32     `gorm:"column:maximum_attendees" json:"maximum_attendees"`
 	MinimumAttendees      int32     `gorm:"column:minimum_attendees" json:"minimum_attendees"`
 	StatusName            string    `gorm:"column:status_name;default:Scheduled" json:"status_name"`
+	Color                 string    `gorm:"column:color;default:#3788d8" json:"color"`
 	CreationDate          time.Time `gorm:"column:creation_date;default:CURRENT_TIMESTAMP" json:"creation_date"`
 }
 
