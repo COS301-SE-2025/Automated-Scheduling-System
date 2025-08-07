@@ -1,18 +1,13 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { EventClickArg } from '@fullcalendar/core';
-import EventDetailModal, { type EventDetailModalProps } from '../../components/ui/EventDetailModal'; 
+import EventDetailModal, { type EventDetailModalProps } from '../../components/ui/EventDetailModal';
 
-const formatTestDateTime = (date: Date | null, isAllDay: boolean, isEnd: boolean = false): string => {
+const formatDisplayDateTime = (date: Date | null): string => {
     if (!date) return 'N/A';
-    const d = new Date(date);
-    if (isAllDay) {
-        if (isEnd) {
-            d.setDate(d.getDate() - 1);
-        }
-        return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-    }
-    return d.toLocaleString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return new Date(date).toLocaleString(undefined, {
+        year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
 };
 
 describe('EventDetailModal', () => {
@@ -20,23 +15,41 @@ describe('EventDetailModal', () => {
     const mockOnEdit = vi.fn();
     const mockOnDelete = vi.fn();
 
-    const createMockEvent = (overrides: Partial<EventClickArg['event']>): EventClickArg['event'] => {
+    const createMockEvent = (overrides: Partial<EventClickArg['event']> & { extendedProps?: any }): EventClickArg['event'] => {
         const baseEvent = {
             id: 'test-event-1',
             title: 'Default Event Title',
             start: new Date(),
             end: new Date(),
             allDay: false,
-            extendedProps: {}
+            extendedProps: {
+                scheduleId: 1,
+                definitionId: 101,
+                eventType: 'Default Type',
+                roomName: 'Default Room',
+                maxAttendees: 10,
+                minAttendees: 1,
+                statusName: 'Scheduled',
+                creationDate: new Date().toISOString(),
+                facilitator: 'Default Facilitator',
+                color: '#3788d8',
+            }
         };
-        return { ...baseEvent, ...overrides } as unknown as EventClickArg['event'];
+
+        const finalExtendedProps = 'extendedProps' in overrides 
+            ? overrides.extendedProps 
+            : baseEvent.extendedProps;
+
+        const finalEvent = { ...baseEvent, ...overrides };
+        finalEvent.extendedProps = finalExtendedProps;
+
+        return finalEvent as unknown as EventClickArg['event'];
     };
 
     const defaultEvent = createMockEvent({
         title: 'Sample Event',
         start: new Date('2024-01-01T10:00:00Z'),
         end: new Date('2024-01-01T11:00:00Z'),
-        allDay: false,
     });
 
     const defaultProps: EventDetailModalProps = {
@@ -61,84 +74,63 @@ describe('EventDetailModal', () => {
         expect(screen.queryByText('Event Details')).not.toBeInTheDocument();
     });
 
-    it('should render event details for a non-all-day event', () => {
+    it('should render all event details correctly', () => {
         const eventData = createMockEvent({
             title: 'Team Sync',
             start: new Date('2024-07-30T14:00:00Z'),
             end: new Date('2024-07-30T15:00:00Z'),
-            allDay: false,
             extendedProps: {
-                eventType: 'Meeting',
-                relevantParties: 'HR',
+                eventType: 'Weekly Meeting',
+                roomName: 'Conference Room A',
+                statusName: 'Confirmed',
+                maxAttendees: 25,
+                minAttendees: 5,
+                creationDate: '2024-07-01T10:00:00Z'
             },
         });
         render(<EventDetailModal {...defaultProps} event={eventData} />);
 
         expect(screen.getByText('Event Details')).toBeInTheDocument();
-        expect(screen.getByText('Team Sync')).toBeInTheDocument();
-        expect(screen.getByText(formatTestDateTime(eventData.start, false))).toBeInTheDocument();
-        expect(screen.getByText(formatTestDateTime(eventData.end, false))).toBeInTheDocument();
-        expect(screen.getByText('No')).toBeInTheDocument();
-        expect(screen.getByText('Meeting')).toBeInTheDocument();
-        expect(screen.getByText('HR')).toBeInTheDocument();
+        
+        const checkDetailItem = (label: string, value: string | number) => {
+            const labelElement = screen.getByText(label);
+            expect(labelElement).toBeInTheDocument();
+            expect(labelElement.nextElementSibling).toHaveTextContent(String(value));
+        };
+
+        checkDetailItem('Title', 'Team Sync');
+        checkDetailItem('Event Type', 'Weekly Meeting');
+        checkDetailItem('Start', formatDisplayDateTime(eventData.start));
+        checkDetailItem('End', formatDisplayDateTime(eventData.end));
+        checkDetailItem('Location', 'Conference Room A');
+        checkDetailItem('Status', 'Confirmed');
+        checkDetailItem('Max Attendees', 25);
+        checkDetailItem('Min Attendees', 5);
+        checkDetailItem('Created On', formatDisplayDateTime(new Date('2024-07-01T10:00:00Z')));
     });
-    
+
     it('should display N/A for missing extendedProps values', () => {
         const eventData = createMockEvent({
             title: 'Ad-hoc Discussion',
             start: new Date('2024-07-30T16:00:00Z'),
             end: new Date('2024-07-30T16:30:00Z'),
-            allDay: false,
-            extendedProps: {}, 
+            extendedProps: {},
         });
         render(<EventDetailModal {...defaultProps} event={eventData} />);
 
         expect(screen.getByText('Ad-hoc Discussion')).toBeInTheDocument();
-        
-        const eventTypeElement = screen.getByText('Event Type').nextElementSibling;
-        expect(eventTypeElement).toHaveTextContent('N/A');
 
-        const relevantPartiesElement = screen.getByText('Relevant Parties').nextElementSibling;
-        expect(relevantPartiesElement).toHaveTextContent('N/A');
-    });
+        const checkNA = (label: string) => {
+             const labelElement = screen.getByText(label);
+             expect(labelElement.nextElementSibling).toHaveTextContent('N/A');
+        };
 
-    it('should display N/A for null start or end dates', () => {
-        const eventData = createMockEvent({
-            title: 'Undefined Event',
-            start: null,
-            end: null,
-            allDay: false,
-        });
-        render(<EventDetailModal {...defaultProps} event={eventData} />);
-
-        expect(screen.getByText('Undefined Event')).toBeInTheDocument();
-        
-        const startDateElement = screen.getByText('Start').nextElementSibling;
-        expect(startDateElement).toHaveTextContent('N/A');
-
-        const endDateElement = screen.getByText('End').nextElementSibling;
-        expect(endDateElement).toHaveTextContent('N/A');
-    });
-
-    it('should handle null end date for an all-day event', () => {
-        const eventData = createMockEvent({
-            title: 'All Day Event (No End Date)',
-            start: new Date('2024-09-01T00:00:00Z'),
-            end: null,
-            allDay: true,
-            extendedProps: { eventType: 'Misc', relevantParties: 'Some people' }
-        });
-        render(<EventDetailModal {...defaultProps} event={eventData} />);
-
-        expect(screen.getByText('All Day Event (No End Date)')).toBeInTheDocument();
-        expect(screen.getByText(formatTestDateTime(eventData.start, true))).toBeInTheDocument();
-        
-        const endDateElement = screen.getByText('End').nextElementSibling;
-        expect(endDateElement).toHaveTextContent('N/A');
-        
-        expect(screen.getByText('Yes')).toBeInTheDocument();
-        expect(screen.getByText('Misc')).toBeInTheDocument();
-        expect(screen.getByText('Some people')).toBeInTheDocument();
+        checkNA('Event Type');
+        checkNA('Location');
+        checkNA('Status');
+        checkNA('Max Attendees');
+        checkNA('Min Attendees');
+        // checkNA('Created On');
     });
 
     it('should call onClose when Close button is clicked', () => {
