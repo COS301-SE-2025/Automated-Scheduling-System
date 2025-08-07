@@ -1,6 +1,5 @@
 import MainLayout from '../layouts/MainLayout';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useAuth } from '../hooks/useAuth';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -18,7 +17,6 @@ type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
 type SelectedInfoType = DateSelectArg | DateClickArg | (EventClickArg['event'] & { eventType?: string; relevantParties?: string });
 
 const CalendarPage: React.FC = () => {
-    const { user } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDefinitionModalOpen, setIsDefinitionModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -380,8 +378,6 @@ export default CalendarPage;
 
 function renderEventContent(eventInfo: EventContentArg) {
     const { extendedProps, title } = eventInfo.event;
-    const isMonthView = eventInfo.view.type === 'dayGridMonth';
-    const timeText = eventInfo.timeText && !isMonthView ? eventInfo.timeText : '';
     
     const eventStyle = {
         backgroundColor: extendedProps.color || '#3788d8',

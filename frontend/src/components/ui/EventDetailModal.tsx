@@ -12,7 +12,7 @@ export interface EventDetailModalProps {
 const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, event, onEdit, onDelete }) => {
     if (!isOpen || !event) return null;
 
-    const { title, start, end, allDay, extendedProps } = event;
+    const { title, start, end, extendedProps } = event;
 
     const actualEndDate = extendedProps.isMultiDay && extendedProps.originalEnd
         ? new Date(extendedProps.originalEnd)
