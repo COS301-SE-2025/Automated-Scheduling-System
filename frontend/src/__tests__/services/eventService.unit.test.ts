@@ -29,7 +29,6 @@ describe('Event Service', () => {
 
     // --- Tests for Event Schedule API Calls ---
     describe('Scheduled Event API Calls', () => {
-        // Mock data that mimics the backend response
         const mockBackendEvents: BackendScheduledEvent[] = [
             {
                 CustomEventScheduleID: 1,
@@ -44,7 +43,6 @@ describe('Event Service', () => {
                     CustomEventID: 101,
                     EventName: 'Standard Meeting',
                     Facilitator: 'Admin',
-                    // ... other definition properties
                 } as EventDefinition,
             },
             {
@@ -60,12 +58,10 @@ describe('Event Service', () => {
                     CustomEventID: 102,
                     EventName: 'Project Milestone',
                     Facilitator: 'Lead Dev',
-                    // ... other definition properties
                 } as EventDefinition,
             },
         ];
 
-        // This is the expected output AFTER the mapping in getScheduledEvents
         const expectedCalendarEvents: CalendarEvent[] = [
             {
                 id: '1',

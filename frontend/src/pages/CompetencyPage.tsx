@@ -5,7 +5,6 @@ import CompetencyTable from '../components/competency/CompetencyTable';
 import CompetencyFilters from '../components/competency/CompetencyFilters';
 import CompetencyModal from '../components/competency/CompetencyModal';
 import type { Competency, AddCompetencyData, UpdateCompetencyData } from '../types/competency';
-import { ApiError } from '../services/api';
 
 // Mock service - replace with actual service calls
 const competencyService = {
@@ -16,13 +15,13 @@ const competencyService = {
     ]), 500)),
     addCompetency: async (data: AddCompetencyData): Promise<Competency> => new Promise(resolve => setTimeout(() => resolve({ competencyID: Math.random(), source: 'Custom', creationDate: new Date().toISOString(), ...data }), 500)),
     updateCompetency: async (id: number, data: UpdateCompetencyData): Promise<Competency> => new Promise(resolve => setTimeout(() => resolve({ competencyID: id, source: 'Custom', creationDate: new Date().toISOString(), competencyName: 'Updated', description: '', competencyTypeName: 'Skill', expiryPeriodMonths: null, isActive: true, ...data }), 500)),
-    deleteCompetency: async (id: number): Promise<void> => new Promise(resolve => setTimeout(() => resolve(), 500)),
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    deleteCompetency: async (_id: number): Promise<void> => new Promise(resolve => setTimeout(() => resolve(), 500)),
 };
 
 const CompetencyPage: React.FC = () => {
     const [competencies, setCompetencies] = useState<Competency[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [pageError, setPageError] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [filters, setFilters] = useState({ competencyTypeName: '', isActive: '' });
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,8 +35,6 @@ const CompetencyPage: React.FC = () => {
             try {
                 const apiCompetencies = await competencyService.getAllCompetencies();
                 setCompetencies(apiCompetencies);
-            } catch (err) {
-                setPageError('An unknown error occurred while fetching competencies.');
             } finally {
                 setIsLoading(false);
             }
@@ -86,7 +83,7 @@ const CompetencyPage: React.FC = () => {
                 setCompetencies(prev => prev.map(c => c.competencyID === editingCompetency.competencyID ? updated : c));
             }
             handleCloseModal();
-        } catch (err) {
+        } catch {
             setModalApiError('An error occurred. Please try again.');
         }
     };

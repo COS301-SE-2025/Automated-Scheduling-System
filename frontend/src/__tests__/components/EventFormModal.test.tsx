@@ -73,7 +73,6 @@ describe('EventFormModal', () => {
         expect(screen.getByLabelText(/Max Attendees/i)).toHaveValue(0);
     });
 
-    // FIX 2: Make test async and wait for form to be populated from initialData
     it('should populate fields from initialData in edit mode', async () => {
         const initialData = {
             id: 'evt-123',

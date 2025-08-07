@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import MainLayout from '../layouts/MainLayout';
 import FeatureGrid from '../components/ui/FeatureGrid';
 import FeatureBlock from '../components/ui/FeatureBlock';
-import { getEventDefinitions, getScheduledEvents, type CalendarEvent } from '../services/eventService';
+import { getScheduledEvents, type CalendarEvent } from '../services/eventService';
 import { CalendarClock, Users, Calendar, HelpCircle, AlertCircle } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
