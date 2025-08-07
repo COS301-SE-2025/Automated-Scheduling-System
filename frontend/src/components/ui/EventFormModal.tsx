@@ -153,7 +153,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                                 name="customEventId"
                                 control={control}
                                 render={({ field }) => (
-                                    <select {...field} onChange={e => field.onChange(parseInt(e.target.value))} className="w-full p-2 border rounded-md dark:bg-dark-input">
+                                    <select id="customEventId" {...field} onChange={e => field.onChange(parseInt(e.target.value))} className="w-full p-2 border rounded-md dark:bg-dark-input">
                                         <option value="">Select an event type...</option>
                                         {eventDefinitions.map(def => (
                                             <option key={def.CustomEventID} value={def.CustomEventID}>{def.EventName}</option>

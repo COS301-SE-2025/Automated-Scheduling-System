@@ -106,7 +106,12 @@ describe('localStorage utilities', () => {
         const mockUser: User = {
             id: 1,
             name: 'John Doe',
-            email: 'john@example.com'
+            email: 'john@example.com',
+            employeeNumber: 'EMP001',
+            username: 'johndoe',
+            terminationDate: null,
+            employeeStatus: 'active',
+            role: 'User'
         };
 
         describe('saveUser', () => {
@@ -188,7 +193,12 @@ describe('localStorage utilities', () => {
             const user: User = {
                 id: 1,
                 name: 'Jane Doe',
-                email: 'jane@example.com'
+                email: 'jane@example.com',
+                employeeNumber: 'EMP002',
+                username: 'janedoe',
+                terminationDate: null,
+                employeeStatus: 'active',
+                role: 'User'
             };
 
             saveToken(token);
@@ -212,9 +222,36 @@ describe('localStorage utilities', () => {
 
         it('should handle different user variations', () => {
             const users: User[] = [
-                { id: 1, name: 'Alice Smith', email: 'alice@example.com' },
-                { id: 2, name: 'Bob Johnson', email: 'bob@example.com' },
-                { id: 3, name: 'Charlie Brown', email: 'charlie@example.com' }
+                {
+                    id: 1,
+                    name: 'Alice Smith',
+                    email: 'alice@example.com',
+                    employeeNumber: 'EMP003',
+                    username: 'alicesmith',
+                    terminationDate: null,
+                    employeeStatus: 'active',
+                    role: 'User'
+                },
+                {
+                    id: 2,
+                    name: 'Bob Johnson',
+                    email: 'bob@example.com',
+                    employeeNumber: 'EMP004',
+                    username: 'bobjohnson',
+                    terminationDate: null,
+                    employeeStatus: 'active',
+                    role: 'User'
+                },
+                {
+                    id: 3,
+                    name: 'Charlie Brown',
+                    email: 'charlie@example.com',
+                    employeeNumber: 'EMP005',
+                    username: 'charliebrown',
+                    terminationDate: null,
+                    employeeStatus: 'active',
+                    role: 'User'
+                }
             ];
 
             users.forEach((user) => {
