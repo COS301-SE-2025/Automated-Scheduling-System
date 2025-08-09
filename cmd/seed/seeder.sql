@@ -1,5 +1,10 @@
+-- Drop tables before making them
+DROP TABLE IF EXISTS user_events;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS events;
+DROP TABLE IF EXISTS employee;
 -- Create tables
-CREATE TABLE employee (
+CREATE TABLE IF NOT EXISTS employee (
     EmployeeNumber VARCHAR(200) PRIMARY KEY NOT NULL,
     FirstName VARCHAR(255),
     LastName VARCHAR(255),
@@ -8,7 +13,7 @@ CREATE TABLE employee (
     TerminationDate DATE
 );
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id BIGSERIAL PRIMARY KEY,
     username VARCHAR(150) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
@@ -18,7 +23,7 @@ CREATE TABLE users (
     CONSTRAINT fk_employee FOREIGN KEY (employee_number) REFERENCES employee(EmployeeNumber) ON DELETE CASCADE
 );
 
-CREATE TABLE events (
+CREATE TABLE IF NOT EXISTS events (
     id BIGSERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     event_type VARCHAR(100),
@@ -28,7 +33,7 @@ CREATE TABLE events (
     all_day BOOLEAN NOT NULL DEFAULT false
 );
 
-CREATE TABLE user_events (
+CREATE TABLE IF NOT EXISTS user_events (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL,
     event_id BIGINT NOT NULL,
