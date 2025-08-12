@@ -111,7 +111,7 @@ describe('Event Service', () => {
 
                 const events = await getScheduledEvents();
 
-                expect(mockApi).toHaveBeenCalledWith('api/event-schedules');
+                expect(mockApi).toHaveBeenCalledWith('event-schedules');
                 expect(events).toEqual(expectedCalendarEvents);
             });
 
@@ -120,7 +120,7 @@ describe('Event Service', () => {
                 mockApi.mockRejectedValue(error);
 
                 await expect(getScheduledEvents()).rejects.toThrow('Failed to fetch');
-                expect(mockApi).toHaveBeenCalledWith('api/event-schedules');
+                expect(mockApi).toHaveBeenCalledWith('event-schedules');
             });
         });
 
@@ -139,7 +139,7 @@ describe('Event Service', () => {
 
                 const result = await createScheduledEvent(newSchedulePayload);
 
-                expect(mockApi).toHaveBeenCalledWith('api/event-schedules', {
+                expect(mockApi).toHaveBeenCalledWith('event-schedules', {
                     method: 'POST',
                     data: newSchedulePayload,
                 });
@@ -165,7 +165,7 @@ describe('Event Service', () => {
 
                 const result = await updateScheduledEvent(scheduleId, updatePayload);
 
-                expect(mockApi).toHaveBeenCalledWith(`api/event-schedules/${scheduleId}`, {
+                expect(mockApi).toHaveBeenCalledWith(`event-schedules/${scheduleId}`, {
                     method: 'PUT',
                     data: updatePayload,
                 });
@@ -189,7 +189,7 @@ describe('Event Service', () => {
 
                 await deleteScheduledEvent(scheduleId);
 
-                expect(mockApi).toHaveBeenCalledWith(`api/event-schedules/${scheduleId}`, { method: 'DELETE' });
+                expect(mockApi).toHaveBeenCalledWith(`event-schedules/${scheduleId}`, { method: 'DELETE' });
             });
 
             it('should handle API errors when deleting a scheduled event', async () => {

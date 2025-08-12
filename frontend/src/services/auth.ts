@@ -13,7 +13,7 @@ import type {
 
 export const fetchUserProfile = async (): Promise<User> => {
     try {
-        const profileData = await apiClient<User>('api/profile', {
+        const profileData = await apiClient<User>('profile', {
             method: 'GET',
             isAuthRequest: true,
         });
@@ -93,7 +93,7 @@ export const logout = async (): Promise<void> => {
 
 export const fetchMyPermissions = async (): Promise<AllowedPage[]> => {
     try {
-    const perms = await apiClient<AllowedPage[]>('api/roles/permissions', { method: 'GET', isAuthRequest: true });
+    const perms = await apiClient<AllowedPage[]>('roles/permissions', { method: 'GET', isAuthRequest: true });
         return perms;
     } catch (err) {
         console.error('Failed to fetch permissions:', err);

@@ -27,7 +27,7 @@ describe('jobPositionService', () => {
 
         const res = await getAllJobPositions();
 
-        expect(mockApi).toHaveBeenCalledWith('api/job-positions');
+        expect(mockApi).toHaveBeenCalledWith('job-positions');
         expect(res).toEqual(data);
     });
 
@@ -38,7 +38,7 @@ describe('jobPositionService', () => {
 
         const res = await createJobPosition(payload);
 
-        expect(mockApi).toHaveBeenCalledWith('api/job-positions', {
+        expect(mockApi).toHaveBeenCalledWith('job-positions', {
             method: 'POST',
             data: payload,
         });
@@ -59,7 +59,7 @@ describe('jobPositionService', () => {
 
         const res = await updateJobPosition(code, payload);
 
-        expect(mockApi).toHaveBeenCalledWith(`api/job-positions/${encodeURIComponent(code)}`, {
+        expect(mockApi).toHaveBeenCalledWith(`job-positions/${encodeURIComponent(code)}`, {
             method: 'PUT',
             data: payload,
         });
@@ -80,7 +80,7 @@ describe('jobPositionService', () => {
 
         const res = await updateJobPositionStatus(code, isActive);
 
-        expect(mockApi).toHaveBeenCalledWith(`api/job-positions/${encodeURIComponent(code)}/status`, {
+        expect(mockApi).toHaveBeenCalledWith(`job-positions/${encodeURIComponent(code)}/status`, {
             method: 'PUT',
             data: { isActive },
         });

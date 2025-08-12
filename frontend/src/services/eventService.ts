@@ -61,31 +61,31 @@ export interface CreateSchedulePayload {
 
 // --- Event Definition API Calls ---
 export const getEventDefinitions = async (): Promise<EventDefinition[]> => {
-    return api<EventDefinition[]>('api/event-definitions', { method: 'GET' });
+    return api<EventDefinition[]>('event-definitions', { method: 'GET' });
 };
 
 export const createEventDefinition = async (definitionData: CreateEventDefinitionPayload): Promise<EventDefinition> => {
-    return api<EventDefinition>('api/event-definitions', {
+    return api<EventDefinition>('event-definitions', {
         method: 'POST',
         data: definitionData,
     });
 };
 
 export const updateEventDefinition = async (definitionId: number, definitionData: Partial<CreateEventDefinitionPayload>): Promise<EventDefinition> => {
-    return api<EventDefinition>(`api/event-definitions/${definitionId}`, {
+    return api<EventDefinition>(`event-definitions/${definitionId}`, {
         method: 'PUT',
         data: definitionData,
     });
 };
 
 export const deleteEventDefinition = async (definitionId: number): Promise<void> => {
-    await api(`api/event-definitions/${definitionId}`, { method: 'DELETE' });
+    await api(`event-definitions/${definitionId}`, { method: 'DELETE' });
 };
 
 
 // --- Event Schedule API Calls (for the calendar) ---
 export const getScheduledEvents = async (): Promise<CalendarEvent[]> => {
-    const response = await api<BackendScheduledEvent[]>('api/event-schedules');
+    const response = await api<BackendScheduledEvent[]>('event-schedules');
     return response.map(event => ({
         id: String(event.CustomEventScheduleID),
         title: event.Title,
@@ -109,19 +109,19 @@ export const getScheduledEvents = async (): Promise<CalendarEvent[]> => {
 };
 
 export const createScheduledEvent = async (scheduleData: CreateSchedulePayload): Promise<any> => {
-    return api('api/event-schedules', {
+    return api('event-schedules', {
         method: 'POST',
         data: scheduleData,
     });
 };
 
 export const updateScheduledEvent = async (scheduleId: number, scheduleData: Partial<CreateSchedulePayload>): Promise<any> => {
-    return api(`api/event-schedules/${scheduleId}`, {
+    return api(`event-schedules/${scheduleId}`, {
         method: 'PUT',
         data: scheduleData,
     });
 };
 
 export const deleteScheduledEvent = async (scheduleId: number): Promise<void> => {
-    await api(`api/event-schedules/${scheduleId}`, { method: 'DELETE' });
+    await api(`event-schedules/${scheduleId}`, { method: 'DELETE' });
 };

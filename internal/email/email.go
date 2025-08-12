@@ -1,7 +1,6 @@
 package email
 
 import (
-	"fmt"
 	"os"
 
 	gomail "gopkg.in/mail.v2"
@@ -39,10 +38,8 @@ func SendEmailWithDialer(dialer interface {
 
 	// Send the email
 	if err := dialer.DialAndSend(message); err != nil {
-		fmt.Println("Error:", err)
 		return err
 	}
 
-	// fmt.Println("Email sent successfully!")
 	return nil
 }

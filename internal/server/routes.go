@@ -22,7 +22,15 @@ func (s *Server) RegisterRoutes() http.Handler {
 	// This middleware should run first to handle OPTIONS requests and add
 	// CORS headers to all responses, even error responses from other middleware.
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "http://127.0.0.1:5173"},
+		AllowOrigins: []string{
+			"http://localhost:5173",
+			"http://127.0.0.1:5173",
+			"http://schedulingsystem.app", // Production
+			"https://schedulingsystem.app",
+			"http://vm.local", // This is temporary for testing on my vm
+			"https://vm.local",
+		},
+
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},

@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const API_BASE_URL = 'http://localhost:' + (import.meta.env.VITE_GO_API_PORT || '8080');
+export const getApiBaseUrl = () => {
+  return import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+};
 
 export interface ApiErrorResponseData {
   error: string;
@@ -66,8 +68,13 @@ async function apiClient<T>(
     
     config.headers = new Headers(headers); 
 
+    // Normalize endpoint - remove leading slash if present
+    // When specifying an endpoint you can do /users or users for example
+    // But it is the industry standard to just say users - without the leading forward slash
+    endpoint = endpoint.replace(/^\/+/, '');
+
     try {
-        const response = await fetch(`${API_BASE_URL}/${endpoint}`, config);
+        const response = await fetch(`${getApiBaseUrl()}/${endpoint}`, config);
 
         if (response.status === 204 || (response.ok && response.headers.get('Content-Length') === '0')) {
             return undefined as T;

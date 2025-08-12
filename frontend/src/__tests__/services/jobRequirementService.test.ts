@@ -25,7 +25,7 @@ describe('jobRequirementService', () => {
 
             const res = await getAllJobRequirements();
 
-            expect(mockApi).toHaveBeenCalledWith('api/job-requirements');
+            expect(mockApi).toHaveBeenCalledWith('job-requirements');
             expect(res).toEqual(data);
         });
 
@@ -34,7 +34,7 @@ describe('jobRequirementService', () => {
 
             await getAllJobRequirements({ competencyId: 5 });
 
-            expect(mockApi).toHaveBeenCalledWith('api/job-requirements?competencyId=5');
+            expect(mockApi).toHaveBeenCalledWith('job-requirements?competencyId=5');
         });
 
         it('applies positionMatrixCode filter with encoding', async () => {
@@ -45,7 +45,7 @@ describe('jobRequirementService', () => {
             const params = new URLSearchParams();
             params.append('positionMatrixCode', 'ENG/LEAD');
 
-            expect(mockApi).toHaveBeenCalledWith(`api/job-requirements?${params.toString()}`);
+            expect(mockApi).toHaveBeenCalledWith(`job-requirements?${params.toString()}`);
         });
 
         it('applies both filters and preserves order', async () => {
@@ -57,7 +57,7 @@ describe('jobRequirementService', () => {
             params.append('competencyId', '7');
             params.append('positionMatrixCode', 'OPS TEAM');
 
-            expect(mockApi).toHaveBeenCalledWith(`api/job-requirements?${params.toString()}`);
+            expect(mockApi).toHaveBeenCalledWith(`job-requirements?${params.toString()}`);
         });
 
         it('propagates errors from api', async () => {
@@ -75,7 +75,7 @@ describe('jobRequirementService', () => {
 
             const res = await addJobRequirement(payload);
 
-            expect(mockApi).toHaveBeenCalledWith('api/job-requirements', {
+            expect(mockApi).toHaveBeenCalledWith('job-requirements', {
                 method: 'POST',
                 data: payload,
             });
@@ -95,7 +95,7 @@ describe('jobRequirementService', () => {
 
             await deleteJobRequirement(42);
 
-            expect(mockApi).toHaveBeenCalledWith('api/job-requirements/42', { method: 'DELETE' });
+            expect(mockApi).toHaveBeenCalledWith('job-requirements/42', { method: 'DELETE' });
         });
 
         it('propagates errors', async () => {

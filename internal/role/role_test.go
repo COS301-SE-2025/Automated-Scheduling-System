@@ -25,7 +25,7 @@ func newMockDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 
-	gormLogger := logger.New(&testingLogger{t}, logger.Config{SlowThreshold: 0, LogLevel: logger.Info})
+	gormLogger := logger.New(&testingLogger{t}, logger.Config{SlowThreshold: 0, LogLevel: logger.Silent})
 	gormDB, err := gorm.Open(postgres.New(postgres.Config{Conn: db}), &gorm.Config{Logger: gormLogger})
 	require.NoError(t, err)
 	return gormDB, mock
