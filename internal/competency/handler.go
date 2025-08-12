@@ -93,23 +93,22 @@ func UpdateCompetencyDefinitionHandler(c *gin.Context) {
         return
     }
 
-    var req models.CreateCompetencyRequest
+    var req models.UpdateCompetencyRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data: " + err.Error()})
 		return
 	}
-    
+
     competency.CompetencyName = req.CompetencyName
     competency.Description = req.Description
     competency.CompetencyTypeName = req.CompetencyTypeName
-    competency.Source = req.Source
     if req.ExpiryPeriodMonths != nil {
         competency.ExpiryPeriodMonths = req.ExpiryPeriodMonths
     }
     if req.IsActive != nil {
         competency.IsActive = *req.IsActive
     }
-	
+
 	if err := DB.Save(&competency).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update competency: " + err.Error()})
 		return

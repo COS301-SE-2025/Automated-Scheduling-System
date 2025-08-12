@@ -1,15 +1,19 @@
+// frontend/components/competency/CompetencyTable.tsx
+
 import React from 'react';
 import type { Competency } from '../../types/competency';
-import { Edit, Trash2 } from 'lucide-react';
+import { Edit, Trash2, ListTree, Users } from 'lucide-react';
 
 interface CompetencyTableProps {
     competencies: Competency[];
     isLoading: boolean;
     onEdit: (competency: Competency) => void;
     onDelete: (competency: Competency) => void;
+    onViewPrerequisites: (competency: Competency) => void;
+    // onViewJobMatrix: (competency: Competency) => void;
 }
 
-const CompetencyTable: React.FC<CompetencyTableProps> = ({ competencies, isLoading, onEdit, onDelete }) => {
+const CompetencyTable: React.FC<CompetencyTableProps> = ({ competencies, isLoading, onEdit, onDelete, onViewPrerequisites }) => {
 
     const getStatusClass = (isActive: boolean): string => {
         if (isActive) {
@@ -54,6 +58,12 @@ const CompetencyTable: React.FC<CompetencyTableProps> = ({ competencies, isLoadi
                                     <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-custom-primary dark:text-dark-primary">
                                         Expires (Months)
                                     </th>
+                                    <th scope="col" className="px-3 py-3.5 text-center text-sm font-semibold text-custom-primary dark:text-dark-primary">
+                                        Prerequisites
+                                    </th>
+                                    <th scope="col" className="px-3 py-3.5 text-center text-sm font-semibold text-custom-primary dark:text-dark-primary">
+                                        Job Links
+                                    </th>
                                     <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
                                         <span className="sr-only">Actions</span>
                                     </th>
@@ -77,11 +87,34 @@ const CompetencyTable: React.FC<CompetencyTableProps> = ({ competencies, isLoadi
                                         <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300">
                                             {competency.expiryPeriodMonths ?? 'N/A'}
                                         </td>
+
+                                        <td className="whitespace-nowrap px-3 py-4 text-sm text-center">
+                                            <button
+                                                type="button"
+                                                className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary p-1"
+                                                onClick={() => onViewPrerequisites(competency)}
+                                                title="View Prerequisites"
+                                            >
+                                                <ListTree size={18} />
+                                            </button>
+                                        </td>
+                                        <td className="whitespace-nowrap px-3 py-4 text-sm text-center">
+                                            <button
+                                                type="button"
+                                                className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary p-1"
+                                                onClick={() => alert(`View job matrix links for ${competency.competencyName}`)}
+                                                title="View Job Matrix Links"
+                                            >
+                                                <Users size={18} />
+                                            </button>
+                                        </td>
+
                                         <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                                             <button
                                                 type="button"
                                                 className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary p-1"
                                                 onClick={() => onEdit(competency)}
+                                                title="Edit Competency"
                                             >
                                                 <Edit size={16} />
                                             </button>
@@ -89,6 +122,7 @@ const CompetencyTable: React.FC<CompetencyTableProps> = ({ competencies, isLoadi
                                                 type="button"
                                                 className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1 ml-2"
                                                 onClick={() => onDelete(competency)}
+                                                title="Deactivate Competency"
                                             >
                                                 <Trash2 size={16} />
                                             </button>

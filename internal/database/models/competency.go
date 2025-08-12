@@ -8,15 +8,15 @@ import "time"
 
 // GORM model for the competency_definitions table
 type CompetencyDefinition struct {
-	CompetencyID       int `gorm:"primaryKey"`
-	CompetencyName     string
-	Description        string
-	CompetencyTypeName string
-	Source             string // Using string for ENUM 'LMS' or 'Custom'
-	ExpiryPeriodMonths *int
-	IsActive           bool   `gorm:"default:true"`
-	CreationDate       time.Time `gorm:"autoCreateTime"`
-	Prerequisites      []CompetencyDefinition `gorm:"many2many:competency_prerequisites;foreignKey:CompetencyID;joinForeignKey:competency_id;References:CompetencyID;joinReferences:prerequisite_competency_id"`
+	CompetencyID       int                    `gorm:"column:competency_id;primaryKey" json:"competencyID"`
+	CompetencyName     string                 `gorm:"column:competency_name" json:"competencyName"`
+	Description        string                 `gorm:"column:description" json:"description"`
+	CompetencyTypeName string                 `gorm:"column:competency_type_name" json:"competencyTypeName"`
+	Source             string                 `gorm:"column:source" json:"source"`
+	ExpiryPeriodMonths *int                   `gorm:"column:expiry_period_months" json:"expiryPeriodMonths"`
+	IsActive           bool                   `gorm:"column:is_active" json:"isActive"`
+	CreationDate       time.Time              `gorm:"column:creation_date;autoCreateTime" json:"creationDate"`
+	Prerequisites      []CompetencyDefinition `gorm:"many2many:competency_prerequisites;foreignKey:CompetencyID;joinForeignKey:competency_id;References:CompetencyID;joinReferences:prerequisite_competency_id" json:"Prerequisites,omitempty"`
 }
 
 // JSON structure for creating a new competency
@@ -27,6 +27,15 @@ type CreateCompetencyRequest struct {
 	Source             string `json:"source" binding:"required,oneof=LMS Custom"` // Validate source
 	ExpiryPeriodMonths *int   `json:"expiryPeriodMonths"`
 	IsActive           *bool  `json:"isActive"` // Pointer to handle optional boolean
+}
+
+// JSON structure for updating an existing competency
+type UpdateCompetencyRequest struct {
+	CompetencyName     string `json:"competencyName" binding:"required"`
+	Description        string `json:"description"`
+	CompetencyTypeName string `json:"competencyTypeName"`
+	ExpiryPeriodMonths *int   `json:"expiryPeriodMonths"`
+	IsActive           *bool  `json:"isActive"`
 }
 
 // =====================================================================
