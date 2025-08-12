@@ -9,19 +9,19 @@ export interface JobPosition {
 }
 
 export const getAllJobPositions = async (): Promise<JobPosition[]> => {
-    return apiClient<JobPosition[]>('api/job-positions');
+    return apiClient<JobPosition[]>('job-positions');
 };
 
 export const createJobPosition = async (data: { positionMatrixCode: string; jobTitle: string; description: string }): Promise<JobPosition> => {
-    return apiClient<JobPosition>('api/job-positions', { method: 'POST', data });
+    return apiClient<JobPosition>('job-positions', { method: 'POST', data });
 };
 
 export const updateJobPosition = async (code: string, data: { jobTitle: string; description: string }): Promise<JobPosition> => {
-    return apiClient<JobPosition>(`api/job-positions/${encodeURIComponent(code)}`, { method: 'PUT', data });
+    return apiClient<JobPosition>(`job-positions/${encodeURIComponent(code)}`, { method: 'PUT', data });
 };
 
 export const updateJobPositionStatus = async (code: string, isActive: boolean): Promise<JobPosition> => {
-    return apiClient<JobPosition>(`api/job-positions/${encodeURIComponent(code)}/status`, {
+    return apiClient<JobPosition>(`job-positions/${encodeURIComponent(code)}/status`, {
         method: 'PUT',
         data: { isActive },
     });

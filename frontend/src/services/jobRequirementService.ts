@@ -19,15 +19,15 @@ export const getAllJobRequirements = async (filters?: { competencyId?: number, p
         params.append('positionMatrixCode', filters.positionMatrixCode);
     }
     const queryString = params.toString();
-    const url = queryString ? `api/job-requirements?${queryString}` : 'api/job-requirements';
+    const url = queryString ? `job-requirements?${queryString}` : 'job-requirements';
     
     return apiClient<JobRequirement[]>(url);
 };
 
 export const addJobRequirement = async (data: { competencyID: number; positionMatrixCode: string; requirementStatus: string }): Promise<JobRequirement> => {
-    return apiClient<JobRequirement>('api/job-requirements', { method: 'POST', data });
+    return apiClient<JobRequirement>('job-requirements', { method: 'POST', data });
 };
 
 export const deleteJobRequirement = async (matrixID: number): Promise<void> => {
-    await apiClient<void>(`api/job-requirements/${matrixID}`, { method: 'DELETE' });
+    await apiClient<void>(`job-requirements/${matrixID}`, { method: 'DELETE' });
 };

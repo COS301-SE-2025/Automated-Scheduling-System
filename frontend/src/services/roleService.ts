@@ -3,12 +3,12 @@ import type { RoleRecord, AddRoleData, UpdateRoleData } from '../types/role';
 
 
 export const getAllRoles = async (): Promise<RoleRecord[]> => {
-  const roles = await apiClient<RoleRecord[]>('api/roles', { method: 'GET' });
+  const roles = await apiClient<RoleRecord[]>('roles', { method: 'GET' });
   return roles;
 };
 
 export const createRole = async (data: AddRoleData): Promise<RoleRecord> => {
-  const created = await apiClient<RoleRecord>('api/roles', {
+  const created = await apiClient<RoleRecord>('roles', {
     method: 'POST',
     data,
   });
@@ -16,7 +16,7 @@ export const createRole = async (data: AddRoleData): Promise<RoleRecord> => {
 };
 
 export const updateRole = async (id: number, data: UpdateRoleData): Promise<RoleRecord> => {
-  const updated = await apiClient<RoleRecord>(`api/roles/${id}`, {
+  const updated = await apiClient<RoleRecord>(`roles/${id}`, {
     method: 'PATCH',
     data,
   });
@@ -24,5 +24,5 @@ export const updateRole = async (id: number, data: UpdateRoleData): Promise<Role
 };
 
 export const deleteRole = async (id: number): Promise<void> => {
-  await apiClient<void>(`api/roles/${id}`, { method: 'DELETE' });
+  await apiClient<void>(`roles/${id}`, { method: 'DELETE' });
 };

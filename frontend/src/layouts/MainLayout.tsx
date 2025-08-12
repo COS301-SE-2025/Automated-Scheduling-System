@@ -43,7 +43,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle }) => {
         async function load() {
             if (!user) { setAllowedPages(null); return; }
             try {
-                const perms = await apiClient<string[]>('api/roles/permissions', { method: 'GET' });
+                const perms = await apiClient<string[]>('roles/permissions', { method: 'GET' });
                 if (!cancelled) setAllowedPages(perms);
             } catch {
                 if (!cancelled) setAllowedPages([]);

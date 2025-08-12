@@ -5,7 +5,7 @@ import type { Competency, AddCompetencyData, UpdateCompetencyData, CompetencyTyp
 
 export const getAllCompetencies = async (): Promise<Competency[]> => {
     try {
-        const competencies = await apiClient<Competency[]>('api/competencies', {
+        const competencies = await apiClient<Competency[]>('competencies', {
             method: 'GET',
         });
         return competencies;
@@ -24,7 +24,7 @@ export const getAllCompetencies = async (): Promise<Competency[]> => {
 
 export const addCompetency = async (competencyData: AddCompetencyData): Promise<Competency> => {
     try {
-        const newCompetency = await apiClient<Competency>('api/competencies', {
+        const newCompetency = await apiClient<Competency>('competencies', {
             method: 'POST',
             data: competencyData,
         });
@@ -42,7 +42,7 @@ export const addCompetency = async (competencyData: AddCompetencyData): Promise<
 
 export const updateCompetency = async (competencyID: number, updates: UpdateCompetencyData): Promise<Competency> => {
     try {
-        const updatedCompetency = await apiClient<Competency>(`api/competencies/${competencyID}`, {
+        const updatedCompetency = await apiClient<Competency>(`competencies/${competencyID}`, {
             method: 'PUT',
             data: updates,
         });
@@ -60,7 +60,7 @@ export const updateCompetency = async (competencyID: number, updates: UpdateComp
 
 export const deleteCompetency = async (competencyID: number): Promise<void> => {
     try {
-        await apiClient<void>(`api/competencies/${competencyID}`, {
+        await apiClient<void>(`competencies/${competencyID}`, {
             method: 'DELETE',
         });
     } catch (error) {
@@ -76,7 +76,7 @@ export const deleteCompetency = async (competencyID: number): Promise<void> => {
 
 export const addPrerequisite = async (competencyID: number, prerequisiteCompetencyID: number): Promise<void> => {
     try {
-        await apiClient(`api/competencies/${competencyID}/prerequisites`, {
+        await apiClient(`competencies/${competencyID}/prerequisites`, {
             method: 'POST',
             data: { prerequisiteCompetencyID },
         });
@@ -93,7 +93,7 @@ export const addPrerequisite = async (competencyID: number, prerequisiteCompeten
 
 export const removePrerequisite = async (competencyID: number, prerequisiteCompetencyID: number): Promise<void> => {
     try {
-        await apiClient(`api/competencies/${competencyID}/prerequisites/${prerequisiteCompetencyID}`, {
+        await apiClient(`competencies/${competencyID}/prerequisites/${prerequisiteCompetencyID}`, {
             method: 'DELETE',
         });
     } catch (error) {
@@ -109,7 +109,7 @@ export const removePrerequisite = async (competencyID: number, prerequisiteCompe
 
 export const getAllCompetencyTypes = async (): Promise<CompetencyType[]> => {
     try {
-        const types = await apiClient<CompetencyType[]>('api/competency-types', {
+        const types = await apiClient<CompetencyType[]>('competency-types', {
             method: 'GET',
         });
         return types;
@@ -126,7 +126,7 @@ export const getAllCompetencyTypes = async (): Promise<CompetencyType[]> => {
 
 export const createCompetencyType = async (typeName: string, description: string): Promise<CompetencyType> => {
     try {
-        const newType = await apiClient<CompetencyType>('api/competency-types', {
+        const newType = await apiClient<CompetencyType>('competency-types', {
             method: 'POST',
             data: { typeName, description },
         });
@@ -140,7 +140,7 @@ export const createCompetencyType = async (typeName: string, description: string
 
 export const updateCompetencyType = async (typeName: string, description: string): Promise<CompetencyType> => {
     try {
-        const updatedType = await apiClient<CompetencyType>(`api/competency-types/${encodeURIComponent(typeName)}`, {
+        const updatedType = await apiClient<CompetencyType>(`competency-types/${encodeURIComponent(typeName)}`, {
             method: 'PUT',
             data: { typeName, description },
         });
@@ -154,7 +154,7 @@ export const updateCompetencyType = async (typeName: string, description: string
 
 export const updateCompetencyTypeStatus = async (typeName: string, isActive: boolean): Promise<CompetencyType> => {
     try {
-        const updatedType = await apiClient<CompetencyType>(`api/competency-types/${encodeURIComponent(typeName)}/status`, {
+        const updatedType = await apiClient<CompetencyType>(`competency-types/${encodeURIComponent(typeName)}/status`, {
             method: 'PUT',
             data: { isActive },
         });

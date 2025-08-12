@@ -45,7 +45,7 @@ describe('competencyService', () => {
 
             const res = await getAllCompetencies();
 
-            expect(mockApi).toHaveBeenCalledWith('api/competencies', { method: 'GET' });
+            expect(mockApi).toHaveBeenCalledWith('competencies', { method: 'GET' });
             expect(res).toEqual(mockData);
         });
 
@@ -75,7 +75,7 @@ describe('competencyService', () => {
 
             const res = await addCompetency(payload);
 
-            expect(mockApi).toHaveBeenCalledWith('api/competencies', {
+            expect(mockApi).toHaveBeenCalledWith('competencies', {
                 method: 'POST',
                 data: payload,
             });
@@ -102,7 +102,7 @@ describe('competencyService', () => {
 
             const res = await updateCompetency(id, updates);
 
-            expect(mockApi).toHaveBeenCalledWith(`api/competencies/${id}`, {
+            expect(mockApi).toHaveBeenCalledWith(`competencies/${id}`, {
                 method: 'PUT',
                 data: updates,
             });
@@ -126,7 +126,7 @@ describe('competencyService', () => {
 
             await deleteCompetency(5);
 
-            expect(mockApi).toHaveBeenCalledWith('api/competencies/5', {
+            expect(mockApi).toHaveBeenCalledWith('competencies/5', {
                 method: 'DELETE',
             });
         });
@@ -148,7 +148,7 @@ describe('competencyService', () => {
 
             await addPrerequisite(10, 2);
 
-            expect(mockApi).toHaveBeenCalledWith('api/competencies/10/prerequisites', {
+            expect(mockApi).toHaveBeenCalledWith('competencies/10/prerequisites', {
                 method: 'POST',
                 data: { prerequisiteCompetencyID: 2 },
             });
@@ -171,7 +171,7 @@ describe('competencyService', () => {
 
             await removePrerequisite(10, 2);
 
-            expect(mockApi).toHaveBeenCalledWith('api/competencies/10/prerequisites/2', {
+            expect(mockApi).toHaveBeenCalledWith('competencies/10/prerequisites/2', {
                 method: 'DELETE',
             });
         });
@@ -194,7 +194,7 @@ describe('competencyService', () => {
 
             const res = await getAllCompetencyTypes();
 
-            expect(mockApi).toHaveBeenCalledWith('api/competency-types', { method: 'GET' });
+            expect(mockApi).toHaveBeenCalledWith('competency-types', { method: 'GET' });
             expect(res).toEqual(types);
         });
 
@@ -217,7 +217,7 @@ describe('competencyService', () => {
 
             const res = await createCompetencyType(payload.typeName, payload.description);
 
-            expect(mockApi).toHaveBeenCalledWith('api/competency-types', {
+            expect(mockApi).toHaveBeenCalledWith('competency-types', {
                 method: 'POST',
                 data: payload,
             });
@@ -242,7 +242,7 @@ describe('competencyService', () => {
 
             const res = await updateCompetencyType(payload.typeName, payload.description);
 
-            expect(mockApi).toHaveBeenCalledWith(`api/competency-types/${encodeURIComponent(payload.typeName)}`, {
+            expect(mockApi).toHaveBeenCalledWith(`competency-types/${encodeURIComponent(payload.typeName)}`, {
                 method: 'PUT',
                 data: payload,
             });
@@ -268,7 +268,7 @@ describe('competencyService', () => {
 
             const res = await updateCompetencyTypeStatus(typeName, isActive);
 
-            expect(mockApi).toHaveBeenCalledWith(`api/competency-types/${encodeURIComponent(typeName)}/status`, {
+            expect(mockApi).toHaveBeenCalledWith(`competency-types/${encodeURIComponent(typeName)}/status`, {
                 method: 'PUT',
                 data: { isActive },
             });

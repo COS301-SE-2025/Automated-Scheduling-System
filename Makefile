@@ -70,12 +70,12 @@ docker-db:
 # Test the application
 test:
 	@echo "Testing..."
-	@go test ./... -cover -covermode=atomic -coverprofile=coverage.out -v
+	@go test ./internal/... -cover -covermode=atomic -coverprofile=coverage.out -v
 
 # Unit testing (auth only)
 utest:
 	@echo "Running Unit Tests"
-	@go test -v -tags=unit ./... -covermode=atomic -coverprofile=coverage.out
+	@go test -v -tags=unit ./internal/... -covermode=atomic -coverprofile=coverage.out
 
 # Integrations Tests for the application
 itest:

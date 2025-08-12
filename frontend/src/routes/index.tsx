@@ -56,7 +56,7 @@ const PageGuard: React.FC<{ page: string }> = ({ page }) => {
         let cancelled = false;
         async function check() {
             try {
-                const perms = await apiClient<string[]>('api/roles/permissions', { method: 'GET' });
+                const perms = await apiClient<string[]>('roles/permissions', { method: 'GET' });
                 if (!cancelled) setAllowed(perms.includes(page));
             } catch {
                 if (!cancelled) setAllowed(false);

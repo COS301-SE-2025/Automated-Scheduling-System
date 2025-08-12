@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import apiClient from '../../services/api';
+import { getApiBaseUrl } from '../../services/api';
 
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
@@ -34,12 +35,12 @@ describe('apiClient', () => {
         vi.restoreAllMocks();
     });
 
-    const constructExpectedUrl = (endpoint: string) => `http://localhost:8080/${endpoint}`;
+    const constructExpectedUrl = (endpoint: string) => `${getApiBaseUrl()}/${endpoint}`;
 
     describe('successful requests', () => {
         it('should make a GET request successfully', async () => {
             const mockResponse = { id: 1, name: 'Test User' };
-            const endpoint = 'api/users/1';
+            const endpoint = 'users/1';
             mockFetch.mockResolvedValueOnce({
                 ok: true,
                 status: 200,
@@ -64,7 +65,7 @@ describe('apiClient', () => {
         it('should make a POST request with data successfully', async () => {
             const mockResponse = { id: 2, name: 'New User' };
             const postData = { name: 'New User', email: 'new@example.com' };
-            const endpoint = 'api/users';
+            const endpoint = 'users';
 
             mockFetch.mockResolvedValueOnce({
                 ok: true,
@@ -90,7 +91,7 @@ describe('apiClient', () => {
         });
 
         it('should handle 204 No Content responses', async () => {
-            const endpoint = 'api/users/1';
+            const endpoint = 'users/1';
             mockFetch.mockResolvedValueOnce({
                 ok: true,
                 status: 204,
@@ -103,7 +104,7 @@ describe('apiClient', () => {
         });
 
         it('should handle responses with Content-Length 0', async () => {
-            const endpoint = 'api/users/1';
+            const endpoint = 'users/1';
             mockFetch.mockResolvedValueOnce({
                 ok: true,
                 status: 200,
@@ -119,7 +120,7 @@ describe('apiClient', () => {
 
     describe('authentication handling', () => {
         it('should include Authorization header when token exists', async () => {
-            const endpoint = 'api/protected-endpoint';
+            const endpoint = 'protected-endpoint';
             mockLocalStorage.getItem.mockReturnValue('test-token');
             mockFetch.mockResolvedValueOnce({
                 ok: true,
@@ -139,7 +140,7 @@ describe('apiClient', () => {
         });
 
         it('should not include Authorization header when no token exists', async () => {
-            const endpoint = 'api/public-endpoint';
+            const endpoint = 'public-endpoint';
             mockLocalStorage.getItem.mockReturnValue(null);
             mockFetch.mockResolvedValueOnce({
                 ok: true,
@@ -155,7 +156,7 @@ describe('apiClient', () => {
         });
 
         it('should not include Authorization header when isAuthRequest is false', async () => {
-            const endpoint = 'api/public-endpoint';
+            const endpoint = 'public-endpoint';
             mockLocalStorage.getItem.mockReturnValue('test-token');
             mockFetch.mockResolvedValueOnce({
                 ok: true,
@@ -173,7 +174,7 @@ describe('apiClient', () => {
 
     describe('header handling', () => {
         it('should not include Content-Type header for GET requests without data', async () => {
-            const endpoint = 'api/users';
+            const endpoint = 'users';
             mockFetch.mockResolvedValueOnce({
                 ok: true,
                 status: 200,
@@ -190,7 +191,7 @@ describe('apiClient', () => {
 
     describe('error handling', () => {
         it('should throw ApiError for HTTP error responses with message field', async () => {
-            const endpoint = 'api/users/999';
+            const endpoint = 'users/999';
             const errorResponse = {
                 message: 'User not found',
                 code: 'USER_NOT_FOUND'
@@ -212,7 +213,7 @@ describe('apiClient', () => {
         });
 
         it('should throw ApiError for HTTP error responses with error field', async () => {
-            const endpoint = 'api/users';
+            const endpoint = 'users';
             const errorResponse = {
                 error: 'Validation failed',
                 details: ['Email is required']
@@ -234,7 +235,7 @@ describe('apiClient', () => {
         });
 
         it('should throw ApiError with default message for HTTP errors without known message/error fields', async () => {
-            const endpoint = 'api/users';
+            const endpoint = 'users';
             mockFetch.mockResolvedValueOnce({
                 ok: false,
                 status: 500,
@@ -251,7 +252,7 @@ describe('apiClient', () => {
         });
         
         it('should handle network errors', async () => {
-            const endpoint = 'api/users';
+            const endpoint = 'users';
             mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
             await expect(apiClient(endpoint)).rejects.toMatchObject({
@@ -262,7 +263,7 @@ describe('apiClient', () => {
         });
 
         it('should handle unknown errors (non-Error rejection)', async () => {
-            const endpoint = 'api/users';
+            const endpoint = 'users';
             mockFetch.mockRejectedValueOnce('Unknown error string');
             await expect(apiClient(endpoint)).rejects.toMatchObject({
                 name: 'ApiError',
@@ -272,7 +273,7 @@ describe('apiClient', () => {
         });
 
         it('should add default message to ApiError when fetch rejects with a plain Error (no message, but has status)', async () => {
-            const endpoint = 'api/users';
+            const endpoint = 'users';
             const errorWithoutMessage = new Error() as ErrorWithStatus;
             
             mockFetch.mockRejectedValueOnce(errorWithoutMessage);
@@ -285,7 +286,7 @@ describe('apiClient', () => {
         });
 
         it('should throw ApiError if JSON parsing fails for a non-OK response', async () => {
-            const endpoint = 'api/some/endpoint';
+            const endpoint = 'some/endpoint';
             mockFetch.mockResolvedValueOnce({
                 ok: false,
                 status: 500,

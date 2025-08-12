@@ -5,7 +5,7 @@ import type { User, AddUserData, UpdateUserData } from '../types/user';
 export const getAllUsers = async (): Promise<User[]> => {
     try {
 
-        const users = await apiClient<User[]>('api/users', {
+        const users = await apiClient<User[]>('users', {
             method: 'GET',
         });
         return users;
@@ -25,7 +25,7 @@ export const getAllUsers = async (): Promise<User[]> => {
 export const addUser = async (userData: AddUserData): Promise<User> => {
 
     try {
-        const newUser = await apiClient<User>('api/users', {
+        const newUser = await apiClient<User>('users', {
             method: 'POST',
             data: userData,
         });
@@ -44,7 +44,7 @@ export const addUser = async (userData: AddUserData): Promise<User> => {
 export const updateUser = async (userId: number, updates: UpdateUserData): Promise<User> => {
 
     try {
-        const updatedUser = await apiClient<User>(`api/users/${userId}`, {
+        const updatedUser = await apiClient<User>(`users/${userId}`, {
             method: 'PATCH',
             data: updates,
         });
