@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { CompetencyType } from '../../types/competency';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, Undo2 } from 'lucide-react'; // Import Undo2 icon
 
 interface TypeManagementModalProps {
     isOpen: boolean;
@@ -8,10 +8,10 @@ interface TypeManagementModalProps {
     types: CompetencyType[];
     onAdd: (name: string, desc: string) => Promise<any>;
     onUpdate: (name: string, desc: string) => Promise<any>;
-    onDelete: (name: string) => Promise<any>;
+    onToggleStatus: (name: string, isActive: boolean) => Promise<any>; // Renamed for clarity
 }
 
-const TypeManagementModal: React.FC<TypeManagementModalProps> = ({ isOpen, onClose, types, onAdd, onUpdate, onDelete }) => {
+const TypeManagementModal: React.FC<TypeManagementModalProps> = ({ isOpen, onClose, types, onAdd, onUpdate, onToggleStatus }) => {
     const [mode, setMode] = useState<'add' | 'edit'>('add');
     const [currentType, setCurrentType] = useState<CompetencyType | null>(null);
     const [name, setName] = useState('');
@@ -55,12 +55,13 @@ const TypeManagementModal: React.FC<TypeManagementModalProps> = ({ isOpen, onClo
         }
     };
 
-    const handleDeleteClick = async (typeName: string) => {
-        if (window.confirm(`Are you sure you want to deactivate the type "${typeName}"? This cannot be undone easily.`)) {
+    const handleToggleClick = async (typeName: string, newStatus: boolean) => {
+        const action = newStatus ? 'reactivate' : 'deactivate';
+        if (window.confirm(`Are you sure you want to ${action} the type "${typeName}"?`)) {
             try {
-                await onDelete(typeName);
+                await onToggleStatus(typeName, newStatus);
             } catch (err: any) {
-                alert(err.data?.error || err.message || 'Failed to delete type.');
+                alert(err.data?.error || err.message || `Failed to ${action} type.`);
             }
         }
     };
@@ -78,41 +79,49 @@ const TypeManagementModal: React.FC<TypeManagementModalProps> = ({ isOpen, onClo
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
+                    {/* Left side: List of types */}
                     <div className="border-r dark:border-gray-700 pr-6">
                         <h4 className="font-semibold mb-2 text-custom-primary dark:text-dark-primary">Existing Types</h4>
-                        <ul className="space-y-2 max-h-80 overflow-y-auto">
+                        <ul className="space-y-2 max-h-80">
                             {types.map(type => (
                                 <li key={type.typeName} className={`p-2 rounded-md flex justify-between items-center group ${type.isActive ? 'bg-gray-50 dark:bg-dark-input' : 'bg-red-50 dark:bg-red-900/20 text-gray-500'}`}>
-                                    <div>
+                                    <div className="flex-1 min-w-0">
                                         <p className="font-medium">{type.typeName}</p>
-                                        {!type.isActive && <span className="text-xs">(Inactive)</span>}
+                                        {/* ADDED: Show description */}
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{type.description || 'No description'}</p>
+                                        {!type.isActive && <span className="text-xs font-bold text-red-600 dark:text-red-400">(Inactive)</span>}
                                     </div>
-                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => handleEditClick(type)} className="p-1 text-blue-600 hover:text-blue-800" title="Edit"><Edit2 size={14} /></button>
-                                        {type.isActive && <button onClick={() => handleDeleteClick(type.typeName)} className="p-1 text-red-600 hover:text-red-800" title="Deactivate"><Trash2 size={14} /></button>}
+                                    <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2">
+                                        <button onClick={() => handleEditClick(type)} className="p-1 text-blue-600 hover:text-blue-800" title="Edit Description"><Edit2 size={14} /></button>
+                                        {/* ADDED: Toggle button logic */}
+                                        {type.isActive 
+                                            ? <button onClick={() => handleToggleClick(type.typeName, false)} className="p-1 text-red-600 hover:text-red-800" title="Deactivate"><Trash2 size={14} /></button>
+                                            : <button onClick={() => handleToggleClick(type.typeName, true)} className="p-1 text-green-600 hover:text-green-800" title="Reactivate"><Undo2 size={14} /></button>
+                                        }
                                     </div>
                                 </li>
                             ))}
                         </ul>
                     </div>
 
+                    {/* Right side: Form for add/edit */}
                     <div>
                         <h4 className="font-semibold mb-2 text-custom-primary dark:text-dark-primary">{mode === 'add' ? 'Add New Type' : `Editing: ${currentType?.typeName}`}</h4>
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div>
                                 <label htmlFor="typeName" className="block text-sm font-medium text-gray-700 dark:text-dark-secondary">Type Name</label>
-                                <input type="text" id="typeName" value={name} onChange={(e) => setName(e.target.value)} required disabled={mode === 'edit'} className="mt-1 w-full bg-transparent border border-gray-500 dark:border-gray-700 rounded-md py-2 px-3 focus:outline-none focus:ring-1 focus:ring-custom-primary disabled:bg-gray-100 dark:disabled:bg-gray-800" />
+                                <input type="text" id="typeName" value={name} onChange={(e) => setName(e.target.value)} required disabled={mode === 'edit'} className="mt-1 w-full bg-transparent border border-gray-500 dark:border-gray-700 rounded-md py-2 px-3 focus:outline-none focus:ring-1 focus:ring-custom-primary disabled:bg-gray-100 dark:disabled:bg-gray-800"/>
                             </div>
                             <div>
                                 <label htmlFor="typeDescription" className="block text-sm font-medium text-gray-700 dark:text-dark-secondary">Description</label>
-                                <textarea id="typeDescription" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="mt-1 w-full bg-transparent border border-gray-500 dark:border-gray-700 rounded-md py-2 px-3 focus:outline-none focus:ring-1 focus:ring-custom-primary" />
+                                <textarea id="typeDescription" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} className="mt-1 w-full bg-transparent border border-gray-500 dark:border-gray-700 rounded-md py-2 px-3 focus:outline-none focus:ring-1 focus:ring-custom-primary"/>
                             </div>
                             {apiError && <p className="text-sm text-red-600">{apiError}</p>}
                             <div className="flex justify-end items-center gap-3 pt-2">
-                                {mode === 'edit' && <button type="button" onClick={resetForm} className="text-sm text-gray-600 hover:underline">Cancel Edit</button>}
-                                <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-custom-primary rounded-md shadow-sm hover:bg-custom-primary-hover">
-                                    {mode === 'add' ? <><Plus size={16} className="inline-block mr-1" /> Add Type</> : 'Save Changes'}
-                                </button>
+                               {mode === 'edit' && <button type="button" onClick={resetForm} className="text-sm text-gray-600 hover:underline">Cancel Edit</button>}
+                               <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-custom-primary rounded-md shadow-sm hover:bg-custom-primary-hover">
+                                  {mode === 'add' ? <><Plus size={16} className="inline-block mr-1"/> Add Type</> : 'Save Changes'}
+                               </button>
                             </div>
                         </form>
                     </div>

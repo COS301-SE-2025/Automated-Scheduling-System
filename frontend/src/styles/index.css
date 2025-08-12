@@ -187,3 +187,32 @@ body {
     border-width: 6px 0 6px 6px; 
     border-left-color: inherit; 
 }
+
+
+/* scroll bar */
+::-webkit-scrollbar {
+  width: 8px; /* Width of the entire scrollbar */
+}
+
+::-webkit-scrollbar-track {
+  background: transparent; /* The "track" (the area the scrollbar moves along) */
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #a0aec0; /* A neutral gray that works on light/dark modes */
+  border-radius: 10px; /* Rounded corners for the scroll thumb */
+  border: 2px solid transparent; /* Creates a "padding" effect */
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #718096; /* Darker gray on hover */
+}
+
+
+/* For Firefox */
+/* You would apply this to the root elements */
+html, body {
+  scrollbar-width: thin; /* Can be 'auto', 'thin', or 'none' */
+  scrollbar-color: #a0aec0 transparent; /* thumb color track color */
+}
