@@ -8,12 +8,12 @@ import (
 
 func RegisterCompetencyTypeRoutes(r *gin.Engine) {
 	apiProtected := r.Group("/api")
-	
+
 	apiProtected.Use(auth.AuthMiddleware())
 	{
 		apiProtected.GET("/competency-types", GetAllCompetencyTypesHandler)
 		apiProtected.POST("/competency-types", CreateCompetencyTypeHandler)
 		apiProtected.PUT("/competency-types/:typeName", UpdateCompetencyTypeHandler)
-		apiProtected.DELETE("/competency-types/:typeName", DeleteCompetencyTypeHandler)
+		apiProtected.PUT("/competency-types/:typeName/status", UpdateTypeStatusHandler)
 	}
 }

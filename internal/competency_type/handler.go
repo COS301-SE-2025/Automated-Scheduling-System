@@ -17,6 +17,10 @@ type TypeRequest struct {
 	Description string `json:"description"`
 }
 
+type UpdateStatusRequest struct {
+	IsActive *bool `json:"isActive" binding:"required"`
+}
+
 // returns a list of all competency types.
 func GetAllCompetencyTypesHandler(c *gin.Context) {
 	var competencyTypes []models.CompetencyType
@@ -73,21 +77,26 @@ func UpdateCompetencyTypeHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, updatedType)
 }
 
-// deactivates a competency type.
-// soft delete due to foregin key constraints 
-func DeleteCompetencyTypeHandler(c *gin.Context) {
+// updates the active status of a competency type.
+func UpdateTypeStatusHandler(c *gin.Context) {
 	typeName := c.Param("typeName")
-	
-	// **** unsure weather to check if its in use before deleting?
+	var req UpdateStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+		return
+	}
 
-	result := DB.Model(&models.CompetencyType{}).Where("type_name = ?", typeName).Update("is_active", false)
+	result := DB.Model(&models.CompetencyType{}).Where("type_name = ?", typeName).Update("is_active", *req.IsActive)
 	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to deactivate competency type"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update competency type status"})
 		return
 	}
 	if result.RowsAffected == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Competency type not found"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Competency type deactivated successfully"})
+
+	var updatedType models.CompetencyType
+	DB.First(&updatedType, "type_name = ?", typeName)
+	c.JSON(http.StatusOK, updatedType)
 }

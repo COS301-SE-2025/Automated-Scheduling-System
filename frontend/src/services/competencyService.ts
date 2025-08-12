@@ -152,14 +152,16 @@ export const updateCompetencyType = async (typeName: string, description: string
     }
 };
 
-export const deleteCompetencyType = async (typeName: string): Promise<void> => {
+export const updateCompetencyTypeStatus = async (typeName: string, isActive: boolean): Promise<CompetencyType> => {
     try {
-        await apiClient(`api/competency-types/${encodeURIComponent(typeName)}`, {
-            method: 'DELETE',
+        const updatedType = await apiClient<CompetencyType>(`api/competency-types/${encodeURIComponent(typeName)}/status`, {
+            method: 'PUT',
+            data: { isActive },
         });
+        return updatedType;
     } catch (error) {
-        console.error('Error deleting competency type:', error);
+        console.error('Error updating competency type status:', error);
         if (error instanceof ApiError) throw error;
-        throw new ApiError('Failed to delete competency type.', (error as any).status, error);
+        throw new ApiError('Failed to update status.', (error as any).status, error);
     }
 };

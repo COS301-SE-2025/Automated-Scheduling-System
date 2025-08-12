@@ -204,9 +204,9 @@ const CompetencyPage: React.FC = () => {
         setCompetencyTypes(prev => prev.map(t => t.typeName === name ? updatedType : t));
     };
 
-    const handleDeleteType = async (name: string) => {
-        await competencyService.deleteCompetencyType(name);
-        setCompetencyTypes(prev => prev.map(t => t.typeName === name ? { ...t, isActive: false } : t));
+    const handleToggleTypeStatus = async (name: string, isActive: boolean) => {
+        const updatedType = await competencyService.updateCompetencyTypeStatus(name, isActive);
+        setCompetencyTypes(prev => prev.map(t => t.typeName === name ? updatedType : t));
     };
 
     if (pageError) {
@@ -285,7 +285,7 @@ const CompetencyPage: React.FC = () => {
                 types={competencyTypes}
                 onAdd={handleAddType}
                 onUpdate={handleUpdateType}
-                onDelete={handleDeleteType}
+                onToggleStatus={handleToggleTypeStatus} // Use the new prop name and handler
             />
         </MainLayout>
     );
