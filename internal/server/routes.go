@@ -3,9 +3,11 @@ package server
 import (
 	"Automated-Scheduling-Project/internal/auth"
 	"Automated-Scheduling-Project/internal/competency"
+	"Automated-Scheduling-Project/internal/competency_type"
 	"Automated-Scheduling-Project/internal/event"
 	"Automated-Scheduling-Project/internal/matrix"
 	"Automated-Scheduling-Project/internal/user"
+	
 	"net/http"
 
 	"github.com/gin-contrib/cors"
@@ -33,6 +35,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	event.RegisterEventRoutes(r)
 	matrix.RegisterMatrixRoutes(r)
 	competency.RegisterCompetencyRoutes(r)
+	competency_type.RegisterCompetencyTypeRoutes(r)
 
 	return r
 }

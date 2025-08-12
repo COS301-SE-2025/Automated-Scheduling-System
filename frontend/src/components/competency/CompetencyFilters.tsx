@@ -1,4 +1,5 @@
 import React from 'react';
+import type { CompetencyType } from '../../types/competency';
 
 interface CompetencyFiltersProps {
     onSearch: (term: string) => void;
@@ -7,7 +8,7 @@ interface CompetencyFiltersProps {
         competencyTypeName: string;
         isActive: string;
     };
-    availableTypes: string[];
+    availableTypes: CompetencyType[];
 }
 
 const CompetencyFilters: React.FC<CompetencyFiltersProps> = ({
@@ -48,7 +49,9 @@ const CompetencyFilters: React.FC<CompetencyFiltersProps> = ({
                     >
                         <option value="">All Types</option>
                         {availableTypes.map(type => (
-                            <option key={type} value={type}>{type}</option>
+                            <option key={type.typeName} value={type.typeName}>
+                                {type.typeName}
+                            </option>
                         ))}
                     </select>
                 </div>

@@ -97,6 +97,13 @@ CREATE TABLE custom_event_schedules (
     creation_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
+-- competency types, e.g. certification, licence etc.
+CREATE TABLE competency_types (
+    type_name VARCHAR(100) PRIMARY KEY,
+    description TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
+);
+
 -- Indexes updated to match new column names
 CREATE INDEX idx_customeventdefinition_grants_cert_id ON custom_event_definitions(grants_certificate_id);
 CREATE INDEX idx_customjobmatrix_competency_id ON custom_job_matrix(competency_id);

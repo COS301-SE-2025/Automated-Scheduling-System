@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Competency, AddCompetencyData, UpdateCompetencyData } from '../../types/competency';
+import type { Competency, AddCompetencyData, UpdateCompetencyData, CompetencyType } from '../../types/competency';
 
 interface CompetencyModalProps {
     isOpen: boolean;
@@ -8,36 +8,39 @@ interface CompetencyModalProps {
     mode: 'add' | 'edit';
     competency?: Competency;
     apiError: string | null;
+    competencyTypes: CompetencyType[];
 }
 
-const CompetencyModal: React.FC<CompetencyModalProps> = ({ isOpen, onClose, onSave, mode, competency, apiError }) => {
+const CompetencyModal: React.FC<CompetencyModalProps> = ({ isOpen, onClose, onSave, mode, competency, apiError, competencyTypes }) => {
     const [formData, setFormData] = useState({
         competencyName: '',
         description: '',
-        competencyTypeName: 'Certification',
+        competencyTypeName: competencyTypes.length > 0 ? competencyTypes[0].typeName : 'Certification',
         expiryPeriodMonths: '',
         isActive: true,
     });
 
     useEffect(() => {
-        if (mode === 'edit' && competency) {
-            setFormData({
-                competencyName: competency.competencyName,
-                description: competency.description || '',
-                competencyTypeName: competency.competencyTypeName || 'Certification',
-                expiryPeriodMonths: competency.expiryPeriodMonths?.toString() || '',
-                isActive: competency.isActive,
-            });
-        } else {
-            setFormData({
-                competencyName: '',
-                description: '',
-                competencyTypeName: 'Certification',
-                expiryPeriodMonths: '',
-                isActive: true,
-            });
+        if (isOpen) {
+            if (mode === 'edit' && competency) {
+                setFormData({
+                    competencyName: competency.competencyName,
+                    description: competency.description || '',
+                    competencyTypeName: competency.competencyTypeName || (competencyTypes.length > 0 ? competencyTypes[0].typeName : ''),
+                    expiryPeriodMonths: competency.expiryPeriodMonths?.toString() || '',
+                    isActive: competency.isActive,
+                });
+            } else {
+                setFormData({
+                    competencyName: '',
+                    description: '',
+                    competencyTypeName: competencyTypes.length > 0 ? competencyTypes[0].typeName : 'Certification',
+                    expiryPeriodMonths: '',
+                    isActive: true,
+                });
+            }
         }
-    }, [mode, competency, isOpen]);
+    }, [mode, competency, isOpen, competencyTypes]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { id, value, type } = e.target;
@@ -80,9 +83,9 @@ const CompetencyModal: React.FC<CompetencyModalProps> = ({ isOpen, onClose, onSa
                         <div>
                             <label htmlFor="competencyTypeName" className="block text-sm font-medium text-gray-700 dark:text-dark-secondary">Competency Type</label>
                             <select id="competencyTypeName" value={formData.competencyTypeName} onChange={handleChange} className="mt-1 w-full bg-transparent border border-gray-500 dark:border-gray-700 rounded-md py-2 px-3 text-custom-text dark:text-dark-text focus:border-custom-primary focus:ring-1 focus:ring-custom-primary focus:outline-none">
-                                <option>Certification</option>
-                                <option>Skill</option>
-                                <option>License</option>
+                                {competencyTypes.map(type => (
+                                    <option key={type.typeName} value={type.typeName}>{type.typeName}</option>
+                                ))}
                             </select>
                         </div>
                         <div>
