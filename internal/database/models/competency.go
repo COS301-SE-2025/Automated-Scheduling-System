@@ -3,6 +3,23 @@ package models
 import "time"
 
 // =====================================================================
+// JOB POSITION
+// =====================================================================
+
+// JobPosition defines a specific role within the organization.
+type JobPosition struct {
+	PositionMatrixCode string    `gorm:"primaryKey;column:position_matrix_code" json:"positionMatrixCode"`
+	JobTitle           string    `gorm:"column:job_title" json:"jobTitle"`
+	Description        string    `gorm:"column:description" json:"description"`
+	IsActive           bool      `gorm:"column:is_active" json:"isActive"`
+	CreationDate       time.Time `gorm:"column:creation_date;autoCreateTime" json:"creationDate"`
+}
+
+func (JobPosition) TableName() string {
+	return "job_positions"
+}
+
+// =====================================================================
 // COMPETENCY DEFINITION
 // =====================================================================
 
@@ -39,37 +56,38 @@ type UpdateCompetencyRequest struct {
 }
 
 // =====================================================================
-// CUSTOM JOB MATRIX
+// JOB REQUIREMENTS MATRIX (Formerly Custom Job Matrix)
 // =====================================================================
 
-// GORM model for the custom_job_matrix table
+// CustomJobMatrix now represents a requirement for a job position.
 type CustomJobMatrix struct {
-	CustomMatrixID     int `gorm:"primaryKey"`
-	EmployeeNumber     *string // Pointer for nullable string
-	PositionMatrixCode string
-	CompetencyID       int
-	RequirementStatus  string
-	Notes              string
-	CreatedBy          string
-	CreationDate       time.Time `gorm:"autoCreateTime"`
+	CustomMatrixID     int       `gorm:"primaryKey" json:"customMatrixID"`
+	PositionMatrixCode string    `gorm:"column:position_matrix_code" json:"positionMatrixCode"`
+	CompetencyID       int       `gorm:"column:competency_id" json:"competencyID"`
+	RequirementStatus  string    `gorm:"column:requirement_status" json:"requirementStatus"`
+	Notes              string    `gorm:"column:notes" json:"notes"`
+	CreatedBy          string    `gorm:"column:created_by" json:"createdBy"`
+	CreationDate       time.Time `gorm:"autoCreateTime" json:"creationDate"`
+	JobPosition        JobPosition        `gorm:"foreignKey:PositionMatrixCode;references:PositionMatrixCode" json:"jobPosition"`
+	CompetencyDefinition CompetencyDefinition `gorm:"foreignKey:CompetencyID" json:"competencyDefinition"`
 }
 
 func (CustomJobMatrix) TableName() string {
 	return "custom_job_matrix"
 }
 
-// JSON structure for creating a job matrix entry
+// JSON structure for creating a job matrix entry (a job requirement).
 type CreateJobMatrixRequest struct {
-	EmployeeNumber     *string `json:"employeeNumber"`
-	PositionMatrixCode string  `json:"positionMatrixCode" binding:"required"`
-	CompetencyID       int     `json:"competencyId" binding:"required"`
-	RequirementStatus  string  `json:"requirementStatus" binding:"required"`
-	Notes              string  `json:"notes"`
+	PositionMatrixCode string `json:"positionMatrixCode" binding:"required"`
+	CompetencyID       int    `json:"competencyID" binding:"required"`
+	RequirementStatus  string `json:"requirementStatus" binding:"required"`
+	Notes              string `json:"notes"`
 }
 
+// JSON structure for updating a job matrix entry.
 type UpdateJobMatrixRequest struct {
-    RequirementStatus  string  `json:"requirementStatus" binding:"required"`
-	Notes              string  `json:"notes"`
+	RequirementStatus string `json:"requirementStatus" binding:"required"`
+	Notes             string `json:"notes"`
 }
 
 // =====================================================================
@@ -89,4 +107,23 @@ func (CompetencyPrerequisite) TableName() string {
 // JSON structure for adding a prerequisite
 type AddPrerequisiteRequest struct {
     PrerequisiteCompetencyID int `json:"prerequisiteCompetencyId" binding:"required"`
+}
+
+// =====================================================================
+// EMPLOYEE & ACHIEVEMENTS
+// =====================================================================
+
+// EmployeeCompetency tracks a specific competency achieved by an employee.
+type EmployeeCompetency struct {
+	EmployeeCompetencyID   int       `gorm:"primaryKey" json:"employeeCompetencyID"`
+	EmployeeNumber         string    `gorm:"column:employee_number" json:"employeeNumber"`
+	CompetencyID           int       `gorm:"column:competency_id" json:"competencyID"`
+	AchievementDate        time.Time `gorm:"column:achievement_date" json:"achievementDate"`
+	ExpiryDate             *time.Time`gorm:"column:expiry_date" json:"expiryDate"`
+	GrantedByScheduleID    *int      `gorm:"column:granted_by_schedule_id" json:"grantedByScheduleID"`
+	Notes                  string    `gorm:"column:notes" json:"notes"`
+}
+
+func (EmployeeCompetency) TableName() string {
+	return "employee_competencies"
 }

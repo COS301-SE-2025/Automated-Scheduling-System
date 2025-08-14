@@ -5,6 +5,7 @@ import (
 	"Automated-Scheduling-Project/internal/competency"
 	"Automated-Scheduling-Project/internal/competency_type"
 	"Automated-Scheduling-Project/internal/event"
+	"Automated-Scheduling-Project/internal/jobposition"
 	"Automated-Scheduling-Project/internal/matrix"
 	"Automated-Scheduling-Project/internal/user"
 	
@@ -36,6 +37,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	matrix.RegisterMatrixRoutes(r)
 	competency.RegisterCompetencyRoutes(r)
 	competency_type.RegisterCompetencyTypeRoutes(r)
+	jobposition.RegisterJobPositionRoutes(r)
 
 	return r
 }

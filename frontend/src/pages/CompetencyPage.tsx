@@ -1,15 +1,23 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import MainLayout from '../layouts/MainLayout';
-import { PlusCircle, Settings } from 'lucide-react';
+import { PlusCircle, Settings, Briefcase } from 'lucide-react';
 import CompetencyTable from '../components/competency/CompetencyTable';
 import CompetencyFilters from '../components/competency/CompetencyFilters';
 import CompetencyModal from '../components/competency/CompetencyModal';
 import PrerequisiteModal from '../components/competency/PrerequisiteModal';
 import TypeManagementModal from '../components/competency/TypeManagementModal';
+import JobPositionManagementModal from '../components/competency/JobPositionManagementModal';
 import * as competencyService from '../services/competencyService';
 import { ApiError } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import type { Competency, AddCompetencyData, UpdateCompetencyData, CompetencyType } from '../types/competency';
+
+import * as jobPositionService from '../services/jobPositionService';
+import type { JobPosition } from '../services/jobPositionService';
+
+import * as jobRequirementService from '../services/jobRequirementService';
+import type { JobRequirement } from '../services/jobRequirementService';
+
 
 const CompetencyPage: React.FC = () => {
     // --- Page-level state ---
@@ -38,6 +46,14 @@ const CompetencyPage: React.FC = () => {
     // --- State for Type Management Modal ---
     const [isTypeModalOpen, setIsTypeModalOpen] = useState(false);
 
+    // --- State for JobPosition Management Modal ---
+    const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
+    const [isJobPositionModalOpen, setIsJobPositionModalOpen] = useState(false);
+
+    // --- State for JobRequirements (custom job matrix) ---
+    const [jobRequirements, setJobRequirements] = useState<JobRequirement[]>([]);
+    const [expandedCompetencyId, setExpandedCompetencyId] = useState<number | null>(null);
+
     useEffect(() => {
         if (!isAuthenticated) {
             setIsLoading(false);
@@ -49,12 +65,16 @@ const CompetencyPage: React.FC = () => {
             setIsLoading(true);
             setPageError(null);
             try {
-                const [apiCompetencies, apiTypes] = await Promise.all([
+                const [apiCompetencies, apiTypes, apiJobPositions, apiJobRequirements] = await Promise.all([
                     competencyService.getAllCompetencies(),
-                    competencyService.getAllCompetencyTypes()
+                    competencyService.getAllCompetencyTypes(),
+                    jobPositionService.getAllJobPositions(),
+                    jobRequirementService.getAllJobRequirements()
                 ]);
                 setCompetencies(apiCompetencies);
                 setCompetencyTypes(apiTypes);
+                setJobPositions(apiJobPositions);
+                setJobRequirements(apiJobRequirements);
             } catch (err) {
                 if (err instanceof ApiError) {
                     setPageError(err.data?.error || err.message);
@@ -209,6 +229,51 @@ const CompetencyPage: React.FC = () => {
         setCompetencyTypes(prev => prev.map(t => t.typeName === name ? updatedType : t));
     };
 
+    const handleAddJobPosition = async (data: { positionMatrixCode: string; jobTitle: string; description: string }) => {
+        const newPos = await jobPositionService.createJobPosition(data);
+        setJobPositions(prev => [...prev, newPos].sort((a, b) => a.jobTitle.localeCompare(b.jobTitle)));
+    };
+
+    const handleUpdateJobPosition = async (code: string, data: { jobTitle: string; description: string }) => {
+        const updatedPos = await jobPositionService.updateJobPosition(code, data);
+        setJobPositions(prev => prev.map(p => p.positionMatrixCode === code ? updatedPos : p));
+    };
+
+    const handleToggleJobPositionStatus = async (code: string, isActive: boolean) => {
+        const updatedPos = await jobPositionService.updateJobPositionStatus(code, isActive);
+        setJobPositions(prev => prev.map(p => p.positionMatrixCode === code ? updatedPos : p));
+    };
+
+    const handleToggleExpand = (competencyId: number) => {
+        setExpandedCompetencyId(prevId => (prevId === competencyId ? null : competencyId));
+    };
+
+        const handleAddJobLink = async (competencyId: number, positionCode: string, status: string) => {
+        try {
+            const newLink = await jobRequirementService.addJobRequirement({
+                competencyID: competencyId,
+                positionMatrixCode: positionCode,
+                requirementStatus: status,
+            });
+
+            const fullJobPosition = jobPositions.find(jp => jp.positionMatrixCode === positionCode);
+            const newLinkWithDetails: JobRequirement = {
+                ...newLink,
+                jobPosition: fullJobPosition!, 
+            };
+
+            setJobRequirements(prev => [...prev, newLinkWithDetails]);
+
+        } catch (error) {
+            console.error("Failed to add job link:", error);
+        }
+    };
+
+    const handleRemoveJobLink = async (matrixId: number) => {
+        await jobRequirementService.deleteJobRequirement(matrixId);
+        setJobRequirements(prev => prev.filter(r => r.customMatrixID !== matrixId));
+    };
+
     if (pageError) {
         return (
             <MainLayout pageTitle='Competency Management'>
@@ -231,9 +296,13 @@ const CompetencyPage: React.FC = () => {
                         </p>
                     </div>
                     <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex items-center gap-3">
+                        <button type="button" onClick={() => setIsJobPositionModalOpen(true)} className="block rounded-md bg-white dark:bg-dark-input px-3 py-2 text-center text-sm font-semibold text-custom-primary dark:text-dark-primary shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-dark-div">
+                            <Briefcase size={20} className="inline-block mr-2" />
+                            Manage Job Positions
+                        </button>
                         <button type="button" onClick={() => setIsTypeModalOpen(true)} className="block rounded-md bg-white dark:bg-dark-input px-3 py-2 text-center text-sm font-semibold text-custom-primary dark:text-dark-primary shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-dark-div">
                             <Settings size={20} className="inline-block mr-2" />
-                            Manage Types
+                            Manage Competency Types
                         </button>
                         <button type="button" onClick={handleOpenAddModal} className="block rounded-md bg-custom-secondary px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-custom-third focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-custom-secondary">
                             <PlusCircle size={20} className="inline-block mr-2" />
@@ -250,12 +319,19 @@ const CompetencyPage: React.FC = () => {
                 />
 
                 <CompetencyTable
-                    competencies={filteredCompetencies}
-                    isLoading={isLoading}
-                    onEdit={handleOpenEditModal}
-                    onDelete={handleDeleteRequest}
-                    onViewPrerequisites={handleOpenPrereqModal}
-                />
+                competencies={filteredCompetencies}
+                isLoading={isLoading}
+                onEdit={handleOpenEditModal}
+                onDelete={handleDeleteRequest}
+                onViewPrerequisites={handleOpenPrereqModal}
+                // drop down 
+                expandedCompetencyId={expandedCompetencyId}
+                onToggleExpand={handleToggleExpand}
+                allJobPositions={jobPositions}
+                jobRequirements={jobRequirements}
+                onAddJobLink={handleAddJobLink}
+                onRemoveJobLink={handleRemoveJobLink}
+            />
             </div>
 
             <CompetencyModal
@@ -285,7 +361,16 @@ const CompetencyPage: React.FC = () => {
                 types={competencyTypes}
                 onAdd={handleAddType}
                 onUpdate={handleUpdateType}
-                onToggleStatus={handleToggleTypeStatus} // Use the new prop name and handler
+                onToggleStatus={handleToggleTypeStatus}
+            />
+
+            <JobPositionManagementModal
+                isOpen={isJobPositionModalOpen}
+                onClose={() => setIsJobPositionModalOpen(false)}
+                positions={jobPositions}
+                onAdd={handleAddJobPosition}
+                onUpdate={handleUpdateJobPosition}
+                onToggleStatus={handleToggleJobPositionStatus}
             />
         </MainLayout>
     );
