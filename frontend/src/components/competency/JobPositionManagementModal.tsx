@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { JobPosition } from '../../services/jobPositionService';
-import { Plus, Edit2, Trash2, Undo2 } from 'lucide-react';
+import { Plus, Edit2, EyeOff, Undo2 } from 'lucide-react';
 
 interface JobPositionManagementModalProps {
     isOpen: boolean;
@@ -8,7 +8,7 @@ interface JobPositionManagementModalProps {
     positions: JobPosition[];
     onAdd: (data: { positionMatrixCode: string; jobTitle: string; description: string }) => Promise<any>;
     onUpdate: (code: string, data: { jobTitle: string; description: string }) => Promise<any>;
-    onToggleStatus: (code: string, isActive: boolean) => Promise<any>; // Changed from onDelete
+    onToggleStatus: (code: string, isActive: boolean) => Promise<any>;
 }
 
 const JobPositionManagementModal: React.FC<JobPositionManagementModalProps> = ({ isOpen, onClose, positions, onAdd, onUpdate, onToggleStatus }) => {
@@ -69,26 +69,29 @@ const JobPositionManagementModal: React.FC<JobPositionManagementModalProps> = ({
                     <button onClick={onClose} className="p-1 rounded-full text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700">&times;</button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6">
-                    <div className="border-r dark:border-gray-700 pr-6 flex flex-col">
-                        <h4 className="font-semibold mb-2 text-custom-primary dark:text-dark-primary flex-shrink-0">Existing Positions</h4>
+                    <div className="border-r dark:border-gray-700 pr-6">
+                        <h4 className="font-semibold mb-2 text-custom-primary dark:text-dark-primary">Existing Positions</h4>
+                        <div className="max-h-96 overflow-y-auto pr-2">
                             <ul className="space-y-2">
                                 {positions.map(pos => (
                                     <li key={pos.positionMatrixCode} className={`p-2 rounded-md flex justify-between items-center group ${pos.isActive ? 'bg-gray-50 dark:bg-dark-input' : 'bg-red-50 dark:bg-red-900/20 text-gray-500'}`}>
                                         <div className="flex-1 min-w-0">
                                             <p className="font-medium">{pos.jobTitle}</p>
                                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{pos.positionMatrixCode}</p>
-                                            {!pos.isActive && <span className="text-xs font-bold text-red-600 dark:text-red-400">(Inactive)</span>}
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">{pos.description || 'No description'}</p>
+                                            {!pos.isActive && <span className="text-xs font-bold text-red-600 dark:text-red-400 mt-1 block">(Inactive)</span>}
                                         </div>
-                                        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2">
                                             <button onClick={() => handleEditClick(pos)} className="p-1 text-blue-600 hover:text-blue-800" title="Edit"><Edit2 size={14} /></button>
                                             {pos.isActive 
-                                                ? <button onClick={() => handleToggleClick(pos, false)} className="p-1 text-red-600 hover:text-red-800" title="Deactivate"><Trash2 size={14} /></button>
+                                                ? <button onClick={() => handleToggleClick(pos, false)} className="p-1 text-red-600 hover:text-red-800" title="Deactivate"><EyeOff size={14} /></button>
                                                 : <button onClick={() => handleToggleClick(pos, true)} className="p-1 text-green-600 hover:text-green-800" title="Reactivate"><Undo2 size={14} /></button>
                                             }
                                         </div>
                                     </li>
                                 ))}
                             </ul>
+                        </div>
                     </div>
                     <div>
                         <h4 className="font-semibold mb-2 text-custom-primary dark:text-dark-primary">{mode === 'add' ? 'Add New Position' : `Editing: ${currentPos?.jobTitle}`}</h4>
