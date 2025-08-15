@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -17,7 +18,7 @@ type MedicalCheck struct {
 	Result    string
 }
 
-// Schedule is a wrapper that ewill be enabled by the DB
+// Schedule is a wrapper that will be enabled by the DB
 // Passed to validate rules to see existing events
 type Schedule struct {
 	Checks []MedicalCheck
@@ -28,17 +29,18 @@ type Rule interface {
 	ID() string
 	Enabled() bool
 	Type() string
+	Description() string
+	TargetsUser(user gen_models.User) bool
 }
 
-// Validation runs imediately when a check is proposed
+// Validation runs immediately when a check is proposed
 type ValidationRule interface {
 	Rule
-	Validate(check MedicalCheck, shedule Schedule, user gen_models.User) error
+	Validate(check MedicalCheck, schedule Schedule, user gen_models.User) error
 }
 
 // ScheduleRule is evaluated by a runner on a time-tick (like cron jobs)
 // ShouldTrigger decides if Execute must run
-
 type ScheduledRule interface {
 	Rule
 	ShouldTrigger(now time.Time, user gen_models.User) bool
@@ -63,15 +65,18 @@ type Period struct {
 }
 
 type RawRule struct {
-	ID         string         `json:"id"`
-	Type       string         `json:"type"`
-	Enabled    bool           `json:"enabled"`
-	Target     string         `json:"target"` // "user", "role", department, etc
-	Frequency  *Period        `json:"frequency,omitempty"`
-	Conditions map[string]any `json:"conditions,omitempty"`
-	Params     map[string]any `json:"params,omitempty"`
-	When       string         `json:"when,omitempty"`
-	Actions    []RawAction    `json:"actions,omitempty"`
+	ID          string         `json:"id"`
+	Type        string         `json:"type"`
+	Enabled     bool           `json:"enabled"`
+	Description string         `json:"description,omitempty"`
+	Target      string         `json:"target"` // "user", "role", "employee_number", "all"
+	TargetValue string         `json:"target_value,omitempty"`
+	UserIDs     []int64        `json:"user_ids,omitempty"`
+	Frequency   *Period        `json:"frequency,omitempty"`
+	Conditions  map[string]any `json:"conditions,omitempty"`
+	Params      map[string]any `json:"params,omitempty"`
+	When        string         `json:"when,omitempty"`
+	Actions     []RawAction    `json:"actions,omitempty"`
 }
 
 type RawAction struct {
@@ -88,17 +93,47 @@ func DecodeRawRules(data []byte) ([]RawRule, error) {
 }
 
 type CooldownRule struct {
-	id        string
-	enabled   bool
-	days      int // minimum days between two checks
-	checkType string
+	id          string
+	enabled     bool
+	description string
+	target      string
+	targetValue string
+	userIDs     []int64
+	days        int // minimum days between two checks
+	checkType   string
 }
 
-func (r *CooldownRule) ID() string    { return r.id }
-func (r *CooldownRule) Enabled() bool { return r.enabled }
-func (r *CooldownRule) Type() string  { return "cooldown" }
+func (r *CooldownRule) ID() string          { return r.id }
+func (r *CooldownRule) Enabled() bool       { return r.enabled }
+func (r *CooldownRule) Type() string        { return "cooldown" }
+func (r *CooldownRule) Description() string { return r.description }
 
-func (r *CooldownRule) Validate(check MedicalCheck, schedule Schedule, _ gen_models.User) error {
+func (r *CooldownRule) TargetsUser(user gen_models.User) bool {
+	switch r.target {
+	case "all":
+		return true
+	case "user":
+		for _, userID := range r.userIDs {
+			if userID == user.ID {
+				return true
+			}
+		}
+		return false
+	case "role":
+		return user.Role == r.targetValue
+	case "employee_number":
+		return user.EmployeeNumber == r.targetValue
+	default:
+		return false
+	}
+}
+
+func (r *CooldownRule) Validate(check MedicalCheck, schedule Schedule, user gen_models.User) error {
+	// Check if this rule applies to this user
+	if !r.TargetsUser(user) {
+		return nil
+	}
+	
 	if check.CheckType != r.checkType {
 		return nil
 	}
@@ -116,20 +151,50 @@ func (r *CooldownRule) Validate(check MedicalCheck, schedule Schedule, _ gen_mod
 	return nil
 }
 
-type RecurringCheckRule struct { // single “c”
+type RecurringCheckRule struct {
 	id               string
 	enabled          bool
+	description      string
+	target           string
+	targetValue      string
+	userIDs          []int64
 	frequency        Period
 	notifyDaysBefore int
 	checkType        string
 	lastRun          map[int64]time.Time
 }
 
-func (r *RecurringCheckRule) ID() string    { return r.id }
-func (r *RecurringCheckRule) Enabled() bool { return r.enabled }
-func (r *RecurringCheckRule) Type() string  { return "recurringCheck" }
+func (r *RecurringCheckRule) ID() string          { return r.id }
+func (r *RecurringCheckRule) Enabled() bool       { return r.enabled }
+func (r *RecurringCheckRule) Type() string        { return "recurringCheck" }
+func (r *RecurringCheckRule) Description() string { return r.description }
+
+func (r *RecurringCheckRule) TargetsUser(user gen_models.User) bool {
+	switch r.target {
+	case "all":
+		return true
+	case "user":
+		for _, userID := range r.userIDs {
+			if userID == user.ID {
+				return true
+			}
+		}
+		return false
+	case "role":
+		return user.Role == r.targetValue
+	case "employee_number":
+		return user.EmployeeNumber == r.targetValue
+	default:
+		return false
+	}
+}
 
 func (r *RecurringCheckRule) ShouldTrigger(now time.Time, user gen_models.User) bool {
+	// Check if this rule applies to this user
+	if !r.TargetsUser(user) {
+		return false
+	}
+	
 	if !r.enabled {
 		return false
 	}
@@ -141,6 +206,11 @@ func (r *RecurringCheckRule) ShouldTrigger(now time.Time, user gen_models.User) 
 }
 
 func (r *RecurringCheckRule) Execute(now time.Time, user gen_models.User, newCheck func(MedicalCheck) error, notify func(Notification) error) error {
+	// Check if this rule applies to this user
+	if !r.TargetsUser(user) {
+		return nil
+	}
+	
 	checkDate := now.AddDate(0, 0, r.notifyDaysBefore)
 	// Create new medical check in the future
 	mc := MedicalCheck{
@@ -156,7 +226,7 @@ func (r *RecurringCheckRule) Execute(now time.Time, user gen_models.User, newChe
 
 	note := Notification{
 		ToUserID: user.ID,
-		Subject:  fmt.Sprintf("Upcomming %s check", r.checkType),
+		Subject:  fmt.Sprintf("Upcoming %s check", r.checkType),
 		Message:  fmt.Sprintf("You have a %s medical check on %s", r.checkType, mc.StartTime.Format(time.RFC822)),
 	}
 	if err := notify(note); err != nil {
@@ -166,8 +236,7 @@ func (r *RecurringCheckRule) Execute(now time.Time, user gen_models.User, newChe
 	return nil
 }
 
-// Factory RawRule -> full implemenation
-
+// Factory RawRule -> full implementation
 func BuildRule(rr RawRule) (Rule, error) {
 	if !rr.Enabled {
 		return nil, nil // skip disabled rules
@@ -180,11 +249,29 @@ func BuildRule(rr RawRule) (Rule, error) {
 			return nil, errors.New("cooldown rule requires numeric 'days' param")
 		}
 		ct, _ := rr.Params["checkType"].(string)
+		
+		// Extract user IDs from target configuration
+		var userIDs []int64
+		if rr.Target == "user" {
+			if rr.UserIDs != nil {
+				userIDs = rr.UserIDs
+			} else if rr.TargetValue != "" {
+				// Handle single user ID in target_value for backward compatibility
+				if userID, err := strconv.ParseInt(rr.TargetValue, 10, 64); err == nil {
+					userIDs = []int64{userID}
+				}
+			}
+		}
+		
 		return &CooldownRule{
-			id:        rr.ID,
-			enabled:   rr.Enabled,
-			days:      int(days),
-			checkType: ct,
+			id:          rr.ID,
+			enabled:     rr.Enabled,
+			description: rr.Description,
+			target:      rr.Target,
+			targetValue: rr.TargetValue,
+			userIDs:     userIDs,
+			days:        int(days),
+			checkType:   ct,
 		}, nil
 
 	case "recurringCheck":
@@ -208,9 +295,25 @@ func BuildRule(rr RawRule) (Rule, error) {
 
 		ct, _ := rr.Params["checkType"].(string)
 
+		// Extract user IDs from target configuration
+		var userIDs []int64
+		if rr.Target == "user" {
+			if rr.UserIDs != nil {
+				userIDs = rr.UserIDs
+			} else if rr.TargetValue != "" {
+				if userID, err := strconv.ParseInt(rr.TargetValue, 10, 64); err == nil {
+					userIDs = []int64{userID}
+				}
+			}
+		}
+
 		return &RecurringCheckRule{
 			id:               rr.ID,
 			enabled:          rr.Enabled,
+			description:      rr.Description,
+			target:           rr.Target,
+			targetValue:      rr.TargetValue,
+			userIDs:          userIDs,
 			frequency:        per,
 			notifyDaysBefore: int(pDays),
 			checkType:        ct,
@@ -220,11 +323,28 @@ func BuildRule(rr RawRule) (Rule, error) {
 		if len(rr.Actions) == 0 {
 			return nil, fmt.Errorf("action rule %q has no actions", rr.ID)
 		}
+		
+		// Extract user IDs from target configuration
+		var userIDs []int64
+		if rr.Target == "user" {
+			if rr.UserIDs != nil {
+				userIDs = rr.UserIDs
+			} else if rr.TargetValue != "" {
+				if userID, err := strconv.ParseInt(rr.TargetValue, 10, 64); err == nil {
+					userIDs = []int64{userID}
+				}
+			}
+		}
+		
 		return &ActionRule{
-			id:       rr.ID,
-			enabled:  rr.Enabled,
-			whenExpr: rr.When,
-			actions:  rr.Actions,
+			id:          rr.ID,
+			enabled:     rr.Enabled,
+			description: rr.Description,
+			target:      rr.Target,
+			targetValue: rr.TargetValue,
+			userIDs:     userIDs,
+			whenExpr:    rr.When,
+			actions:     rr.Actions,
 		}, nil
 
 	default:

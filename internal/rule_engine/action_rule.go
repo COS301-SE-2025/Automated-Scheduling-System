@@ -11,20 +11,50 @@ import (
 )
 
 type ActionRule struct {
-	id       string
-	enabled  bool
-	whenExpr string      // CEL expression, optional
-	actions  []RawAction // notify, webhook, …
+	id          string
+	enabled     bool
+	description string
+	target      string
+	targetValue string
+	userIDs     []int64
+	whenExpr    string      // CEL expression, optional
+	actions     []RawAction // notify, webhook, …
 }
 
-func (r *ActionRule) ID() string    { return r.id }
-func (r *ActionRule) Enabled() bool { return r.enabled }
-func (r *ActionRule) Type() string  { return "action" }
+func (r *ActionRule) ID() string          { return r.id }
+func (r *ActionRule) Enabled() bool       { return r.enabled }
+func (r *ActionRule) Type() string        { return "action" }
+func (r *ActionRule) Description() string { return r.description }
+
+func (r *ActionRule) TargetsUser(user gen_models.User) bool {
+	switch r.target {
+	case "all":
+		return true
+	case "user":
+		for _, userID := range r.userIDs {
+			if userID == user.ID {
+				return true
+			}
+		}
+		return false
+	case "role":
+		return user.Role == r.targetValue
+	case "employee_number":
+		return user.EmployeeNumber == r.targetValue
+	default:
+		return false
+	}
+}
 
 // Validate is called by Engine.ValidateCheck.  If the optional 'when' condition
 // evaluates to true (or is empty) we execute each RawAction via runAction,
 // otherwise we silently skip.
 func (r *ActionRule) Validate(c MedicalCheck, _ Schedule, u gen_models.User) error {
+	// Check if this rule applies to this user
+	if !r.TargetsUser(u) {
+		return nil
+	}
+	
 	// ------------------------------------------------------------------
 	// 1. Evaluate the optional CEL condition
 	// ------------------------------------------------------------------
