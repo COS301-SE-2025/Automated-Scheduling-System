@@ -9,6 +9,7 @@ import FormInput from '../ui/FormInput';
 import FormButton from '../ui/FormButton';
 import MessageBox from '../ui/MessageBox';
 import FormSelect from '../ui/FormSelect';
+import { getAllRoles } from '../../services/roleService';
 
 interface ReadOnlyFieldProps {
     label: string;
@@ -36,6 +37,10 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
     const isEditMode = mode === 'edit';
 
     const [apiError, setApiError] = useState<string | null>(null);
+    const [roleOptions, setRoleOptions] = useState<Array<{ value: string; label: string }>>([
+        { value: 'User', label: 'User' },
+        { value: 'Admin', label: 'Admin' },
+    ]);
 
     const {
         register,
@@ -49,6 +54,17 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
     useEffect(() => {
         if (isOpen) {
             setApiError(null);
+            // Load dynamic roles
+            (async () => {
+                try {
+                    const roles = await getAllRoles();
+                    if (roles && roles.length > 0) {
+                        setRoleOptions(roles.map(r => ({ value: r.name, label: r.name })));
+                    }
+                } catch {
+                       // if loading fails, do nothing (i.e. keep predefined defualts "User" and "Admin" instead of crashing)
+                }
+            })();
             if (isEditMode && user) {
                 reset({ role: user.role, username: user.username, email: user.email });
             } else {
@@ -114,7 +130,7 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
                         label="Application Role"
                         {...register('role')}
                         error={errors.role?.message}
-                        options={[{ value: 'User', label: 'User' }, { value: 'Admin', label: 'Admin' }]}
+                        options={roleOptions}
                     />
 
                     {!isEditMode && (

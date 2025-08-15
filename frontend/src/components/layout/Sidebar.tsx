@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth'; 
+import type { AllowedPage } from '../../types/role';
 
 export interface NavItem {
     path: string;
@@ -23,7 +24,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { user } = useAuth();
+    const { permissions } = useAuth();
 
     // This state is for presentation logic purely within the sidebar (e.g., mobile overlay)
     const [isMobile, setIsMobile] = useState(false);
@@ -91,56 +92,71 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                 {/* Navigation */}
                 <nav className="mt-4 sm:mt-6 px-3 sm:px-4 overflow-y-auto flex-1">
-                    <ul className="space-y-1 sm:space-y-2">
-                        {navItems.map((item) => {
-                            if ((item.label.toLowerCase() === "users" || item.label.toLowerCase() === "competencies" || item.label.toLowerCase() === "roles") && user?.role !== "Admin"){
-                                return null;
-                            }
-                            const isActive = location.pathname === item.path ||
-                                (item.path !== '/' && location.pathname.startsWith(item.path + '/'));
-
-                            return (
-                                <li key={item.path}>
-                                    <a
-                                        href={item.path}
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            navigate(item.path);
-                                            if (isMobile) {
-                                                onToggle(); // Use the passed-in toggle handler
-                                            }
-                                        }}
-                                        className={`group relative flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3 sm:px-4'} py-2.5 sm:py-3 lg:py-3.5 rounded-lg sm:rounded-xl 
-                                                   text-xs sm:text-sm font-medium transition-all duration-200 ease-in-out
-                                            ${isActive
-                                                ? 'bg-gradient-to-r from-custom-secondary/10 to-custom-third/5 text-custom-primary dark:text-dark-primary border border-custom-secondary/20 dark:border-dark-secondary/20 shadow-sm'
-                                                : 'text-custom-primary/70 dark:text-dark-primary/70 hover:text-custom-primary dark:hover:text-dark-primary hover:bg-gray-100/60 dark:hover:bg-gray-700/30 hover:scale-[1.02]'
-                                            }`}
-                                        title={isCollapsed ? item.label : undefined}
-                                    >
-                                        {isActive && (
-                                            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 sm:w-1 h-6 sm:h-8 bg-gradient-to-b from-custom-secondary to-custom-third rounded-r-full"></div>
-                                        )}
-
-                                        {item.icon && (
-                                            <div className={`flex-shrink-0 transition-all duration-200 ${isCollapsed ? '' : 'mr-3'}`}>
-                                                {item.icon}
-                                            </div>
-                                        )}
-
-                                        {!isCollapsed && (
-                                            <span className="relative z-10 truncate">{item.label}</span>
-                                        )}
-
-                                        {!isActive && (
-                                            <div className="absolute inset-0 rounded-lg sm:rounded-xl bg-gradient-to-r from-custom-secondary/5 to-custom-third/5 
-                                                          opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
-                                        )}
-                                    </a>
-                                </li>
-                            );
-                        })}
-                    </ul>
+                    {permissions === null ? (
+                        <div className="px-3 py-2 text-xs text-custom-third dark:text-dark-secondary">Loading menu…</div>
+                    ) : (
+                        <ul className="space-y-1 sm:space-y-2">
+                            {navItems
+                                .filter((item) => {
+                                    const label = item.label.toLowerCase();
+                                    const map: Record<string, AllowedPage> = {
+                                        'dashboard': 'dashboard',
+                                        'users': 'users',
+                                        'roles': 'roles',
+                                        'calendar': 'calendar',
+                                        'event definitions': 'event-definitions',
+                                        'events': 'events',
+                                        'rules': 'rules',
+                                        'competencies': 'competencies',
+                                        'help': 'main-help',
+                                    };
+                                    const key = map[label];
+                                    if (!key) return true; // unmapped labels always visible
+                                    // Always show Dashboard and Help regardless of permissions
+                                    if (key === 'dashboard' || key === 'main-help') return true;
+                                    return (permissions as AllowedPage[]).includes(key);
+                                })
+                                .map((item) => {
+                                    const isActive = location.pathname === item.path ||
+                                        (item.path !== '/' && location.pathname.startsWith(item.path + '/'));
+                                    return (
+                                        <li key={item.path}>
+                                            <a
+                                                href={item.path}
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    navigate(item.path);
+                                                    if (isMobile) onToggle();
+                                                }}
+                                                className={`group relative flex items-center ${isCollapsed ? 'justify-center px-2' : 'px-3 sm:px-4'} py-2.5 sm:py-3 lg:py-3.5 rounded-lg sm:rounded-xl 
+                                                           text-xs sm:text-sm font-medium transition-all duration-200 ease-in-out
+                                                    ${isActive
+                                                        ? 'bg-gradient-to-r from-custom-secondary/10 to-custom-third/5 text-custom-primary dark:text-dark-primary border border-custom-secondary/20 dark:border-dark-secondary/20 shadow-sm'
+                                                        : 'text-custom-primary/70 dark:text-dark-primary/70 hover:text-custom-primary dark:hover:text-dark-primary hover:bg-gray-100/60 dark:hover:bg-gray-700/30 hover:scale-[1.02]'
+                                                    }`}
+                                                title={isCollapsed ? item.label : undefined}
+                                            >
+                                                {isActive && (
+                                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 sm:w-1 h-6 sm:h-8 bg-gradient-to-b from-custom-secondary to-custom-third rounded-r-full"></div>
+                                                )}
+                                                {item.icon && (
+                                                    <div className={`flex-shrink-0 transition-all duration-200 ${isCollapsed ? '' : 'mr-3'}`}>
+                                                        {item.icon}
+                                                    </div>
+                                                )}
+                                                {!isCollapsed && (
+                                                    <span className="relative z-10 truncate">{item.label}</span>
+                                                )}
+                                                {!isActive && (
+                                                    <div className="absolute inset-0 rounded-lg sm:rounded-xl bg-gradient-to-r from-custom-secondary/5 to-custom-third/5 
+                                                                  opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+                                                )}
+                                            </a>
+                                        </li>
+                                    );
+                                })}
+                        </ul>
+                    )}
                 </nav>
 
                 {/* Bottom Toggle Button Section */}

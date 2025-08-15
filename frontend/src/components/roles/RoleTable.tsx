@@ -1,15 +1,15 @@
 import React from 'react';
-import type { RoleRecord } from '../../types/role';
+import { Edit } from 'lucide-react';
+import type { RoleRecord, AllowedPage } from '../../types/role';
 
 interface RoleTableProps {
   roles: RoleRecord[];
   isLoading: boolean;
-  onView: (role: RoleRecord) => void;
   onEdit: (role: RoleRecord) => void;
   onDelete?: (role: RoleRecord) => void;
 }
 
-const RoleTable: React.FC<RoleTableProps> = ({ roles, isLoading, onView, onEdit }) => {
+const RoleTable: React.FC<RoleTableProps> = ({ roles, isLoading, onEdit }) => {
   if (isLoading) {
     return (
       <div className="mt-6 flex justify-center">
@@ -50,7 +50,7 @@ const RoleTable: React.FC<RoleTableProps> = ({ roles, isLoading, onView, onEdit 
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300">{role.description || '—'}</td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300">
                       <div className="flex flex-wrap gap-1">
-                        {role.permissions.map((p) => (
+                        {Array.from(new Set<AllowedPage>([...role.permissions, 'dashboard', 'main-help'] as AllowedPage[])).map((p) => (
                           <span
                             key={p}
                             className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold leading-5 bg-gray-100 text-gray-800 dark:bg-dark-accent dark:text-dark-primary"
@@ -61,8 +61,14 @@ const RoleTable: React.FC<RoleTableProps> = ({ roles, isLoading, onView, onEdit 
                       </div>
                     </td>
                     <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
-                      <button className="text-custom-secondary hover:text-custom-third mr-4" onClick={() => onView(role)}>View</button>
-                      <button className="text-custom-secondary hover:text-custom-third" onClick={() => onEdit(role)}>Edit</button>
+                      <button
+                        type="button"
+                        className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary p-1"
+                        onClick={() => onEdit(role)}
+                        title="Edit Role"
+                      >
+                        <Edit size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))}

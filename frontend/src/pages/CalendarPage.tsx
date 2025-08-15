@@ -12,11 +12,13 @@ import EventDetailModal from '../components/ui/EventDetailModal';
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
 import * as eventService from '../services/eventService';
 import type { CalendarEvent, CreateEventDefinitionPayload } from '../services/eventService';
+import { useAuth } from '../hooks/useAuth';
 
 type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
 type SelectedInfoType = DateSelectArg | DateClickArg | (EventClickArg['event'] & { eventType?: string; relevantParties?: string });
 
 const CalendarPage: React.FC = () => {
+    const { permissions } = useAuth();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDefinitionModalOpen, setIsDefinitionModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -37,7 +39,7 @@ const CalendarPage: React.FC = () => {
                 setIsLoading(true);
                 const [schedules, definitions] = await Promise.all([
                     eventService.getScheduledEvents(),
-                    eventService.getEventDefinitions()
+                    permissions?.includes('event-definitions') ? eventService.getEventDefinitions() : Promise.resolve([])
                 ]);
                 setEvents(schedules);
                 setEventDefinitions(definitions);
@@ -51,7 +53,7 @@ const CalendarPage: React.FC = () => {
         };
 
         fetchInitialData();
-    }, []);
+    }, [permissions]);
 
     const handleAddEventClick = () => {
         setSelectedDateInfo(null);
@@ -69,7 +71,7 @@ const CalendarPage: React.FC = () => {
             setIsLoading(true);
             const [schedules, definitions] = await Promise.all([
                 eventService.getScheduledEvents(),
-                eventService.getEventDefinitions()
+                permissions?.includes('event-definitions') ? eventService.getEventDefinitions() : Promise.resolve([])
             ]);
 
             const processedSchedules = schedules.map(event => {
@@ -106,7 +108,7 @@ const CalendarPage: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [permissions]);
 
     useEffect(() => {
         fetchAndSetData();

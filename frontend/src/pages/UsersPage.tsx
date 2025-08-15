@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { PlusCircle } from 'lucide-react';
 import UserTable from '../components/users/UserTable';
 import UserFilters from '../components/users/UserFilters';
 import MainLayout from '../layouts/MainLayout';
@@ -7,6 +8,7 @@ import * as userService from '../services/userService';
 import { useAuth } from '../hooks/useAuth';
 import type { User, AddUserData, UpdateUserData } from '../types/user';
 import { ApiError } from '../services/api';
+import { getAllRoles } from '../services/roleService';
 
 const UsersPage: React.FC = () => {
     // Page-level state
@@ -27,6 +29,7 @@ const UsersPage: React.FC = () => {
     const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
     const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
     const [modalApiError, setModalApiError] = useState<string | null>(null);
+    const [allRoleNames, setAllRoleNames] = useState<string[]>([]);
 
     // Fetch initial user data
     useEffect(() => {
@@ -39,8 +42,18 @@ const UsersPage: React.FC = () => {
             setIsLoading(true);
             setPageError(null);
             try {
-                const apiUsers = await userService.getAllUsers();
+                const [apiUsers, roles] = await Promise.all([
+                    userService.getAllUsers(),
+                    getAllRoles().catch(() => []),
+                ]);
                 setUsers(apiUsers);
+                if (roles && roles.length > 0) {
+                    setAllRoleNames(roles.map(r => r.name).sort());
+                } else {
+                    // fallback to roles present among users
+                    const derived = Array.from(new Set(apiUsers.map(u => u.role)));
+                    setAllRoleNames(derived.sort());
+                }
             } catch (err) {
                 if (err instanceof ApiError) {
                     setPageError(err.data?.error || err.message);
@@ -57,13 +70,12 @@ const UsersPage: React.FC = () => {
     }, [isAuthenticated]);
 
     const availableFilterOptions = useMemo(() => {
-        const roles = new Set(users.map(user => user.role));
         const statuses = new Set(users.map(user => user.employeeStatus));
         return {
-            roles: Array.from(roles).sort(),
+        roles: allRoleNames,
             statuses: Array.from(statuses).sort(),
         };
-    }, [users]);
+    }, [users, allRoleNames]);
 
     const filteredUsers = useMemo(() => {
         let result = users;
@@ -162,7 +174,8 @@ const UsersPage: React.FC = () => {
                     </div>
                     <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
                         <button type="button" onClick={handleOpenAddModal} className="block rounded-md bg-custom-secondary px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-custom-third focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-custom-secondary">
-                            Add User
+                            <PlusCircle size={20} className="inline-block mr-2" />
+                            New User
                         </button>
                     </div>
                 </div>

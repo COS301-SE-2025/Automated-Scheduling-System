@@ -1,4 +1,5 @@
 import apiClient from './api';
+import type { AllowedPage } from '../types/role';
 import type { User } from '../types/user'
 
 import type {
@@ -90,6 +91,16 @@ export const logout = async (): Promise<void> => {
     // --- END MOCK ---
 };
 
+export const fetchMyPermissions = async (): Promise<AllowedPage[]> => {
+    try {
+    const perms = await apiClient<AllowedPage[]>('api/roles/permissions', { method: 'GET', isAuthRequest: true });
+        return perms;
+    } catch (err) {
+        console.error('Failed to fetch permissions:', err);
+        throw err;
+    }
+};
+
 export const forgotPassword = async (email: string): Promise<ForgotPasswordResponse> => {
     return await apiClient<{ message: string }>('forgot-password', {
         method: 'POST',
@@ -97,3 +108,4 @@ export const forgotPassword = async (email: string): Promise<ForgotPasswordRespo
         isAuthRequest: false,
     });
 };
+

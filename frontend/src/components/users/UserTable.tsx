@@ -1,4 +1,5 @@
 import React from 'react';
+import { Edit } from 'lucide-react';
 import type { User } from '../../types/user';
 
 interface UserTableProps {
@@ -86,10 +87,11 @@ const UserTable: React.FC<UserTableProps> = ({ users, isLoading, onEdit }) => {
                                         <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                                             <button
                                                 type="button"
-                                                className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary mr-4"
+                                                className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary p-1"
                                                 onClick={() => onEdit(user)}
+                                                title="Edit User"
                                             >
-                                                Edit User
+                                                <Edit size={16} />
                                             </button>
                                             {/* <button
                         type="button"

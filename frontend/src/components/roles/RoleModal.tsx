@@ -45,7 +45,11 @@ const RoleModal: React.FC<RoleModalProps> = ({ isOpen, mode, onClose, onSave, ro
   }, [isOpen, role, reset]);
 
   const onSubmit: SubmitHandler<RoleFormData> = async (data) => {
-    await onSave({ name: data.name, description: data.description, permissions: data.permissions });
+    let perms = data.permissions;
+    if ((role?.name === 'Admin' || data.name === 'Admin') && !perms.includes('roles' as AllowedPage)) {
+      perms = [...perms, 'roles' as AllowedPage];
+    }
+    await onSave({ name: data.name, description: data.description, permissions: perms });
   };
 
   const permissions = watch('permissions');
@@ -77,13 +81,26 @@ const RoleModal: React.FC<RoleModalProps> = ({ isOpen, mode, onClose, onSave, ro
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-dark-secondary mb-2">Permissions</label>
-            <div className="grid grid-cols-2 gap-2">
-              {allPages.map(p => (
-                <label key={p.value} className={`flex items-center space-x-2 p-2 rounded border dark:border-gray-700 ${isView ? 'opacity-70' : 'hover:bg-gray-50 dark:hover:bg-dark-accent/40'}`}>
-                  <input type="checkbox" disabled={isView} checked={permissions.includes(p.value)} onChange={() => togglePerm(p.value)} />
-                  <span className="text-sm text-gray-800 dark:text-dark-primary bg-gray-100 dark:bg-dark-accent/40 rounded px-1.5 py-0.5">{p.label}</span>
-                </label>
+           
+            <div className="mb-2 flex flex-wrap gap-2">
+              {['dashboard', 'main-help'].map((p) => (
+                <span key={p} className="inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold bg-gray-100 text-gray-800 dark:bg-dark-accent dark:text-dark-primary">
+                  {p}
+                </span>
               ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {allPages.map(p => {
+                const isAdminRole = role?.name === 'Admin';
+                const isRolesPerm = p.value === 'roles';
+                const disabled = isView || (isAdminRole && isRolesPerm);
+                return (
+                  <label key={p.value} className={`flex items-center space-x-2 p-2 rounded border dark:border-gray-700 ${disabled ? 'opacity-70' : 'hover:bg-gray-50 dark:hover:bg-dark-accent/40'}`}>
+                    <input type="checkbox" disabled={disabled} checked={permissions.includes(p.value)} onChange={() => togglePerm(p.value)} />
+                    <span className="text-sm text-gray-800 dark:text-dark-primary bg-gray-100 dark:bg-dark-accent/40 rounded px-1.5 py-0.5">{p.label}</span>
+                  </label>
+                );
+              })}
             </div>
             {errors.permissions && <p className="mt-1 text-sm text-red-600">{errors.permissions.message}</p>}
           </div>

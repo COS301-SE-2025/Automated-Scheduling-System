@@ -14,7 +14,7 @@ import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmati
 type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
 
 const EventsPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, permissions } = useAuth();
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [eventDefinitions, setEventDefinitions] = useState<EventDefinition[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -30,15 +30,16 @@ const EventsPage: React.FC = () => {
 
         try {
             setIsLoading(true);
-            const [fetchedEvents, fetchedDefinitions] = await Promise.all([
+            const calls: [Promise<CalendarEvent[]>, Promise<EventDefinition[] | null>] = [
                 eventService.getScheduledEvents(),
-                eventService.getEventDefinitions()
-            ]);
+                permissions?.includes('event-definitions') ? eventService.getEventDefinitions() : Promise.resolve(null)
+            ];
+            const [fetchedEvents, fetchedDefinitions] = await Promise.all(calls);
 
             fetchedEvents.sort((a, b) => new Date(a.start as string).getTime() - new Date(b.start as string).getTime());
 
             setEvents(fetchedEvents);
-            setEventDefinitions(fetchedDefinitions);
+            setEventDefinitions(fetchedDefinitions ?? []);
             setError(null);
         } catch (err) {
             console.error("Failed to fetch events data:", err);
