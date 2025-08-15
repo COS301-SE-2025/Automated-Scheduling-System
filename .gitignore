@@ -38,3 +38,5 @@ shell.nix
 #PostGres
 .pgdata
 .pgsocket
+
+temp

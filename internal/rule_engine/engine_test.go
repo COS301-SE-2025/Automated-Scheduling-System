@@ -20,7 +20,18 @@ func mustParse(t *testing.T, s string) time.Time {
 /* ------------------------------------------------------------------------- */
 
 func TestCooldownRule(t *testing.T) {
-	rule := &CooldownRule{id: "cd", enabled: true, days: 30, checkType: "vision"}
+	rule := &CooldownRule{
+		id: "cd", 
+		enabled: true, 
+		days: 30, 
+		checkType: "vision",
+		description: "Vision check cooldown of 30 days",
+		target: "all",
+	}
+
+	// Test new interface methods
+	require.Equal(t, "Vision check cooldown of 30 days", rule.Description())
+	require.True(t, rule.TargetsUser(gen_models.User{ID: 1, Role: "driver"}))
 
 	// Existing check 31 days ago → OK
 	oldCheck := mustParse(t, "2025-05-01T12:00:00Z")
@@ -50,6 +61,8 @@ func TestRecurringCheckRule(t *testing.T) {
     rule := &RecurringCheckRule{
         id:               "rc",
         enabled:          true,
+        description:      "Hearing check every 6 months",
+        target:           "all",
         frequency:        Period{Months: 6},
         notifyDaysBefore: 7,
         checkType:        "hearing",
@@ -57,6 +70,10 @@ func TestRecurringCheckRule(t *testing.T) {
     }
     user := gen_models.User{ID: 42}
     now  := mustParse(t, "2025-01-01T00:00:00Z")
+
+    // Test new interface methods
+    require.Equal(t, "Hearing check every 6 months", rule.Description())
+    require.True(t, rule.TargetsUser(user))
 
     require.True(t, rule.ShouldTrigger(now, user), "first run should trigger")
 
@@ -81,6 +98,8 @@ func TestBuildRule(t *testing.T) {
 		"id":"cool1",
 		"type":"cooldown",
 		"enabled":true,
+		"description":"Blood test cooldown",
+		"target":"all",
 		"params":{"days":15,"checkType":"blood"}
 	}]`
 	var rr []RawRule
@@ -89,6 +108,10 @@ func TestBuildRule(t *testing.T) {
 	r, err := BuildRule(rr[0])
 	require.NoError(t, err)
 	require.IsType(t, &CooldownRule{}, r)
+	
+	// Test interface methods
+	require.Equal(t, "Blood test cooldown", r.Description())
+	require.True(t, r.TargetsUser(gen_models.User{ID: 1}))
 }
 
 /* ------------------------------------------------------------------------- */
@@ -97,10 +120,19 @@ func TestBuildRule(t *testing.T) {
 
 func TestEngineEndToEnd(t *testing.T) {
 	// One cooldown + one recurring
-	cd := &CooldownRule{id: "cd", enabled: true, days: 10, checkType: "vision"}
+	cd := &CooldownRule{
+		id: "cd", 
+		enabled: true, 
+		days: 10, 
+		checkType: "vision",
+		description: "Vision cooldown",
+		target: "all",
+	}
 	rc := &RecurringCheckRule{
 		id:              "rc",
 		enabled:         true,
+		description:     "Annual vision check",
+		target:          "all",
 		frequency:       Period{Years: 1},
 		checkType:       "vision",
 		lastRun:         make(map[int64]time.Time),
@@ -161,10 +193,13 @@ func TestActionRule_Notify(t *testing.T) {
 
 	// 2. build the Action rule
 	raw := RawRule{
-		ID:      "demo",
-		Type:    "action",
-		Enabled: true,
-		When:    "user.role == 'driver' && check['checkType'] == 'vision'",		
+		ID:          "demo",
+		Type:        "action",
+		Enabled:     true,
+		Description: "Notify drivers about vision tests",
+		Target:      "role",
+		TargetValue: "driver",
+		When:        "user.role == 'driver' && check['checkType'] == 'vision'",		
         Actions: []RawAction{{
 			Type:   "notify",
 			Params: map[string]any{"message": "Time for your eye test"},
@@ -173,6 +208,11 @@ func TestActionRule_Notify(t *testing.T) {
 	rule, err := BuildRule(raw)
 	require.NoError(t, err)
 	ar := rule.(*ActionRule)
+
+	// Test interface methods
+	require.Equal(t, "Notify drivers about vision tests", ar.Description())
+	require.True(t, ar.TargetsUser(gen_models.User{ID: 1, Role: "driver"}))
+	require.False(t, ar.TargetsUser(gen_models.User{ID: 2, Role: "admin"}))
 
 	// 3a. condition FALSE – notifier should NOT be called
 	check1 := MedicalCheck{CheckType: "vision"}
