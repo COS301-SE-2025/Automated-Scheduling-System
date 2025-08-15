@@ -7,8 +7,9 @@ import (
 	"Automated-Scheduling-Project/internal/event"
 	"Automated-Scheduling-Project/internal/jobposition"
 	"Automated-Scheduling-Project/internal/matrix"
+	"Automated-Scheduling-Project/internal/role"
 	"Automated-Scheduling-Project/internal/user"
-	
+
 	"net/http"
 
 	"github.com/gin-contrib/cors"
@@ -33,6 +34,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	auth.RegisterAuthRoutes(r)
 	user.RegisterUserRoutes(r)
+	role.RegisterRoleRoutes(r)
 	event.RegisterEventRoutes(r)
 	matrix.RegisterMatrixRoutes(r)
 	competency.RegisterCompetencyRoutes(r)

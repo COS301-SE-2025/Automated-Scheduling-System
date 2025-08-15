@@ -17,6 +17,8 @@ import LandingHelpPage from '../pages/LandingHelpPage';
 import MainHelpPage from '../pages/MainHelpPage';
 import EventDefinitionsPage from '../pages/EventDefinitionsPage';
 import { useAuth } from '../hooks/useAuth';
+import apiClient from '../services/api';
+import { useEffect, useState } from 'react';
 
 const ProtectedRouteElement: React.FC = () => {
     const { isAuthenticated, isLoading } = useAuth();
@@ -54,18 +56,27 @@ const RootRedirector: React.FC = () => {
     return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
 };
 
-const AdminRouteElement: React.FC = () => {
-    const { user, isLoading } = useAuth(); 
-    if (isLoading) {
+const PageGuard: React.FC<{ page: string }> = ({ page }) => {
+    const { isLoading } = useAuth();
+    const [allowed, setAllowed] = useState<boolean | null>(null);
+    useEffect(() => {
+        let cancelled = false;
+        async function check() {
+            try {
+                const perms = await apiClient<string[]>('api/roles/permissions', { method: 'GET' });
+                if (!cancelled) setAllowed(perms.includes(page));
+            } catch {
+                if (!cancelled) setAllowed(false);
+            }
+        }
+        check();
+        return () => { cancelled = true; };
+    }, [page]);
+
+    if (isLoading || allowed === null) {
         return <div className="flex justify-center items-center min-h-screen"><div>Verifying permissions...</div></div>;
     }
-
- 
-    if (user?.role === 'Admin') {
-        return <Outlet />;
-    }
-
-    return <Navigate to="/404" replace />; 
+    return allowed ? <Outlet /> : <Navigate to="/404" replace />;
 };
 
 const AppRoutes: React.FC = () => {
@@ -97,11 +108,17 @@ const AppRoutes: React.FC = () => {
                 <Route path="/main-help" element={<MainHelpPage />} />
             </Route>
 
-             <Route element={<ProtectedRouteElement />}>
-                <Route element={<AdminRouteElement />}>
+            <Route element={<ProtectedRouteElement />}>
+                <Route element={<PageGuard page="users" />}>
                     <Route path="/users" element={<UsersPage />} />
+                </Route>
+                <Route element={<PageGuard page="roles" />}>
                     <Route path="/roles" element={<RolesPage />} />
+                </Route>
+                <Route element={<PageGuard page="competencies" />}>
                     <Route path="/competencies" element={<CompetencyPage />} />
+                </Route>
+                <Route element={<PageGuard page="event-definitions" />}>
                     <Route path="/event-definitions" element={<EventDefinitionsPage />} />
                 </Route>
             </Route>

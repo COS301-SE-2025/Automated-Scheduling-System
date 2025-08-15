@@ -46,6 +46,13 @@ func AddUserHandler(c *gin.Context) {
 		return
 	}
 
+	// Validate target role exists
+	var targetRole models.Role
+	if err := DB.Where("role_name = ?", req.Role).First(&targetRole).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Specified role does not exist"})
+		return
+	}
+
 	var extendedEmployee models.ExtendedEmployee
 	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("UserAccountEmail = ?", req.Email).First(&extendedEmployee).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Cannot add user, email not found."})
@@ -64,9 +71,15 @@ func AddUserHandler(c *gin.Context) {
 	}
 
 	// Create new record
-	newUser := gen_models.User{Username: req.Username, EmployeeNumber: extendedEmployee.Employee.Employeenumber, Password: string(hashedPassword), Role: "User"}
+	newUser := gen_models.User{Username: req.Username, EmployeeNumber: extendedEmployee.Employee.Employeenumber, Password: string(hashedPassword), Role: req.Role}
 	if err := DB.Create(&newUser).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User creation failed"})
+		return
+	}
+
+	// Link user to the selected role for permission checks
+	if err := DB.Create(&models.UserHasRole{UserID: newUser.ID, RoleID: targetRole.RoleID}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to link user to role"})
 		return
 	}
 
@@ -105,7 +118,21 @@ func UpdateUserHandler(c *gin.Context) {
 	}
 
 	if req.Role != nil {
+		// Validate role exists
+		var targetRole models.Role
+		if err := DB.Where("role_name = ?", *req.Role).First(&targetRole).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Specified role does not exist"})
+			return
+		}
 		userToUpdate.User.Role = *req.Role
+		if err := DB.Where("user_id = ?", userToUpdate.User.ID).Delete(&models.UserHasRole{}).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user role links"})
+			return
+		}
+		if err := DB.Create(&models.UserHasRole{UserID: userToUpdate.User.ID, RoleID: targetRole.RoleID}).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to assign role to user"})
+			return
+		}
 	}
 
 	if req.Email != nil {

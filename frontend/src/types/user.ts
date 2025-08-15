@@ -1,4 +1,4 @@
-export type Role = 'Admin' | 'User';
+export type Role = string; 
 export type Status = string;
 
 export interface User {

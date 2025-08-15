@@ -16,6 +16,7 @@ import (
 	"Automated-Scheduling-Project/internal/event"
 	"Automated-Scheduling-Project/internal/jobposition"
 	"Automated-Scheduling-Project/internal/matrix"
+	"Automated-Scheduling-Project/internal/role"
 	"Automated-Scheduling-Project/internal/server"
 	"Automated-Scheduling-Project/internal/user"
 )
@@ -56,7 +57,7 @@ func main() {
 	matrix.DB = dbConnection
 	competency_type.DB = dbConnection
 	jobposition.DB = dbConnection
-
+	role.DB = dbConnection
 
 	server := server.NewServer()
 

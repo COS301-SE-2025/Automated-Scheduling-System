@@ -1,5 +1,6 @@
 import { type LoginFormData, type SignupFormData } from '../utils/validation';
 import { type User } from './user';
+import type { AllowedPage } from './role';
 
 export interface AuthState {
     isAuthenticated: boolean;
@@ -7,6 +8,7 @@ export interface AuthState {
     token: string | null;
     isLoading: boolean;
     error: string | null;
+    permissions: AllowedPage[] | null;
 }
 
 export interface AuthSuccessPayload { 
@@ -41,6 +43,7 @@ export type AuthAction =
     | { type: 'FORGOT_PASSWORD_FAILURE'; payload: string }
     | { type: 'LOGOUT' }
     | { type: 'SET_USER_FROM_STORAGE'; payload: { user: User | null; token: string | null } }
+    | { type: 'SET_PERMISSIONS'; payload: AllowedPage[] | null }
     | { type: 'CLEAR_ERROR' };
 
 export type { LoginFormData, SignupFormData };

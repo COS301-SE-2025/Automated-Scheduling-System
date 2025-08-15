@@ -3,20 +3,20 @@ import MainLayout from '../layouts/MainLayout';
 import RoleTable from '../components/roles/RoleTable';
 import RoleModal from '../components/roles/RoleModal';
 import RoleFilters from '../components/roles/RoleFilters';
+import { PlusCircle } from 'lucide-react';
 import * as roleService from '../services/roleService';
 import type { RoleRecord, AddRoleData, AllowedPage } from '../types/role';
 import { ApiError } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 
 const ALL_PAGES: { value: AllowedPage; label: string }[] = [
-  { value: 'dashboard', label: 'Dashboard' },
   { value: 'users', label: 'Users' },
+  { value: 'roles', label: 'Roles' },
   { value: 'calendar', label: 'Calendar' },
   { value: 'event-definitions', label: 'Event Definitions' },
   { value: 'events', label: 'Events' },
   { value: 'rules', label: 'Rules' },
   { value: 'competencies', label: 'Competencies' },
-  { value: 'main-help', label: 'Help' },
 ];
 
 const RolesPage: React.FC = () => {
@@ -63,7 +63,6 @@ const RolesPage: React.FC = () => {
   }, [roles, search]);
 
   const openAdd = () => { setModalMode('add'); setActiveRole(null); setModalApiError(null); setModalOpen(true); };
-  const openView = (role: RoleRecord) => { setModalMode('view'); setActiveRole(role); setModalApiError(null); setModalOpen(true); };
   const openEdit = (role: RoleRecord) => { setModalMode('edit'); setActiveRole(role); setModalApiError(null); setModalOpen(true); };
   const closeModal = () => setModalOpen(false);
 
@@ -99,20 +98,21 @@ const RolesPage: React.FC = () => {
   return (
     <MainLayout pageTitle="Roles">
       <div className="px-4 sm:px-6 lg:px-8 py-8">
-        <div className="sm:flex sm:items-center">
+  <div className="sm:flex sm:items-center">
           <div className="sm:flex-auto">
             <h1 className="text-2xl font-semibold text-custom-primary dark:text-dark-primary">Roles</h1>
             <p className="mt-2 text-sm text-custom-third dark:text-dark-secondary">Create custom roles and manage page access permissions.</p>
           </div>
           <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
             <button type="button" onClick={openAdd} className="block rounded-md bg-custom-secondary px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-custom-third focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-custom-secondary">
+              <PlusCircle size={20} className="inline-block mr-2" />
               New Role
             </button>
           </div>
         </div>
 
         <RoleFilters search={search} onSearch={setSearch} />
-        <RoleTable roles={filteredRoles} isLoading={isLoading} onView={openView} onEdit={openEdit} />
+  <RoleTable roles={filteredRoles} isLoading={isLoading} onEdit={openEdit} />
       </div>
 
       <RoleModal

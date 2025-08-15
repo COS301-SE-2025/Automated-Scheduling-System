@@ -1,7 +1,7 @@
 import React, { useReducer, type ReactNode, useEffect, useCallback } from 'react';
 import { AuthContext, type AuthContextType } from './AuthContextDefinition'; 
 import * as authService from '../services/auth';
-import { saveToken, removeToken, saveUser, removeUser, getToken } from '../utils/localStorage';
+import { saveToken, removeToken, saveUser, removeUser, getToken, savePermissions, getPermissions, removePermissions } from '../utils/localStorage';
 import type {
     AuthState,
     AuthAction,
@@ -18,6 +18,7 @@ const initialState: AuthState = {
     token: null,
     isLoading: true,
     error: null,
+    permissions: null,
 };
 
 const AuthReducer = (state: AuthState, action: AuthAction): AuthState => {
@@ -60,6 +61,8 @@ const AuthReducer = (state: AuthState, action: AuthAction): AuthState => {
                 token: action.payload.token,
                 isLoading: false,
             };
+        case 'SET_PERMISSIONS':
+            return { ...state, permissions: action.payload };
         case 'CLEAR_ERROR':
             return { ...state, error: null };
         case 'FORGOT_PASSWORD_SUCCESS':
@@ -81,7 +84,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const initializeAuth = useCallback(async () => {
         dispatch({ type: 'INIT_AUTH' });
-        const storedToken = getToken();
+    const storedToken = getToken();
         let userToSet: User | null = null;
         let tokenToSet: string | null = null;
 
@@ -91,10 +94,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 userToSet = profile;
                 tokenToSet = storedToken;
                 saveUser(userToSet);
+                const storedPerms = getPermissions();
+                if (storedPerms) {
+                    dispatch({ type: 'SET_PERMISSIONS', payload: storedPerms });
+                }
+                authService.fetchMyPermissions()
+                    .then(perms => { savePermissions(perms); dispatch({ type: 'SET_PERMISSIONS', payload: perms }); })
+                    .catch(() => dispatch({ type: 'SET_PERMISSIONS', payload: [] }));
             } catch (error) {
                 console.warn('Token validation failed on init:', error);
                 removeToken();
                 removeUser();
+                removePermissions();
             }
         }
         dispatch({
@@ -119,6 +130,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             saveToken(payload.token);
             saveUser(payload.user);
             dispatch({ type: 'LOGIN_SUCCESS', payload });
+            try {
+                const perms = await authService.fetchMyPermissions();
+                savePermissions(perms);
+                dispatch({ type: 'SET_PERMISSIONS', payload: perms });
+            } catch {
+                dispatch({ type: 'SET_PERMISSIONS', payload: [] });
+            }
 
         } catch (err) {
             const message = handleApiError(err, 'Login failed. Please check your credentials.');
@@ -136,6 +154,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             saveToken(payload.token);
             saveUser(payload.user);
             dispatch({ type: 'SIGNUP_SUCCESS', payload });
+            try {
+                const perms = await authService.fetchMyPermissions();
+                savePermissions(perms);
+                dispatch({ type: 'SET_PERMISSIONS', payload: perms });
+            } catch {
+                dispatch({ type: 'SET_PERMISSIONS', payload: [] });
+            }
         } catch (err) {
             const message = handleApiError(err, 'Signup failed. Please try again.');
             dispatch({ type: 'AUTH_FAILURE', payload: message });
@@ -153,6 +178,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             removeToken();
             removeUser();
             dispatch({ type: 'LOGOUT' });
+            removePermissions();
+            dispatch({ type: 'SET_PERMISSIONS', payload: null });
         }
     };
 

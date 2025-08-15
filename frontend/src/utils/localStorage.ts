@@ -1,7 +1,9 @@
 import { type User } from '../types/user';
+import type { AllowedPage } from '../types/role';
 
 const TOKEN_KEY = 'authToken';
 const USER_KEY = 'authUser';
+const PERMS_KEY = 'authPerms';
 
 export const saveToken = (token: string): void => {
     try {
@@ -55,5 +57,32 @@ export const removeUser = (): void => {
         localStorage.removeItem(USER_KEY);
     } catch (error) {
         console.error("Error removing user from localStorage", error);
+    }
+};
+
+export const savePermissions = (perms: AllowedPage[]): void => {
+    try {
+        localStorage.setItem(PERMS_KEY, JSON.stringify(perms));
+    } catch (error) {
+        console.error('Error saving permissions to localStorage', error);
+    }
+};
+
+export const getPermissions = (): AllowedPage[] | null => {
+    try {
+        const val = localStorage.getItem(PERMS_KEY);
+        return val ? (JSON.parse(val) as AllowedPage[]) : null;
+    } catch (error) {
+        console.error('Error reading permissions from localStorage', error);
+        removePermissions();
+        return null;
+    }
+};
+
+export const removePermissions = (): void => {
+    try {
+        localStorage.removeItem(PERMS_KEY);
+    } catch (error) {
+        console.error('Error removing permissions from localStorage', error);
     }
 };
