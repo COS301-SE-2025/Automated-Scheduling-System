@@ -12,12 +12,14 @@ import {
     Gavel,
     GraduationCap,
     HelpCircle
+    , Shield
 } from 'lucide-react';
 
 
 const navItems: NavItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
     { path: '/users', label: 'Users', icon: <Users size={20} /> },
+    { path: '/roles', label: 'Roles', icon: <Shield size={20} /> },
     { path: '/calendar', label: 'Calendar', icon: <Calendar size={20} /> },
     { path: '/event-definitions', label: 'Event Definitions', icon: <FileText size={20} /> },
     { path: '/events', label: 'Events', icon: <ListChecks size={20} /> },

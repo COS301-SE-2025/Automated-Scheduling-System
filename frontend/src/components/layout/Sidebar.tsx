@@ -93,7 +93,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <nav className="mt-4 sm:mt-6 px-3 sm:px-4 overflow-y-auto flex-1">
                     <ul className="space-y-1 sm:space-y-2">
                         {navItems.map((item) => {
-                            if ((item.label.toLowerCase() === "users" || item.label.toLowerCase() === "competencies") && user?.role !== "Admin"){
+                            if ((item.label.toLowerCase() === "users" || item.label.toLowerCase() === "competencies" || item.label.toLowerCase() === "roles") && user?.role !== "Admin"){
                                 return null;
                             }
                             const isActive = location.pathname === item.path ||

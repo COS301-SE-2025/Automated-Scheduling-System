@@ -11,6 +11,7 @@ import CalendarPage from '../pages/CalendarPage';
 import CompetencyPage from '../pages/CompetencyPage';
 import EventsPage from '../pages/EventsPage';
 import RulesPage from '../pages/RulesPage';
+import RolesPage from '../pages/RolesPage';
 import LandingPage from '../pages/LandingPage';
 import LandingHelpPage from '../pages/LandingHelpPage';
 import MainHelpPage from '../pages/MainHelpPage';
@@ -99,6 +100,7 @@ const AppRoutes: React.FC = () => {
              <Route element={<ProtectedRouteElement />}>
                 <Route element={<AdminRouteElement />}>
                     <Route path="/users" element={<UsersPage />} />
+                    <Route path="/roles" element={<RolesPage />} />
                     <Route path="/competencies" element={<CompetencyPage />} />
                     <Route path="/event-definitions" element={<EventDefinitionsPage />} />
                 </Route>
