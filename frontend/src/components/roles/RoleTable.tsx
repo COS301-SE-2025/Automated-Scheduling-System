@@ -50,7 +50,7 @@ const RoleTable: React.FC<RoleTableProps> = ({ roles, isLoading, onEdit }) => {
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300">{role.description || '—'}</td>
                     <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300">
                       <div className="flex flex-wrap gap-1">
-                        {Array.from(new Set<AllowedPage>([...role.permissions, 'dashboard', 'main-help'] as AllowedPage[])).map((p) => (
+                        {Array.from(new Set<AllowedPage>([...((role.permissions ?? []) as AllowedPage[]), 'dashboard', 'calendar', 'events', 'main-help'] as AllowedPage[])).map((p) => (
                           <span
                             key={p}
                             className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold leading-5 bg-gray-100 text-gray-800 dark:bg-dark-accent dark:text-dark-primary"

@@ -14,7 +14,7 @@ var DB *gorm.DB
 
 // Helpers
 func toResponse(r models.Role, perms []models.RolePermission) models.RoleResponse {
-	out := models.RoleResponse{ID: r.RoleID, Name: r.RoleName, Description: r.Description, IsSystem: r.RoleName == "Admin" || r.RoleName == "User"}
+	out := models.RoleResponse{ID: r.RoleID, Name: r.RoleName, Description: r.Description, Permissions: []string{}, IsSystem: r.RoleName == "Admin" || r.RoleName == "User"}
 	for _, p := range perms {
 		out.Permissions = append(out.Permissions, p.Page)
 	}
@@ -258,6 +258,13 @@ func GetMyPermissionsHandler(c *gin.Context) {
 	}
 	if !exists(result, "main-help") {
 		result = append(result, "main-help")
+	}
+	// Also include calendar and events for view-only access
+	if !exists(result, "calendar") {
+		result = append(result, "calendar")
+	}
+	if !exists(result, "events") {
+		result = append(result, "events")
 	}
 	// Ensure Admin can access roles management regardless of role definition changes
 	if user.Role == "Admin" && !exists(result, "roles") {

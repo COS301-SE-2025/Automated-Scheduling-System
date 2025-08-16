@@ -12,9 +12,7 @@ import { useAuth } from '../hooks/useAuth';
 const ALL_PAGES: { value: AllowedPage; label: string }[] = [
   { value: 'users', label: 'Users' },
   { value: 'roles', label: 'Roles' },
-  { value: 'calendar', label: 'Calendar' },
   { value: 'event-definitions', label: 'Event Definitions' },
-  { value: 'events', label: 'Events' },
   { value: 'rules', label: 'Rules' },
   { value: 'competencies', label: 'Competencies' },
 ];

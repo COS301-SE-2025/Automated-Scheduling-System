@@ -9,9 +9,7 @@ import type { AddRoleData, RoleRecord, AllowedPage } from '../../types/role';
 const roleSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   description: z.string().optional(),
-  permissions: z
-    .array(z.string() as unknown as z.ZodType<AllowedPage>)
-    .min(1, 'Select at least one permission'),
+  permissions: z.array(z.string() as unknown as z.ZodType<AllowedPage>),
 });
 
 export type RoleFormData = z.infer<typeof roleSchema>;
@@ -38,7 +36,7 @@ const RoleModal: React.FC<RoleModalProps> = ({ isOpen, mode, onClose, onSave, ro
   useEffect(() => {
     if (!isOpen) return;
     if (role) {
-      reset({ name: role.name, description: role.description || '', permissions: role.permissions });
+      reset({ name: role.name, description: role.description || '', permissions: (role.permissions ?? []) });
     } else {
       reset({ name: '', description: '', permissions: [] });
     }
@@ -83,7 +81,7 @@ const RoleModal: React.FC<RoleModalProps> = ({ isOpen, mode, onClose, onSave, ro
             <label className="block text-sm font-medium text-gray-700 dark:text-dark-secondary mb-2">Permissions</label>
            
             <div className="mb-2 flex flex-wrap gap-2">
-              {['dashboard', 'main-help'].map((p) => (
+                {['dashboard', 'calendar', 'events', 'main-help'].map((p) => (
                 <span key={p} className="inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold bg-gray-100 text-gray-800 dark:bg-dark-accent dark:text-dark-primary">
                   {p}
                 </span>
