@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import * as eventService from '../../services/eventService';
+import Button from './Button';
 
 interface EventDeleteConfirmationModalProps {
     isOpen: boolean;
@@ -56,22 +57,12 @@ const EventDeleteConfirmationModal: React.FC<EventDeleteConfirmationModalProps> 
                 </p>
                 {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
                 <div className="flex justify-end space-x-3">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        disabled={isDeleting}
-                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-custom-text dark:text-dark-text rounded-md shadow-sm hover:bg-gray-100 dark:hover:bg-dark-accent focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:focus:ring-offset-dark-div disabled:opacity-50"
-                    >
+                    <Button type="button" onClick={onClose} disabled={isDeleting} variant="outline">
                         Cancel
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handleConfirm}
-                        disabled={isDeleting}
-                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:bg-red-400"
-                    >
+                    </Button>
+                    <Button type="button" onClick={handleConfirm} disabled={isDeleting} variant="danger">
                         {isDeleting ? 'Deleting...' : 'Delete'}
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

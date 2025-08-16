@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'; 
+import { PlusCircle, Settings} from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import MainLayout from '../layouts/MainLayout';
 import FeatureGrid from '../components/ui/FeatureGrid';
@@ -10,6 +11,7 @@ import { Link } from 'react-router-dom';
 import EventFormModal, { type EventFormModalProps } from '../components/ui/EventFormModal';
 import EventDefinitionFormModal from '../components/ui/EventDefinitionFormModal';
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
+import Button from '../components/ui/Button';
 
 type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
 
@@ -177,19 +179,15 @@ const EventsPage: React.FC = () => {
                 </div>
                 {user?.role === 'Admin' && (
                     <div className="flex space-x-2">
-                        <button
-                            onClick={handleOpenDefinitionModal}
-                            className="flex items-center rounded-md bg-custom-primary px-2 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-gray-500 transition ease-in-out duration-150"
-                         >
-                            Add Event Type
-                         </button>
-                         <button
-                            onClick={handleAddEventClick}
-                            className="block rounded-md bg-custom-secondary px-2 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-custom-third focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-custom-secondary"
-                         >                            
+                        <Button type="button" variant="outline" onClick={handleOpenDefinitionModal}>
+                            <Settings size={20} className="inline-block mr-2" />
+                            Manage Event Types
+                        </Button>
+                        <Button type="button" variant="primary" onClick={handleAddEventClick}>
+                            <PlusCircle size={20} className="inline-block mr-2" />
                             Schedule Event
-                         </button>
-                     </div>
+                        </Button>
+                    </div>
                 )}
             </div>
 
@@ -279,8 +277,8 @@ const AdminView: React.FC<AdminViewProps> = ({ events, onEdit, onDelete }) => {
                                         </p>
                                     </div>
                                     <div className="flex items-center space-x-2">
-                                        <button onClick={() => onEdit(event)} className="p-1 hover:text-custom-primary dark:hover:text-dark-primary transition-colors"><Edit size={16} /></button>
-                                        <button onClick={() => onDelete(event)} className="p-1 hover:text-red-500 dark:hover:text-red-400 transition-colors"><Trash2 size={16} /></button>
+                                        <button onClick={() => onEdit(event)} className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary"><Edit size={16} /></button>
+                                        <button onClick={() => onDelete(event)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"><Trash2 size={16} /></button>
                                     </div>
                                 </div>
                             </li>
