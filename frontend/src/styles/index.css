@@ -188,31 +188,42 @@ body {
     border-left-color: inherit; 
 }
 
-
 /* scroll bar */
 ::-webkit-scrollbar {
-  width: 8px; /* Width of the entire scrollbar */
+  width: 8px; 
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent; /* The "track" (the area the scrollbar moves along) */
+  background: transparent; 
 }
 
 ::-webkit-scrollbar-thumb {
-  background-color: #a0aec0; /* A neutral gray that works on light/dark modes */
-  border-radius: 10px; /* Rounded corners for the scroll thumb */
-  border: 2px solid transparent; /* Creates a "padding" effect */
+  background-color: #a0aec0; 
+  border-radius: 10px; 
+  border: 2px solid transparent; 
   background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #718096; /* Darker gray on hover */
+  background-color: #718096; 
 }
 
-
-/* For Firefox */
-/* You would apply this to the root elements */
 html, body {
-  scrollbar-width: thin; /* Can be 'auto', 'thin', or 'none' */
-  scrollbar-color: #a0aec0 transparent; /* thumb color track color */
+  scrollbar-width: thin; 
+  scrollbar-color: #a0aec0 transparent; 
+}
+
+.calendar-container {
+  height: calc(100vh - 180px); 
+}
+
+.calendar-container .fc {
+  height: 100% !important;
+}
+
+.calendar-container .fc-scrollgrid,
+.calendar-container .fc-timegrid-container,
+.calendar-container .fc-daygrid-body,
+.calendar-container .fc-timegrid-body {
+  height: 100% !important;
 }
