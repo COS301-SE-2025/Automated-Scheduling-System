@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
@@ -83,25 +84,40 @@ func TestUpdateCompetencyDefinitionHandler_Unit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db, mock := newMockDB(t)
 	compID := 1
-	isActive := true
-	req := models.CreateCompetencyRequest{
+	isActive := false
+	expiry := 12
+
+	req := models.UpdateCompetencyRequest{
 		CompetencyName:     "Updated Go Name",
 		Description:        "A new description",
 		CompetencyTypeName: "Programming",
-		Source:             "LMS",
+		ExpiryPeriodMonths: &expiry,
 		IsActive:           &isActive,
 	}
 
 	t.Run("Success", func(t *testing.T) {
+		mockSource := "Original Source"
+		mockCreationDate := time.Now()
+		
 		mock.ExpectQuery(regexp.QuoteMeta(
 			`SELECT * FROM "competency_definitions" WHERE "competency_definitions"."competency_id" = $1 ORDER BY "competency_definitions"."competency_id" LIMIT $2`)).
 			WithArgs(compID, 1).
-			WillReturnRows(sqlmock.NewRows([]string{"competency_id"}).AddRow(compID))
+			WillReturnRows(sqlmock.NewRows([]string{"competency_id", "source", "creation_date"}).
+				AddRow(compID, mockSource, mockCreationDate))
 
 		mock.ExpectBegin()
 		mock.ExpectExec(regexp.QuoteMeta(
 			`UPDATE "competency_definitions" SET "competency_name"=$1,"description"=$2,"competency_type_name"=$3,"source"=$4,"expiry_period_months"=$5,"is_active"=$6,"creation_date"=$7 WHERE "competency_id" = $8`)).
-			WithArgs(req.CompetencyName, req.Description, req.CompetencyTypeName, req.Source, req.ExpiryPeriodMonths, *req.IsActive, sqlmock.AnyArg(), compID).
+			WithArgs(
+				req.CompetencyName,
+				req.Description,
+				req.CompetencyTypeName,
+				mockSource,
+				*req.ExpiryPeriodMonths,
+				*req.IsActive,
+				mockCreationDate,
+				compID,
+			).
 			WillReturnResult(sqlmock.NewResult(0, 1))
 		mock.ExpectCommit()
 

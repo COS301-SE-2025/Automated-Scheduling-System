@@ -104,7 +104,7 @@ const TypeManagementModal: React.FC<TypeManagementModalProps> = ({ isOpen, onClo
                         </div>
                     </div>
 
-                    {/* Right side: Form for add/edit (this part is unchanged) */}
+                    {/* Right side: Form for add/edit */}
                     <div>
                         <h4 className="font-semibold mb-2 text-custom-primary dark:text-dark-primary">{mode === 'add' ? 'Add New Type' : `Editing: ${currentType?.typeName}`}</h4>
                         <form onSubmit={handleSubmit} className="space-y-4">

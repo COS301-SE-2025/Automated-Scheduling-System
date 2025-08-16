@@ -36,7 +36,7 @@ func CreateCompetencyDefinitionHandler(c *gin.Context) {
 
 
 	if err := DB.Create(&competency).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create competency: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create competency: The competency may already exisit"})
 		return
 	}
 	c.JSON(http.StatusCreated, competency)
@@ -110,7 +110,7 @@ func UpdateCompetencyDefinitionHandler(c *gin.Context) {
     }
 
 	if err := DB.Save(&competency).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update competency: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update competency: The competency may already exisit"})
 		return
 	}
 
