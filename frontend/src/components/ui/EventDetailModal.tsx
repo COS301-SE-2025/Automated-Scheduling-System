@@ -1,5 +1,6 @@
 import React from 'react';
 import type { EventClickArg } from '@fullcalendar/core';
+import Button from './Button';
 
 export interface EventDetailModalProps {
     isOpen: boolean;
@@ -48,24 +49,15 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
                     <DetailItem label="Created On" value={formatDateTime(new Date(extendedProps.creationDate))} />
                 </div>
                 <div className="mt-6 flex justify-end space-x-3">
-                    <button
-                        onClick={() => onEdit(event)}
-                        className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-custom-text dark:text-dark-text rounded-md shadow-sm hover:bg-gray-100 dark:hover:bg-dark-accent focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 dark:focus:ring-offset-dark-div"
-                    >
+                    <Button onClick={() => onEdit(event)} variant="outline">
                         Edit
-                    </button>
-                    <button
-                        onClick={() => onDelete(event)}
-                        className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 dark:focus:ring-offset-dark-div"
-                    >
+                    </Button>
+                    <Button onClick={() => onDelete(event)} variant="danger">
                         Delete
-                    </button>
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 bg-custom-primary hover:bg-opacity-90 dark:hover:bg-opacity-90 text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-custom-primary dark:focus:ring-offset-dark-div dark:focus:ring-dark-primary"
-                    >
+                    </Button>
+                    <Button onClick={onClose} variant="primary">
                         Close
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

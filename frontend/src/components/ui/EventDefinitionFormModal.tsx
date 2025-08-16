@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { EventDefinition, CreateEventDefinitionPayload  } from '../../services/eventService';
 import MessageBox from './MessageBox';
+import Button from './Button';
 
 const eventDefinitionSchema = z.object({
     EventName: z.string().min(1, 'Event name is required'),
@@ -121,10 +122,12 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
                     </div>
 
                     <div className="flex items-center justify-end pt-4 space-x-3">
-                        <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 border rounded-md">Cancel</button>
-                        <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-custom-primary text-white rounded-md hover:bg-custom-primary-hover">
+                        <Button type="button" onClick={onClose} disabled={isSubmitting} variant="outline">
+                            Cancel
+                        </Button>
+                        <Button type="submit" disabled={isSubmitting} variant="primary">
                             {isSubmitting ? 'Saving...' : 'Save Definition'}
-                        </button>
+                        </Button>
                     </div>
                 </form>
             </div>
