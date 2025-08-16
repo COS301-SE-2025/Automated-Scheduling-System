@@ -304,7 +304,7 @@ const CalendarPage: React.FC = () => {
                 )}
 
                 {!isLoading && !error && (
-                    <div className="bg-white dark:bg-dark-div p-4 rounded-lg shadow">
+                    <div className="bg-white dark:bg-dark-div p-4 rounded-lg shadow calendar-container">
                         <FullCalendar
                             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                             initialView="dayGridMonth"
@@ -313,21 +313,25 @@ const CalendarPage: React.FC = () => {
                                 center: 'title',
                                 right: 'dayGridMonth,timeGridWeek,timeGridDay'
                             }}
+                            height="100%"            
+                            expandRows={true}        
+                            handleWindowResize={true}
+                            scrollTime="00:00:00"    
                             editable={true}
                             selectable={true}
                             selectMirror={true}
                             dayMaxEvents={true}
-                            eventClick={handleEventClick}
-                            dateClick={handleDateClick}
-                            select={handleSelect}
-                            eventDrop={handleEventDrop} // Add this prop
                             events={events}
                             eventContent={renderEventContent}
                             ref={calendarRef}
+                            eventClick={handleEventClick}
+                            dateClick={handleDateClick}
+                            select={handleSelect}
+                            eventDrop={handleEventDrop} 
                         />
                     </div>
                 )}
-
+                
             </div>
 
             <EventFormModal
