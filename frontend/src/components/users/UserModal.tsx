@@ -33,7 +33,7 @@ interface UserModalProps {
     apiError?: string | null;
 }
 
-const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, user }) => {
+const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, user, apiError: externalApiError }) => {
     const isEditMode = mode === 'edit';
 
     const [apiError, setApiError] = useState<string | null>(null);
@@ -110,7 +110,9 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
                 </div>
 
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-6">
-                    {apiError && <MessageBox type="error" title="Operation Failed">{apiError}</MessageBox>}
+                    {(externalApiError || apiError) && (
+                        <MessageBox type="error" title="Operation Failed">{externalApiError || apiError}</MessageBox>
+                    )}
 
                     {isEditMode && user ? (
                         <>

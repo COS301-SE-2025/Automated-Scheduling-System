@@ -111,9 +111,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         'help': 'main-help',
                                     };
                                     const key = map[label];
-                                    if (!key) return true; // unmapped labels always visible
-                                    // Always show Dashboard and Help regardless of permissions
-                                    if (key === 'dashboard' || key === 'main-help') return true;
+                                    if (!key) return true; 
+                                    if (key === 'dashboard' || key === 'calendar' || key === 'events' || key === 'main-help') return true;
                                     return (permissions as AllowedPage[]).includes(key);
                                 })
                                 .map((item) => {

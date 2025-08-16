@@ -124,6 +124,38 @@ func UpdateUserHandler(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Specified role does not exist"})
 			return
 		}
+		if *req.Role != "Admin" {
+			hasAdmin := userToUpdate.User.Role == "Admin"
+			if !hasAdmin {
+				var cnt int64
+				if err := DB.Table("user_has_role uhr").
+					Joins("JOIN roles r ON r.role_id = uhr.role_id").
+					Where("uhr.user_id = ? AND r.role_name = 'Admin'", userToUpdate.User.ID).
+					Count(&cnt).Error; err == nil && cnt > 0 {
+					hasAdmin = true
+				}
+			}
+			if hasAdmin {
+				var legacyOthers int64
+				if err := DB.Model(&gen_models.User{}).Where("role = 'Admin' AND id <> ?", userToUpdate.User.ID).Count(&legacyOthers).Error; err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate admin count"})
+					return
+				}
+				var mappedOthers int64
+				if err := DB.Table("user_has_role uhr").
+					Select("COUNT(DISTINCT uhr.user_id)").
+					Joins("JOIN roles r ON r.role_id = uhr.role_id").
+					Where("r.role_name = 'Admin' AND uhr.user_id <> ?", userToUpdate.User.ID).
+					Count(&mappedOthers).Error; err != nil {
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to validate admin count"})
+					return
+				}
+				if legacyOthers+mappedOthers == 0 {
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot remove Admin role: this is the last admin account"})
+					return
+				}
+			}
+		}
 		userToUpdate.User.Role = *req.Role
 		if err := DB.Where("user_id = ?", userToUpdate.User.ID).Delete(&models.UserHasRole{}).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update user role links"})

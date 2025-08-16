@@ -29,7 +29,7 @@ func (UserHasRole) TableName() string { return "user_has_role" }
 type AddRoleRequest struct {
 	Name        string   `json:"name" binding:"required,min=2"`
 	Description string   `json:"description"`
-	Permissions []string `json:"permissions" binding:"required,min=1,dive,required"`
+	Permissions []string `json:"permissions"`
 }
 
 type UpdateRoleRequest struct {
