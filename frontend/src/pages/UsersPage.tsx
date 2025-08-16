@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth';
 import type { User, AddUserData, UpdateUserData } from '../types/user';
 import { ApiError } from '../services/api';
 import { getAllRoles } from '../services/roleService';
+import Button from '../components/ui/Button';
 
 const UsersPage: React.FC = () => {
     // Page-level state
@@ -173,10 +174,10 @@ const UsersPage: React.FC = () => {
                         </p>
                     </div>
                     <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-                        <button type="button" onClick={handleOpenAddModal} className="block rounded-md bg-custom-secondary px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-custom-third focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-custom-secondary">
+                        <Button type="button" onClick={handleOpenAddModal} variant="primary">
                             <PlusCircle size={20} className="inline-block mr-2" />
                             New User
-                        </button>
+                        </Button>
                     </div>
                 </div>
 

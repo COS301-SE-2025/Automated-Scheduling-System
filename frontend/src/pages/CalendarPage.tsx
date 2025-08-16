@@ -1,5 +1,6 @@
 import MainLayout from '../layouts/MainLayout';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { PlusCircle, Settings } from 'lucide-react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -13,6 +14,7 @@ import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmati
 import * as eventService from '../services/eventService';
 import type { CalendarEvent, CreateEventDefinitionPayload } from '../services/eventService';
 import { useAuth } from '../hooks/useAuth';
+import Button from '../components/ui/Button';
 
 type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
 type SelectedInfoType = DateSelectArg | DateClickArg | (EventClickArg['event'] & { eventType?: string; relevantParties?: string });
@@ -277,18 +279,14 @@ const CalendarPage: React.FC = () => {
                 <div className="flex justify-between items-center mb-4">
                     <h1 className="text-2xl font-semibold text-custom-text dark:text-dark-text">Calendar</h1>
                     <div className="flex space-x-2">
-                        <button
-                            onClick={handleOpenDefinitionModal}
-                            className="flex items-center rounded-md bg-custom-primary px-2 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-gray-500 transition ease-in-out duration-150"
-                         >
-                            Add Event Type
-                        </button>
-                        <button
-                            onClick={handleAddEventClick}
-                            className="block rounded-md bg-custom-secondary px-2 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-custom-third focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-custom-secondary"
-                        >
+                        <Button type="button" variant="outline" onClick={handleOpenDefinitionModal}>
+                            <Settings size={20} className="inline-block mr-2" />
+                            Manage Event Types
+                        </Button>
+                        <Button type="button" variant="primary" onClick={handleAddEventClick}>
+                            <PlusCircle size={20} className="inline-block mr-2" />
                             Schedule Event
-                        </button>
+                        </Button>
                     </div>
                 </div>
 

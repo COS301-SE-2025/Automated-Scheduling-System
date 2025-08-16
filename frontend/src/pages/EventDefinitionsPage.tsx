@@ -3,10 +3,11 @@ import { useAuth } from '../hooks/useAuth';
 import MainLayout from '../layouts/MainLayout';
 import * as eventService from '../services/eventService';
 import type { EventDefinition, CreateEventDefinitionPayload  } from '../services/eventService';
-import { Edit, Trash2, AlertCircle, BookCopy } from 'lucide-react';
+import { Edit, Trash2, AlertCircle, PlusCircle } from 'lucide-react';
 import EventDefinitionFormModal from '../components/ui/EventDefinitionFormModal';
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
 import EventDefinitionFilters from '../components/ui/EventDefinitionFilters';
+import Button from '../components/ui/Button';
 
 const EventDefinitionsPage: React.FC = () => {
     const { user } = useAuth();
@@ -148,8 +149,8 @@ const EventDefinitionsPage: React.FC = () => {
                                             <td className="px-3 py-4 text-sm text-gray-500 dark:text-gray-300 max-w-xs truncate" title={def.ActivityDescription}>{def.ActivityDescription}</td>
                                             <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                                                 <div className="flex items-center justify-end space-x-4">
-                                                    <button onClick={() => handleEditClick(def)} className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary"><Edit size={18} /></button>
-                                                    <button onClick={() => handleDeleteRequest(def)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"><Trash2 size={18} /></button>
+                                                    <button onClick={() => handleEditClick(def)} className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary"><Edit size={16} /></button>
+                                                    <button onClick={() => handleDeleteRequest(def)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"><Trash2 size={16} /></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -176,10 +177,11 @@ const EventDefinitionsPage: React.FC = () => {
                     <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
                         <button
                             onClick={handleAddClick}
-                            className="block rounded-md bg-custom-secondary px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-custom-third focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-custom-secondary"
                         >
-                            <BookCopy size={20} className="inline-block mr-2" />
-                            Add Definition
+                            <Button type="button" variant="primary">
+                                <PlusCircle size={20} className="inline-block mr-2" />
+                                Add Definition
+                            </Button>
                         </button>
                     </div>
                 </div>

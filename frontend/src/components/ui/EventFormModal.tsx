@@ -5,6 +5,7 @@ import { z } from 'zod';
 import * as eventService from '../../services/eventService';
 import MessageBox from './MessageBox';
 import { HexColorPicker } from 'react-colorful';
+import Button from './Button';
 
 const scheduleSchema = z.object({
     title: z.string().min(1, "Title is required."),
@@ -57,6 +58,7 @@ export interface EventFormModalProps {
 const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave, initialData, eventDefinitions, onNeedDefinition }) => {
     const [apiError, setApiError] = useState<string | null>(null);
     const isEditMode = !!initialData?.id;
+    const [showColorPicker, setShowColorPicker] = useState(false);
 
     const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<ScheduleFormData>({
         resolver: zodResolver(scheduleSchema),
@@ -201,24 +203,66 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                                 name="color"
                                 control={control}
                                 render={({ field }) => (
-                                    <div className="flex items-center gap-4">
-                                        <HexColorPicker color={field.value} onChange={field.onChange} style={{width: 140, height: 140}} />
-                                        <div className="w-4 h-4 rounded-full border" style={{ backgroundColor: field.value }} />
-                                        <input
-                                            {...field}
-                                            className="w-full p-2 border rounded-md dark:bg-dark-input"
-                                            placeholder="#3788d8"
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            aria-label="Choose event color"
+                                            onClick={() => setShowColorPicker(true)}
+                                            className="w-8 h-8 rounded border shadow-inner"
+                                            title="Click to choose color"
+                                            style={{ backgroundColor: field.value || '#3788d8' }}
                                         />
+
+                                        {showColorPicker && (
+                                            <div
+                                                className="fixed inset-0 flex items-center justify-center bg-black/30"
+                                                style={{ zIndex: 60 }}
+                                                onClick={() => setShowColorPicker(false)}
+                                            >
+                                                <div
+                                                    className="bg-white dark:bg-dark-div p-4 rounded-lg shadow-xl"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <h4 className="font-medium text-custom-text dark:text-dark-text">
+                                                            Select Event Color
+                                                        </h4>
+                                                        <button
+                                                            type="button"
+                                                            aria-label="Close color picker"
+                                                            onClick={() => setShowColorPicker(false)}
+                                                            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                                                        >
+                                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                    <HexColorPicker
+                                                        color={field.value || '#3788d8'}
+                                                        onChange={field.onChange}
+                                                        style={{ width: 200, height: 200 }}
+                                                    />
+                                                    <div className="mt-3 flex justify-end">
+                                                        <Button type="button" onClick={() => setShowColorPicker(false)} variant="primary">
+                                                            Done
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             />
                         </div>
 
                         <div className="flex items-center justify-end pt-4 space-x-3">
-                            <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 border rounded-md">Cancel</button>
-                            <button type="submit" disabled={isSubmitting} className="px-4 py-2 bg-custom-primary text-white rounded-md hover:bg-custom-primary-hover">
+                            <Button type="button" onClick={onClose} disabled={isSubmitting} variant="outline">
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={isSubmitting} variant="primary">
                                 {isSubmitting ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Schedule Event')}
-                            </button>
+                            </Button>
                         </div>
                     </form>
                 )}
