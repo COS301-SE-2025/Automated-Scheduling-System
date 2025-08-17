@@ -28,7 +28,7 @@ const ToolboxItem = ({ type, label }: { type: ItemType; label: string }) => {
     return (
         <div
             className={`group p-3 border border-gray-200 rounded-md bg-white cursor-grab text-left shadow-sm hover:shadow-md transition-all
-                        hover:-translate-y-0.5 ring-1 ring-transparent ${p.ring} w-64`}
+                        hover:-translate-y-0.5 ring-1 ring-transparent ${p.ring} w-66`}
             onDragStart={(event) => onDragStart(event, type)}
             draggable
         >
