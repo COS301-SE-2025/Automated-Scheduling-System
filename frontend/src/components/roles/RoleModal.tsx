@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import FormInput from '../ui/FormInput';
-import FormButton from '../ui/FormButton';
+import Button from '../ui/Button';
 import MessageBox from '../ui/MessageBox';
 import type { AddRoleData, RoleRecord, AllowedPage } from '../../types/role';
 
@@ -101,11 +101,13 @@ const RoleModal: React.FC<RoleModalProps> = ({ isOpen, mode, onClose, onSave, ro
           </div>
 
           <div className="flex items-center justify-end pt-4 space-x-3">
-            <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 rounded-md border dark:border-gray-700">Close</button>
+            <Button type="button" onClick={onClose} disabled={isSubmitting} variant="outline">
+              Close
+            </Button>
             {!isView && (
-              <FormButton type="submit" disabled={isSubmitting} fullWidth={false}>
-                {isSubmitting ? 'Saving...' : 'Save Changes'}
-              </FormButton>
+              <Button type="submit" disabled={isSubmitting} variant="primary">
+                {isSubmitting ? 'Saving...' : (isEdit ? 'Save Changes' : 'Create Role')}
+              </Button>
             )}
           </div>
         </form>
