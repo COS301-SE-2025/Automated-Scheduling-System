@@ -6,7 +6,7 @@ import type { User, AddUserData, UpdateUserData } from '../../types/user';
 import { ApiError } from '../../services/api';
 
 import FormInput from '../ui/FormInput';
-import FormButton from '../ui/FormButton';
+import Button from '../ui/Button';
 import MessageBox from '../ui/MessageBox';
 import FormSelect from '../ui/FormSelect';
 import { getAllRoles } from '../../services/roleService';
@@ -143,12 +143,12 @@ const UserModal: React.FC<UserModalProps> = ({ mode, isOpen, onClose, onSave, us
                     )}
 
                     <div className="flex items-center justify-end pt-4 space-x-3">
-                        <button type="button" onClick={onClose} disabled={isSubmitting} className="px-4 py-2 ...">
+                        <Button type="button" onClick={onClose} disabled={isSubmitting} variant="outline">
                             Cancel
-                        </button>
-                        <FormButton type="submit" disabled={isSubmitting} fullWidth={false}>
-                            {isSubmitting ? 'Saving...' : 'Save Changes'}
-                        </FormButton>
+                        </Button>
+                        <Button type="submit" disabled={isSubmitting} variant="primary">
+                            {isSubmitting ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Add User')}
+                        </Button>
                     </div>
                 </form>
             </div>
