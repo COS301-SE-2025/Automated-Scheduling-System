@@ -23,6 +23,7 @@ interface LayoutProps {
     companyName?: string;
     children: React.ReactNode;
     headerChildren?: React.ReactNode;
+    requirePermissions?: boolean;
 }
 
 const Layout: React.FC<LayoutProps> = ({
@@ -31,7 +32,8 @@ const Layout: React.FC<LayoutProps> = ({
     headerActions,
     companyName,
     children,
-    headerChildren
+    headerChildren,
+    requirePermissions = true
 }) => {
     // 2. The Layout component now owns the state.
     const [sidebarCollapsed, setSidebarCollapsed] = useState(getInitialSidebarCollapsedState);
@@ -51,8 +53,9 @@ const Layout: React.FC<LayoutProps> = ({
             <Sidebar
                 navItems={navItems}
                 companyName={companyName}
-                isCollapsed={sidebarCollapsed} // 5. Pass the state down as a prop.
-                onToggle={handleSidebarToggle}  // 6. Pass the handler down as a prop.
+                isCollapsed={sidebarCollapsed} 
+                onToggle={handleSidebarToggle}  
+                requirePermissions={requirePermissions}
             />
 
             <div className="flex-1 flex flex-col min-w-0">

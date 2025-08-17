@@ -14,6 +14,7 @@ interface SidebarProps {
     companyName?: string;
     isCollapsed: boolean;
     onToggle: () => void;
+    requirePermissions?: boolean;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -21,6 +22,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     companyName = "DISCON Specialists",
     isCollapsed,
     onToggle,
+    requirePermissions = true,
 }) => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -92,12 +94,13 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                 {/* Navigation */}
                 <nav className="mt-4 sm:mt-6 px-3 sm:px-4 overflow-y-auto flex-1">
-                    {permissions === null ? (
+                    {requirePermissions && permissions === null ? (
                         <div className="px-3 py-2 text-xs text-custom-third dark:text-dark-secondary">Loading menu…</div>
                     ) : (
                         <ul className="space-y-1 sm:space-y-2">
                             {navItems
                                 .filter((item) => {
+                                    if (!requirePermissions) return true;
                                     const label = item.label.toLowerCase();
                                     const map: Record<string, AllowedPage> = {
                                         'dashboard': 'dashboard',
@@ -109,11 +112,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         'rules': 'rules',
                                         'competencies': 'competencies',
                                         'help': 'main-help',
+                                        'welcome': 'dashboard', 
                                     };
                                     const key = map[label];
                                     if (!key) return true; 
                                     if (key === 'dashboard' || key === 'calendar' || key === 'events' || key === 'main-help') return true;
-                                    return (permissions as AllowedPage[]).includes(key);
+                                    const perms = Array.isArray(permissions) ? (permissions as AllowedPage[]) : [];
+                                    return perms.includes(key);
                                 })
                                 .map((item) => {
                                     const isActive = location.pathname === item.path ||

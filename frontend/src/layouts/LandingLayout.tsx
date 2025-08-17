@@ -27,6 +27,7 @@ const LandingLayout: React.FC<LandingLayoutProps> = ({ children }) => {
             navItems={navItems}
             companyName="DISCON Specialists"
             headerActions={headerActions}
+            requirePermissions={false}
         >
             {children}
         </Layout>

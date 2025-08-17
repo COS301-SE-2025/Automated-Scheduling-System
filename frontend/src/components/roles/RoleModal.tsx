@@ -1,18 +1,15 @@
 import React, { useEffect } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
-import { z } from 'zod';
 import FormInput from '../ui/FormInput';
 import FormButton from '../ui/FormButton';
 import MessageBox from '../ui/MessageBox';
 import type { AddRoleData, RoleRecord, AllowedPage } from '../../types/role';
 
-const roleSchema = z.object({
-  name: z.string().min(2, 'Name must be at least 2 characters'),
-  description: z.string().optional(),
-  permissions: z.array(z.string() as unknown as z.ZodType<AllowedPage>),
-});
-
-export type RoleFormData = z.infer<typeof roleSchema>;
+export type RoleFormData = {
+  name: string;
+  description?: string;
+  permissions: AllowedPage[];
+};
 
 interface RoleModalProps {
   isOpen: boolean;
