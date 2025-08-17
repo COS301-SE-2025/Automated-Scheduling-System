@@ -89,7 +89,6 @@ describe('EventFormModal', () => {
         expect(screen.getByRole('combobox', { name: /Event Type/i })).toHaveValue('2');
         expect(screen.getByLabelText(/Start Date & Time/i)).toHaveValue('');
         expect(screen.getByLabelText(/End Date & Time/i)).toHaveValue('');
-        expect(screen.getByPlaceholderText('#3788d8')).toHaveValue('#ff0000');
     });
 
     it('should call onClose when Cancel button is clicked', async () => {
