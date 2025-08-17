@@ -92,6 +92,20 @@ func (e *Engine) evalConditions(evCtx EvalContext, conds []Condition) (bool, err
 	return true, nil
 }
 
+func (e *Engine) EvaluateOnce(evCtx EvalContext, r Rulev2) error{
+    if evCtx.Now.IsZero(){
+        evCtx.Now = time.Now().UTC()
+    }
+
+    ok,err := e.evalConditions(evCtx, r.Conditions)
+
+    if err != nil || !ok{
+        return err
+    }
+
+    return e.execActions(evCtx, r.Actions)
+}
+
 func (e *Engine) resolveFact(evCtx EvalContext, c Condition) (any, bool, error) {
 	for _, fr := range e.R.Facts {
 		v, handled, err := fr.Resolve(evCtx, c.Fact)
