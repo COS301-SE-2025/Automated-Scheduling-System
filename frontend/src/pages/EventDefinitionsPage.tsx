@@ -8,12 +8,15 @@ import EventDefinitionFormModal from '../components/ui/EventDefinitionFormModal'
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
 import EventDefinitionFilters from '../components/ui/EventDefinitionFilters';
 import Button from '../components/ui/Button';
+import { getAllCompetencies } from '../services/competencyService';
+import type { Competency } from '../types/competency';
 
 const EventDefinitionsPage: React.FC = () => {
     const { user } = useAuth();
     const [definitions, setDefinitions] = useState<EventDefinition[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [competencies, setCompetencies] = useState<Competency[]>([]);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [filters, setFilters] = useState({ facilitator: '' });
@@ -40,6 +43,18 @@ const EventDefinitionsPage: React.FC = () => {
     useEffect(() => {
         fetchDefinitions();
     }, [fetchDefinitions]);
+
+    // Load competencies (active only)
+    useEffect(() => {
+        (async () => {
+            try {
+                const list = await getAllCompetencies();
+                setCompetencies(list.filter(c => c.isActive));
+            } catch (e: any) {
+                setCompetencies([]);
+            }
+        })();
+    }, []);
 
     const availableFilterOptions = useMemo(() => ({
         facilitators: Array.from(new Set(definitions.map(d => d.Facilitator).filter(Boolean))).sort(),
@@ -135,6 +150,7 @@ const EventDefinitionsPage: React.FC = () => {
                                         <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-custom-primary dark:text-dark-primary">Duration</th>
                                         <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-custom-primary dark:text-dark-primary">Facilitator</th>
                                         <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-custom-primary dark:text-dark-primary">Description</th>
+                                        <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-custom-primary dark:text-dark-primary">Fulfills Competency</th>
                                         <th scope="col" className="relative py-3.5 pl-3 pr-4 sm:pr-6">
                                             <span className="sr-only">Actions</span>
                                         </th>
@@ -147,6 +163,12 @@ const EventDefinitionsPage: React.FC = () => {
                                             <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300">{def.StandardDuration}</td>
                                             <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300">{def.Facilitator || 'N/A'}</td>
                                             <td className="px-3 py-4 text-sm text-gray-500 dark:text-gray-300 max-w-xs truncate" title={def.ActivityDescription}>{def.ActivityDescription}</td>
+                                            <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 dark:text-gray-300">
+                                                {(() => {
+                                                    const comp = competencies.find(c => c.competencyID === (def.GrantsCertificateID ?? -1));
+                                                    return comp ? comp.competencyName : 'N/A';
+                                                })()}
+                                            </td>
                                             <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                                                 <div className="flex items-center justify-end space-x-4">
                                                     <button onClick={() => handleEditClick(def)} className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary"><Edit size={16} /></button>
