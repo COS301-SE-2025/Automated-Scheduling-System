@@ -43,6 +43,6 @@ func SendEmailWithDialer(dialer interface {
 		return err
 	}
 
-	fmt.Println("Email sent successfully!")
+	// fmt.Println("Email sent successfully!")
 	return nil
 }

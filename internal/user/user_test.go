@@ -24,19 +24,16 @@ func newMockDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 
-	gormLogger := logger.New(&testingLogger{t}, logger.Config{
-		SlowThreshold: 0,
-		LogLevel:      logger.Info,
+	gormDB, err := gorm.Open(postgres.New(postgres.Config{Conn: db}), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
 	})
-
-	gormDB, err := gorm.Open(postgres.New(postgres.Config{Conn: db}), &gorm.Config{Logger: gormLogger})
 	require.NoError(t, err)
 	return gormDB, mock
 }
 
-type testingLogger struct{ t *testing.T }
+// type testingLogger struct{ t *testing.T }
 
-func (l *testingLogger) Printf(format string, args ...interface{}) { l.t.Logf(format, args...) }
+// func (l *testingLogger) Printf(format string, args ...interface{}) { l.t.Logf(format, args...) }
 
 func ctxWithJSON(t *testing.T, db *gorm.DB, method string, path string, body interface{}) (*gin.Context, *httptest.ResponseRecorder) {
 	jsonBody, err := json.Marshal(body)
