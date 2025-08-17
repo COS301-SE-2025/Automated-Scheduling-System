@@ -3,15 +3,23 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { EventDefinition, CreateEventDefinitionPayload  } from '../../services/eventService';
+import { getAllCompetencies } from '../../services/competencyService';
+import type { Competency } from '../../types/competency';
 import MessageBox from './MessageBox';
 import Button from './Button';
 
 const eventDefinitionSchema = z.object({
-    EventName: z.string().min(1, 'Event name is required'),
+    EventName: z.string().trim().min(1, 'Event name is required'),
     ActivityDescription: z.string().optional(),
-    StandardDuration: z.string().min(1, 'Standard duration is required (e.g., 2 hours)'),
+    durationAmount: z.coerce.number({ invalid_type_error: 'Please enter a number' })
+        .int('Duration must be an integer')
+        .positive('Duration must be greater than 0'),
+    durationUnit: z.enum(['minutes', 'hours', 'days'], {
+        required_error: 'Please select a unit',
+        invalid_type_error: 'Invalid unit',
+    }),
     Facilitator: z.string().optional(),
-    GrantsCertificateID: z.number().nullable().optional(),
+    GrantsCertificateID: z.coerce.number().int().positive().optional().or(z.undefined()),
 });
 
 type EventDefinitionFormData = z.infer<typeof eventDefinitionSchema>;
@@ -25,45 +33,105 @@ export interface EventDefinitionFormModalProps {
 
 const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isOpen, onClose, onSave, initialData }) => {
     const [apiError, setApiError] = useState<string | null>(null);
+    const [competencies, setCompetencies] = useState<Competency[]>([]);
+    const [compLoading, setCompLoading] = useState(false);
+    const [compError, setCompError] = useState<string | null>(null);
     const isEditMode = !!initialData;
 
-    const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<EventDefinitionFormData>({
+    const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<EventDefinitionFormData>({
         resolver: zodResolver(eventDefinitionSchema),
+        mode: 'onBlur',
+        reValidateMode: 'onChange',
+        defaultValues: {
+            EventName: '',
+            ActivityDescription: '',
+            durationAmount: 1,
+            durationUnit: 'hours',
+            Facilitator: '',
+            GrantsCertificateID: undefined,
+        },
     });
 
     useEffect(() => {
         if (isOpen) {
+            // Parse StandardDuration from initial data when editing
+            const parseDuration = (value?: string): { amount: number; unit: 'minutes'|'hours'|'days' } => {
+                if (!value) return { amount: 1, unit: 'hours' };
+                const match = value.match(/(\d+)\s*(minutes?|hours?|days?|m|h|d)/i);
+                if (match) {
+                    const amt = parseInt(match[1], 10) || 1;
+                    const rawUnit = match[2].toLowerCase();
+                    const unit = rawUnit.startsWith('m') && rawUnit !== 'months' ? 'minutes'
+                        : rawUnit.startsWith('h') ? 'hours'
+                        : 'days';
+                    return { amount: amt, unit } as const;
+                }
+                return { amount: 1, unit: 'hours' };
+            };
+
             if (initialData) {
+                const parsed = parseDuration(initialData.StandardDuration);
                 reset({
                     EventName: initialData.EventName,
                     ActivityDescription: initialData.ActivityDescription,
-                    StandardDuration: initialData.StandardDuration,
+                    durationAmount: parsed.amount,
+                    durationUnit: parsed.unit,
                     Facilitator: initialData.Facilitator,
-                    GrantsCertificateID: initialData.GrantsCertificateID,
+                    GrantsCertificateID: initialData.GrantsCertificateID ?? undefined,
                 });
             } else {
                 reset({
                     EventName: '',
                     ActivityDescription: '',
-                    StandardDuration: '',
+                    durationAmount: 1,
+                    durationUnit: 'hours',
                     Facilitator: '',
-                    GrantsCertificateID: null,
+                    GrantsCertificateID: undefined,
                 });
             }
             setApiError(null);
         }
-    }, [isOpen, initialData, reset]);
+    }, [isOpen, initialData, reset, setValue]);
+
+    // Load competencies when modal opens
+    useEffect(() => {
+        if (!isOpen) return;
+        let active = true;
+        (async () => {
+            try {
+                setCompLoading(true);
+                setCompError(null);
+                const list = await getAllCompetencies();
+                if (!active) return;
+                // Only include active competencies
+                setCompetencies(list.filter(c => c.isActive));
+            } catch (e: any) {
+                if (!active) return;
+                setCompError(e?.message ?? 'Failed to load competencies');
+                setCompetencies([]);
+            } finally {
+                if (active) setCompLoading(false);
+            }
+        })();
+        return () => { active = false; };
+        }
+    , [isOpen]);
 
     const onSubmit = async (data: EventDefinitionFormData) => {
         setApiError(null);
         
-        // --- CHANGE 2: Remove all API logic from the modal ---
-        // Just prepare the payload and pass it to the parent via onSave
+        // Build StandardDuration from amount + unit
+        const unitLabel = data.durationUnit;
+        const amount = data.durationAmount;
+        const standardDuration = `${amount} ${unitLabel}`; // e.g., "2 hours"
+
+        // Prepare payload for parent
         const payload: CreateEventDefinitionPayload = {
-            ...data,
+            EventName: data.EventName,
             ActivityDescription: data.ActivityDescription || '',
+            StandardDuration: standardDuration,
             Facilitator: data.Facilitator || '',
-            GrantsCertificateID: data.GrantsCertificateID === null ? undefined : data.GrantsCertificateID,
+            GrantsCertificateID: data.GrantsCertificateID,
         };
 
         // The parent component will now handle the saving.
@@ -86,39 +154,75 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
                 </div>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-6">
                     {apiError && <MessageBox type="error" title="Operation Failed">{apiError}</MessageBox>}
+                    {compError && <MessageBox type="error" title="Failed to load competencies">{compError}</MessageBox>}
                     
                     <div>
-                        <label htmlFor="EventName" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Event Name</label>
-                        <input id="EventName" {...register('EventName')} className="w-full p-2 border rounded-md dark:bg-dark-input" />
+                        <label htmlFor="EventName" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Event Name<span className="text-red-500">*</span></label>
+                        <input id="EventName" {...register('EventName')} className="w-full p-2 border rounded-md dark:bg-dark-input" aria-invalid={!!errors.EventName} />
                         {errors.EventName && <p className="text-red-500 text-xs mt-1">{errors.EventName.message}</p>}
                     </div>
 
                     <div>
                         <label htmlFor="ActivityDescription" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Description</label>
                         <textarea id="ActivityDescription" {...register('ActivityDescription')} className="w-full p-2 border rounded-md dark:bg-dark-input" />
+                        {errors.ActivityDescription && <p className="text-red-500 text-xs mt-1">{errors.ActivityDescription.message}</p>}
                     </div>
 
                     <div>
-                        <label htmlFor="StandardDuration" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Standard Duration</label>
-                        <input id="StandardDuration" {...register('StandardDuration')} placeholder="e.g., 2 hours, 1 day" className="w-full p-2 border rounded-md dark:bg-dark-input" />
-                        {errors.StandardDuration && <p className="text-red-500 text-xs mt-1">{errors.StandardDuration.message}</p>}
+                        <label className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Standard Duration<span className="text-red-500">*</span></label>
+                        <div className="flex gap-2">
+                            <input
+                                id="durationAmount"
+                                type="number"
+                                min={1}
+                                step={1}
+                                className="w-24 p-2 border rounded-md dark:bg-dark-input"
+                                {...register('durationAmount')}
+                                aria-invalid={!!errors.durationAmount}
+                            />
+                            <select
+                                id="durationUnit"
+                                className="p-2 border rounded-md dark:bg-dark-input"
+                                {...register('durationUnit')}
+                                aria-invalid={!!errors.durationUnit}
+                            >
+                                <option value="minutes">minutes</option>
+                                <option value="hours">hours</option>
+                                <option value="days">days</option>
+                            </select>
+                        </div>
+                        {errors.durationAmount && <p className="text-red-500 text-xs mt-1">{errors.durationAmount.message}</p>}
+                        {errors.durationUnit && <p className="text-red-500 text-xs mt-1">{errors.durationUnit.message}</p>}
                     </div>
 
                     <div>
                         <label htmlFor="Facilitator" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Facilitator</label>
                         <input id="Facilitator" {...register('Facilitator')} className="w-full p-2 border rounded-md dark:bg-dark-input" />
+                        {errors.Facilitator && <p className="text-red-500 text-xs mt-1">{errors.Facilitator.message}</p>}
                     </div>
 
                     <div>
-                        <label htmlFor="GrantsCertificateID" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Grants Certificate ID (Optional)</label>
-                        <input
-                            id="GrantsCertificateID"
-                            type="number"
-                            {...register('GrantsCertificateID', {
-                                setValueAs: (v) => v === "" ? null : parseInt(v, 10)
-                            })}
-                            className="w-full p-2 border rounded-md dark:bg-dark-input"
-                        />
+                        <label htmlFor="GrantsCertificateID" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Grants Certificate (Optional)</label>
+                        {competencies.length === 0 ? (
+                            <select id="GrantsCertificateID" className="w-full p-2 border rounded-md dark:bg-dark-input" disabled>
+                                <option value="">No competencies available</option>
+                            </select>
+                        ) : (
+                            <select
+                                id="GrantsCertificateID"
+                                className="w-full p-2 border rounded-md dark:bg-dark-input"
+                                {...register('GrantsCertificateID', {
+                                    setValueAs: (v) => v === '' ? undefined : Number(v)
+                                })}
+                                defaultValue=""
+                            >
+                                {competencies.map((c) => (
+                                    <option key={c.competencyID} value={c.competencyID}>{c.competencyName}</option>
+                                ))}
+                            </select>
+                        )}
+                        {compLoading && <p className="text-xs text-custom-third dark:text-dark-secondary mt-1">Loading competencies…</p>}
+                        {errors.GrantsCertificateID && <p className="text-red-500 text-xs mt-1">{errors.GrantsCertificateID.message}</p>}
                     </div>
 
                     <div className="flex items-center justify-end pt-4 space-x-3">
