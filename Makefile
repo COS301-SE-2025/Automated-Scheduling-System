@@ -25,8 +25,11 @@ gen:
 
 # Run the application
 run:
+	@echo "Building frontend once..."
+	@cd frontend && npm install --prefer-offline --no-fund
+	@echo "Starting backend with live reload..."
 	@make watch &
-	@cd frontend && npm install --prefer-offline --no-fund && npm run dev
+	@cd frontend && npm run dev
 
 
 # Run frontend tests

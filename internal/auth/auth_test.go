@@ -18,7 +18,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	// "gorm.io/gorm/logger"
 )
 
 /* -------------------------------------------------------------------------- */
@@ -29,15 +29,19 @@ import (
 func newMockDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
-	gormLogger := logger.New(&testingLogger{t}, logger.Config{SlowThreshold: 0, LogLevel: logger.Info})
-	gormDB, err := gorm.Open(postgres.New(postgres.Config{Conn: db}), &gorm.Config{Logger: gormLogger})
+
+	// gormLogger := logger.New(&testingLogger{t}, logger.Config{SlowThreshold: 0, LogLevel: logger.Info})
+
+	// gormDB, err := gorm.Open(postgres.New(postgres.Config{Conn: db}), &gorm.Config{Logger: gormLogger})
+	gormDB, err := gorm.Open(postgres.New(postgres.Config{Conn: db}))
+
 	require.NoError(t, err)
 	return gormDB, mock
 }
 
-type testingLogger struct{ t *testing.T }
+// type testingLogger struct{ t *testing.T }
 
-func (l *testingLogger) Printf(format string, args ...interface{}) { l.t.Logf(format, args...) }
+// func (l *testingLogger) Printf(format string, args ...interface{}) { l.t.Logf(format, args...) }
 
 func ctxWithForm(t *testing.T, db *gorm.DB, method string, form url.Values) (*gin.Context, *httptest.ResponseRecorder) {
 	req, err := http.NewRequest(method, "/", strings.NewReader(form.Encode()))

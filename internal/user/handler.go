@@ -84,7 +84,7 @@ func AddUserHandler(c *gin.Context) {
 }
 
 func UpdateUserHandler(c *gin.Context) {
-	fmt.Print("User Handler is being called\n")
+	// fmt.Print("User Handler is being called\n")
 	userIdStr := c.Param("userID")
 	userId, err := strconv.Atoi(userIdStr)
 	if err != nil {
