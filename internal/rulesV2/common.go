@@ -131,21 +131,21 @@ func asFloat(v any) (float64, bool) {
 }
 
 // boolFromAny returns (bool, true) if v is bool, or string "true"/"false".
-func boolFromAny(v any) (bool, bool) {
-	switch b := v.(type) {
-	case bool:
-		return b, true
-	case string:
-		l := strings.ToLower(strings.TrimSpace(b))
-		if l == "true" {
-			return true, true
-		}
-		if l == "false" {
-			return false, true
-		}
-	}
-	return false, false
-}
+// func boolFromAny(v any) (bool, bool) {
+// 	switch b := v.(type) {
+// 	case bool:
+// 		return b, true
+// 	case string:
+// 		l := strings.ToLower(strings.TrimSpace(b))
+// 		if l == "true" {
+// 			return true, true
+// 		}
+// 		if l == "false" {
+// 			return false, true
+// 		}
+// 	}
+// 	return false, false
+// }
 
 // error helper for resolvers
 func factErr(fact, msg string) error {

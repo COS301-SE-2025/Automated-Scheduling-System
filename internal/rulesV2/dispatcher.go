@@ -12,7 +12,7 @@ type RuleStore interface {
 // Dispatch all rules for triggerType and runs them once
 // Uses the provided context as data
 
-func DisptachEvent(ctx context.Context, eng *Engine, store RuleStore, triggerType string, data map[string]any) error{
+func DispatchEvent(ctx context.Context, eng *Engine, store RuleStore, triggerType string, data map[string]any) error{
     rs, err := store.ListByTrigger(ctx, triggerType)
     if err != nil{
         return err

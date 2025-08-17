@@ -16,8 +16,49 @@ type Engine struct {
 	R *Registry
 
 	// Policy toggles (optional; adjust to taste)
-	ContinueActionsOnError bool // if true, runs all actions and aggregates errors
+	ContinueActionsOnError  bool // if true, runs all actions and aggregates errors
 	StopOnFirstConditionErr bool // if true, aborts rule on first condition error
+}
+
+// ValidateRule checks that a Rulev2 is internally consistent and
+// that all referenced trigger types, operators, and actions exist
+// in the provided registry. It does not check the semantics of parameter maps.
+func ValidateRule(r *Registry, rule Rulev2) error {
+	if r == nil {
+		return fmt.Errorf("nil registry")
+	}
+	if rule.Name == "" {
+		return fmt.Errorf("rule must have a name")
+	}
+	if rule.Trigger.Type == "" {
+		return fmt.Errorf("rule %q: trigger type is empty", rule.Name)
+	}
+	// if _, ok := r.Triggers[rule.Trigger.Type]; !ok {
+	// Trigger not required to be present (maybe only stored), but we can warn.
+	// Comment out if you want to allow unknown triggers until wired.
+	// return fmt.Errorf("rule %q: unknown trigger %q", rule.Name, rule.Trigger.Type)
+	// }
+
+	for i, c := range rule.Conditions {
+		if c.Operator == "" {
+			return fmt.Errorf("rule %q: condition %d missing operator", rule.Name, i)
+		}
+		if _, ok := r.Operators[c.Operator]; !ok {
+			return fmt.Errorf("rule %q: condition %d unknown operator %q", rule.Name, i, c.Operator)
+		}
+		// Fact string can be left unchecked: unknown facts just resolve false at runtime
+	}
+
+	for i, a := range rule.Actions {
+		if a.Type == "" {
+			return fmt.Errorf("rule %q: action %d missing type", rule.Name, i)
+		}
+		if _, ok := r.Actions[a.Type]; !ok {
+			return fmt.Errorf("rule %q: action %d unknown action type %q", rule.Name, i, a.Type)
+		}
+	}
+
+	return nil
 }
 
 // RunRule executes a single rule end-to-end via its TriggerHandler.
@@ -92,18 +133,18 @@ func (e *Engine) evalConditions(evCtx EvalContext, conds []Condition) (bool, err
 	return true, nil
 }
 
-func (e *Engine) EvaluateOnce(evCtx EvalContext, r Rulev2) error{
-    if evCtx.Now.IsZero(){
-        evCtx.Now = time.Now().UTC()
-    }
+func (e *Engine) EvaluateOnce(evCtx EvalContext, r Rulev2) error {
+	if evCtx.Now.IsZero() {
+		evCtx.Now = time.Now().UTC()
+	}
 
-    ok,err := e.evalConditions(evCtx, r.Conditions)
+	ok, err := e.evalConditions(evCtx, r.Conditions)
 
-    if err != nil || !ok{
-        return err
-    }
+	if err != nil || !ok {
+		return err
+	}
 
-    return e.execActions(evCtx, r.Actions)
+	return e.execActions(evCtx, r.Actions)
 }
 
 func (e *Engine) resolveFact(evCtx EvalContext, c Condition) (any, bool, error) {
@@ -256,4 +297,3 @@ func (m *MultiError) Err() error {
 	// Join (Go 1.20+). If you want older Go, concatenate manually.
 	return errors.Join(m.errs...)
 }
-

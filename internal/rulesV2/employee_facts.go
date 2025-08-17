@@ -30,7 +30,6 @@ func (EmployeeFacts) Resolve(evCtx EvalContext, path string) (any, bool, error) 
 	if !strings.HasPrefix(path, "employee.") {
 		return nil, false, nil
 	}
-
 	seg := getPathSegments(path)
 	// Handle derived selector like HasCompetencyPrerequisites[COMP123]
 	if len(seg) == 2 && strings.HasPrefix(seg[1], "HasCompetencyPrerequisites") {
