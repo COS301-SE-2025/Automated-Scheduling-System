@@ -48,13 +48,6 @@ const PublicAuthRouteElement: React.FC = () => {
     return <Outlet />;
 }
 
-const RootRedirector: React.FC = () => {
-    const { isAuthenticated, isLoading } = useAuth();
-    if (isLoading) {
-      return <div className="flex justify-center items-center min-h-screen"><div>Loading...</div></div>;
-    }
-    return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />;
-};
 
 const PageGuard: React.FC<{ page: string }> = ({ page }) => {
     const { isLoading } = useAuth();
@@ -123,10 +116,7 @@ const AppRoutes: React.FC = () => {
                 </Route>
             </Route>
             
-            {/* Default route handler */}
-            <Route path="/" element={<RootRedirector />} />
 
-            {/* Catch-all for 404 Not Found */}
             <Route path="*" element={<NotFoundPage />} />
         </Routes>
     );
