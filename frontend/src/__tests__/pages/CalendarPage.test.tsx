@@ -73,7 +73,7 @@ vi.mock("../../components/ui/EventDeleteConfirmationModal", () => ({
 
 vi.mock("@fullcalendar/react", () => ({
   __esModule: true,
-  default: (_: any) => <div data-testid="fullcalendar-mock">FullCalendar</div>,
+  default: () => <div data-testid="fullcalendar-mock">FullCalendar</div>,
 }));
 
 import CalendarPage from "../../pages/CalendarPage";

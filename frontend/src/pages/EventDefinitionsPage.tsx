@@ -50,7 +50,7 @@ const EventDefinitionsPage: React.FC = () => {
             try {
                 const list = await getAllCompetencies();
                 setCompetencies(list.filter(c => c.isActive));
-            } catch (e: any) {
+            } catch {
                 setCompetencies([]);
             }
         })();
