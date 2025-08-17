@@ -18,7 +18,7 @@ const allPages: { value: AllowedPage; label: string }[] = [
 
 describe('RoleModal', () => {
   const onClose = vi.fn();
-  const onSave = vi.fn(async (_data: AddRoleData) => {});
+  const onSave = vi.fn(async () => {});
   const user = userEvent.setup();
 
   beforeEach(() => {
