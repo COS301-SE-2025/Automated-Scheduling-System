@@ -61,7 +61,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		Logger: silentLogger,
 	})
 	require.NoError(t, err, "Failed to connect to in-memory database")
-	require.NoError(t, db.AutoMigrate(&Employee{}, &User{}), "Schema migration failed")
+	require.NoError(t, db.AutoMigrate(&Employee{}, &User{}, &models.Role{}, &models.UserHasRole{}), "Schema migration failed")
 
 	DB = db
 	return db
@@ -84,6 +84,10 @@ func seedUsersAndEmployees(t *testing.T, db *gorm.DB) (adminUser User, regularUs
 
 	require.NoError(t, db.Create(&adminUser).Error)
 	require.NoError(t, db.Create(&regularUser).Error)
+
+	// Seed base roles used by handlers
+	require.NoError(t, db.Create(&models.Role{RoleName: "Admin", Description: "System"}).Error)
+	require.NoError(t, db.Create(&models.Role{RoleName: "User", Description: "System"}).Error)
 
 	return adminUser, regularUser
 }
@@ -229,6 +233,9 @@ func TestUpdateUserHandler(t *testing.T) {
 		_, regularUser := seedUsersAndEmployees(t, db)
 		r := gin.New()
 		r.PUT("/users/:userID", UpdateUserHandler)
+
+		// Seed target role 'Manager' for the update
+		require.NoError(t, db.Create(&models.Role{RoleName: "Manager", Description: "Custom"}).Error)
 
 		newRole := "Manager"
 		updateReq := models.UpdateUserRequest{Role: &newRole}

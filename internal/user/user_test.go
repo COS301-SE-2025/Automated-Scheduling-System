@@ -93,6 +93,12 @@ func TestAddUserHandler_Success_Unit(t *testing.T) {
 	db, mock := newMockDB(t)
 	addUserReq := models.AddUserRequest{Username: testUserUsername, Email: testNewUserEmail, Password: testUserPassword, Role: "User"}
 
+	// Handler now first validates role exists
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT * FROM "roles" WHERE role_name = $1 ORDER BY "roles"."role_id" LIMIT $2`)).
+		WithArgs("User", 1).
+		WillReturnRows(sqlmock.NewRows([]string{"role_id", "role_name", "description"}).AddRow(2, "User", "System"))
+
 	mock.ExpectQuery(regexp.QuoteMeta(
 		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."terminationdate" FROM "employee" WHERE UserAccountEmail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
 		WithArgs(testNewUserEmail, 1).
@@ -111,6 +117,14 @@ func TestAddUserHandler_Success_Unit(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 	mock.ExpectCommit()
 
+	// Link user to role in user_has_role
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta(
+		`INSERT INTO "user_has_role" ("user_id","role_id") VALUES ($1,$2)`)).
+		WithArgs(1, 2).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
 	c, rec := ctxWithJSON(t, db, "POST", "/users", addUserReq)
 	AddUserHandler(c)
 
@@ -122,6 +136,12 @@ func TestAddUserHandler_UserAlreadyExists_Unit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db, mock := newMockDB(t)
 	addUserReq := models.AddUserRequest{Username: testUserUsername, Email: testUserEmail, Password: testUserPassword, Role: "User"}
+
+	// Role check first
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT * FROM "roles" WHERE role_name = $1 ORDER BY "roles"."role_id" LIMIT $2`)).
+		WithArgs("User", 1).
+		WillReturnRows(sqlmock.NewRows([]string{"role_id", "role_name", "description"}).AddRow(2, "User", "System"))
 
 	mock.ExpectQuery(regexp.QuoteMeta(
 		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."terminationdate" FROM "employee" WHERE UserAccountEmail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
@@ -154,11 +174,31 @@ func TestUpdateUserHandler_Success_Unit(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"id", "username", "employee_number", "role"}).
 			AddRow(userID, testUserUsername, testUserEmpNum, "User"))
 
+	// Extended load includes employee
 	mock.ExpectQuery(regexp.QuoteMeta(
 		`SELECT * FROM "employee" WHERE "employee"."employeenumber" = $1`)).
 		WithArgs(testUserEmpNum).
-		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname"}).
-			AddRow(testUserEmpNum, "Test", "User"))
+		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname", "useraccountemail", "employeestatus"}).
+			AddRow(testUserEmpNum, "Test", "User", testUserEmail, "Active"))
+
+	// Role validation
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT * FROM "roles" WHERE role_name = $1 ORDER BY "roles"."role_id" LIMIT $2`)).
+		WithArgs("Admin", 1).
+		WillReturnRows(sqlmock.NewRows([]string{"role_id", "role_name", "description"}).AddRow(1, "Admin", "System"))
+
+	// Remove previous links, insert new link, then update user
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM "user_has_role" WHERE user_id = $1`)).
+		WithArgs(userID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	mock.ExpectBegin()
+	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO "user_has_role" ("user_id","role_id") VALUES ($1,$2)`)).
+		WithArgs(userID, 1).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
 
 	mock.ExpectBegin()
 	mock.ExpectExec(regexp.QuoteMeta(
