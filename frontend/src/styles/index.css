@@ -98,8 +98,10 @@ body {
 }
 
 .fc .fc-event {
-  @apply shadow-none border-b text-sm !important;
-  display: block !important; 
+  @apply shadow-none text-sm !important; 
+  display: block !important;
+  border: 1px solid var(--fc-event-border-color) !important;
+  background-clip: padding-box;
 }
 
 .fc .fc-daygrid-day.fc-day-selected .fc-daygrid-day-frame,
@@ -226,4 +228,25 @@ html, body {
 .calendar-container .fc-daygrid-body,
 .calendar-container .fc-timegrid-body {
   height: 100% !important;
+}
+
+/* Default event border color variables */
+:root {
+  --fc-event-border-color: #cbd5e1; 
+}
+.dark {
+  --fc-event-border-color: #ffffff; 
+}
+
+.fc .fc-h-event,
+.fc .fc-v-event,
+.fc .fc-daygrid-event {
+  border-color: var(--fc-event-border-color) !important;
+}
+
+:root {
+  --fc-today-bg-color: rgba(88, 120, 224, 0.651); 
+}
+.dark {
+  --fc-today-bg-color: rgba(88, 120, 224, 0.637); 
 }
