@@ -18,15 +18,16 @@ func setupTestDB() *gorm.DB {
 	}
 
 	// Migrate the schema
-	db.AutoMigrate(
+	err = db.AutoMigrate(
 		&gen_models.Employee{},
 		&gen_models.CompetencyDefinition{},
 		&gen_models.CustomJobMatrix{},
 		&gen_models.Event{},
 		&gen_models.DbRule{},
 	)
-	if db == nil {
-		panic("failed to migrate database")
+
+	if err != nil {
+		panic("failed to migrate database schema")
 	}
 
 	return db
