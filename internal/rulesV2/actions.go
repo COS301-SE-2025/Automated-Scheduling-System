@@ -50,7 +50,6 @@ type ScheduleTrainingAction struct {
 
 func (a *ScheduleTrainingAction) Execute(ctx EvalContext, params map[string]any) error {
 	employeeNumber, _ := params["employeeNumber"].(string)
-	competencyID, _ := params["competencyID"].(int32)
 	eventType, _ := params["eventType"].(string)
 	scheduledDate, _ := params["scheduledDate"].(string)
 
@@ -59,11 +58,6 @@ func (a *ScheduleTrainingAction) Execute(ctx EvalContext, params map[string]any)
 	}
 
 	// Convert competencyID from float64 if needed (JSON unmarshaling)
-	if competencyID == 0 {
-		if f, ok := params["competencyID"].(float64); ok {
-			competencyID = int32(f)
-		}
-	}
 
 	// Parse scheduled date
 	var scheduledTime time.Time
@@ -234,8 +228,6 @@ func (a *WebhookAction) Execute(ctx EvalContext, params map[string]any) error {
 	if err != nil {
 		return fmt.Errorf("webhook request failed: %w", err)
 	}
-	defer resp.Body.Close()
-
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("webhook returned status %d", resp.StatusCode)
 	}
