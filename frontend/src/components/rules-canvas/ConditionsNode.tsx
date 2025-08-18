@@ -7,9 +7,32 @@ const OPERATORS = ['equals', 'notEquals', 'greaterThan', 'lessThan', 'greaterOrE
 
 const ConditionsNode: React.FC<NodeProps<ConditionsNodeData>> = ({ id, data }) => {
     const rf = useReactFlow();
+
     const update = (partial: Partial<ConditionsNodeData>) => {
-        rf.setNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data: { ...data, ...partial } } : n)));
+        const edges = rf.getEdges?.() ?? [];
+        const ruleIds = new Set<string>();
+        for (const e of edges) {
+            if (e.source === id || e.target === id) {
+                const otherId = e.source === id ? e.target : e.source;
+                const other = rf.getNode(otherId);
+                if (other?.type === 'rule') ruleIds.add(other.id);
+            }
+        }
+
+        rf.setNodes((nds) =>
+            nds.map((n) => {
+                if (n.id === id) {
+                    const cur = n.data as ConditionsNodeData;
+                    return { ...n, data: { ...cur, ...partial } };
+                }
+                if (n.type === 'rule' && ruleIds.has(n.id)) {
+                    return { ...n, data: { ...(n.data as any), saved: false } };
+                }
+                return n;
+            })
+        );
     };
+
     const setRow = (idx: number, patch: Partial<ConditionRow>) => {
         const next = data.conditions.map((r, i) => (i === idx ? { ...r, ...patch } : r));
         update({ conditions: next });

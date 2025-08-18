@@ -4,16 +4,34 @@ import { PlusCircle, Trash2 } from 'lucide-react';
 import type { ActionsNodeData, ActionRow, ParamKV } from '../../types/rule.types';
 
 // stubbed until backend provides lists
-const ACTION_TYPES = [
-    'SEND_NOTIFICATION',
-    'UPDATE_COMPLIANCE_STATUS',
-    'CREATE_TASK',
-];
+const ACTION_TYPES = ['SEND_NOTIFICATION', 'UPDATE_COMPLIANCE_STATUS', 'CREATE_TASK'];
 
 const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
     const rf = useReactFlow();
+
     const update = (partial: Partial<ActionsNodeData>) => {
-        rf.setNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data: { ...data, ...partial } } : n)));
+        const edges = rf.getEdges?.() ?? [];
+        const ruleIds = new Set<string>();
+        for (const e of edges) {
+            if (e.source === id || e.target === id) {
+                const otherId = e.source === id ? e.target : e.source;
+                const other = rf.getNode(otherId);
+                if (other?.type === 'rule') ruleIds.add(other.id);
+            }
+        }
+
+        rf.setNodes((nds) =>
+            nds.map((n) => {
+                if (n.id === id) {
+                    const cur = n.data as ActionsNodeData;
+                    return { ...n, data: { ...cur, ...partial } };
+                }
+                if (n.type === 'rule' && ruleIds.has(n.id)) {
+                    return { ...n, data: { ...(n.data as any), saved: false } };
+                }
+                return n;
+            })
+        );
     };
 
     const setAction = (idx: number, patch: Partial<ActionRow>) => {
