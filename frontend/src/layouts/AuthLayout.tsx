@@ -7,9 +7,12 @@ interface AuthLayoutProps {
     children: React.ReactNode;
     title: string;
     helpText: string;
+    // Optional per-page overrides for the help tooltip
+    helpPlacement?: 'above' | 'below';
+    helpAlign?: 'left' | 'right' | 'center';
 }
 
-const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, helpText }) => {
+const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, helpText, helpPlacement = 'below', helpAlign = 'right' }) => {
     return (
         <div className="relative min-h-screen flex flex-col items-center justify-center bg-custom-background dark:bg-dark-background py-12 px-4 sm:px-6 lg:px-8">
             
@@ -44,7 +47,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, helpText }) =>
             </div>
 
             <div className="fixed bottom-6 flex flex-col items-center gap-4">
-                <HelpIcon text={helpText} />
+                <HelpIcon text={helpText} placement={helpPlacement} align={helpAlign} />
             </div>
 
         </div>

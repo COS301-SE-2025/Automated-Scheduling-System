@@ -7,6 +7,8 @@ const SignupPage: React.FC = () => {
         <AuthLayout
             title="Get started by creating a new account."
             helpText="Enter your credentials to create an account account. If you already have an account, use the 'Sign in' link."
+            helpPlacement="above"
+            helpAlign="center"
         >
             <SignupForm />
         </AuthLayout>
