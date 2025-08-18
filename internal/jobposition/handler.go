@@ -2,13 +2,27 @@ package jobposition
 
 import (
 	"Automated-Scheduling-Project/internal/database/models"
+	"Automated-Scheduling-Project/internal/rulesV2" // added
+	"context"                                       // added
 	"net/http"
+	"time" // added
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 var DB *gorm.DB
+
+// added: rules service wiring
+var RulesSvc *rulesv2.RuleBackEndService
+func SetRulesService(s *rulesv2.RuleBackEndService) { RulesSvc = s }
+
+func fireJobPositionTrigger(c *gin.Context, operation string) {
+    if RulesSvc == nil { return }
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+    _ = RulesSvc.OnJobPosition(ctx, operation)
+}
 
 type CreateJobPositionRequest struct {
 	PositionMatrixCode string `json:"positionMatrixCode" binding:"required"`
@@ -52,6 +66,10 @@ func CreateJobPositionHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job position. The code may already exist."})
 		return
 	}
+
+    // fire trigger: job_position create
+    fireJobPositionTrigger(c, "create")
+
 	c.JSON(http.StatusCreated, newPosition)
 }
 
@@ -73,6 +91,10 @@ func UpdateJobPositionHandler(c *gin.Context) {
 	}
 	var updatedPos models.JobPosition
 	DB.First(&updatedPos, "position_matrix_code = ?", code)
+
+    // fire trigger: job_position update
+    fireJobPositionTrigger(c, "update")
+
 	c.JSON(http.StatusOK, updatedPos)
 }
 
@@ -93,5 +115,13 @@ func UpdateJobPositionStatusHandler(c *gin.Context) {
 
 	var updatedPos models.JobPosition
 	DB.First(&updatedPos, "position_matrix_code = ?", code)
+
+    // fire trigger: job_position deactivate/reactivate
+    if req.IsActive != nil && *req.IsActive {
+        fireJobPositionTrigger(c, "reactivate")
+    } else {
+        fireJobPositionTrigger(c, "deactivate")
+    }
+
 	c.JSON(http.StatusOK, updatedPos)
 }

@@ -106,12 +106,28 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
 
     const valueInput = (metaParamType?: string, value = '', onChange?: (v: string) => void) => {
         const type = metaParamType || 'string';
+        const stopAll = {
+            onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+            onMouseDown: (e: React.MouseEvent) => e.stopPropagation(),
+            onWheel: (e: React.WheelEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+            },
+            onKeyDown: (e: React.KeyboardEvent) => {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            },
+        };
+
         if (type === 'boolean') {
             return (
                 <select
                     className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
                     value={value}
                     onChange={(e) => onChange?.(e.target.value)}
+                    {...stopAll}
                 >
                     <option value="">Select…</option>
                     <option value="true">true</option>
@@ -120,12 +136,16 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
             );
         }
         if (type === 'number') {
+            // Fallback to text input to avoid auto-increment issues
             return (
                 <input
                     className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     value={value}
                     onChange={(e) => onChange?.(e.target.value)}
+                    {...stopAll}
                 />
             );
         }
@@ -136,6 +156,7 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                     type="date"
                     value={value}
                     onChange={(e) => onChange?.(e.target.value)}
+                    {...stopAll}
                 />
             );
         }
@@ -144,12 +165,18 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                 className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
                 value={value}
                 onChange={(e) => onChange?.(e.target.value)}
+                {...stopAll}
             />
         );
     };
 
     return (
-        <div className="bg-white border-2 border-violet-300 rounded-md shadow-md w-[34rem] text-gray-800">
+        <div
+            className="bg-white border-2 border-violet-300 rounded-md shadow-md w-[34rem] text-gray-800"
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onWheel={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        >
             <Handle type="target" position={Position.Top} isValidConnection={validIfRule} />
             <Handle type="source" position={Position.Bottom} isValidConnection={validIfRule} />
             <div className="bg-violet-50 p-2 font-semibold rounded-t-md flex items-center justify-between">
