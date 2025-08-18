@@ -2,11 +2,11 @@ import React from 'react';
 import { Handle, Position, type NodeProps, useReactFlow, type Connection } from 'reactflow';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import type { ConditionsNodeData, ConditionRow } from '../../types/rule.types';
-
-const OPERATORS = ['equals', 'notEquals', 'greaterThan', 'lessThan', 'greaterOrEquals', 'lessOrEquals', 'isTrue', 'isFalse', 'in', 'notIn', 'contains', 'startsWith', 'endsWith'];
+import { useRulesMetadata } from '../../contexts/RulesMetadataContext';
 
 const ConditionsNode: React.FC<NodeProps<ConditionsNodeData>> = ({ id, data }) => {
     const rf = useReactFlow();
+    const { facts, operators } = useRulesMetadata();
 
     const update = (partial: Partial<ConditionsNodeData>) => {
         const edges = rf.getEdges?.() ?? [];
@@ -37,7 +37,7 @@ const ConditionsNode: React.FC<NodeProps<ConditionsNodeData>> = ({ id, data }) =
         const next = data.conditions.map((r, i) => (i === idx ? { ...r, ...patch } : r));
         update({ conditions: next });
     };
-    const addRow = () => update({ conditions: [...data.conditions, { fact: '', operator: 'equals', value: '' }] });
+    const addRow = () => update({ conditions: [...data.conditions, { fact: '', operator: (operators[0]?.name ?? 'equals'), value: '' }] });
     const removeRow = (idx: number) => update({ conditions: data.conditions.filter((_, i) => i !== idx) });
     const onDelete = () => rf.deleteElements({ nodes: [{ id }] });
 
@@ -75,6 +75,16 @@ const ConditionsNode: React.FC<NodeProps<ConditionsNodeData>> = ({ id, data }) =
         return true;
     };
 
+    const allOperators = operators.map((o) => o.name);
+
+    const factMetaByName = new Map(facts.map((f) => [f.name, f]));
+    const getOperatorsForFact = (factName?: string) => {
+        if (!factName) return allOperators;
+        const fm = factMetaByName.get(factName);
+        return fm?.operators?.length ? fm.operators : allOperators;
+    };
+    const isBoolOperator = (op: string) => op === 'isTrue' || op === 'isFalse';
+
     return (
         <div className="bg-white border-2 border-emerald-300 rounded-md shadow-md w-[34rem] text-gray-800">
             <Handle type="target" position={Position.Top} isValidConnection={validIfRule} />
@@ -96,26 +106,37 @@ const ConditionsNode: React.FC<NodeProps<ConditionsNodeData>> = ({ id, data }) =
                 </div>
                 <div className="space-y-2">
                     {data.conditions.map((c, idx) => {
-                        const valueDisabled = c.operator === 'isTrue' || c.operator === 'isFalse';
+                        const ops = getOperatorsForFact(c.fact);
+                        const currentOp = ops.includes(c.operator) ? c.operator : (ops[0] ?? 'equals');
+                        const valueDisabled = isBoolOperator(currentOp);
                         return (
                             <div key={idx} className="flex gap-1">
-                                <input
-                                    className="w-[35%] border rounded px-2 py-1 bg-white text-gray-800"
-                                    placeholder="fact (e.g. employee.EmployeeStatus)"
-                                    value={c.fact}
-                                    onChange={(e) => setRow(idx, { fact: e.target.value })}
-                                />
                                 <select
-                                    className="w-[45%] min-w-[240px] border rounded px-2 py-1 bg-white text-gray-800"
-                                    value={c.operator}
+                                    className="w-[40%] min-w-[220px] border rounded px-2 py-1 bg-white text-gray-800"
+                                    value={c.fact}
+                                    onChange={(e) => {
+                                        const nextFact = e.target.value;
+                                        const nextOps = getOperatorsForFact(nextFact);
+                                        const nextOp = nextOps.includes(currentOp) ? currentOp : (nextOps[0] ?? 'equals');
+                                        setRow(idx, { fact: nextFact, operator: nextOp });
+                                    }}
+                                >
+                                    <option value="">Select fact…</option>
+                                    {facts.map((f) => (
+                                        <option key={f.name} value={f.name}>{f.name}</option>
+                                    ))}
+                                </select>
+                                <select
+                                    className="w-[35%] min-w-[180px] border rounded px-2 py-1 bg-white text-gray-800"
+                                    value={currentOp}
                                     onChange={(e) => setRow(idx, { operator: e.target.value })}
                                 >
-                                    {OPERATORS.map((op) => (
+                                    {ops.map((op) => (
                                         <option key={op} value={op}>{op}</option>
                                     ))}
                                 </select>
                                 <input
-                                    className="w-[20%] border rounded px-2 py-1 bg-white text-gray-800"
+                                    className="w-[25%] border rounded px-2 py-1 bg-white text-gray-800"
                                     placeholder="value"
                                     value={c.value ?? ''}
                                     onChange={(e) => setRow(idx, { value: e.target.value })}
