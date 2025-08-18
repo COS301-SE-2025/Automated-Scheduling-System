@@ -12,7 +12,6 @@ const eventDefinitionSchema = z.object({
     EventName: z.string().trim().min(1, 'Event name is required'),
     ActivityDescription: z.string().optional(),
     durationAmount: z.coerce.number({ invalid_type_error: 'Please enter a number' })
-        .int('Duration must be an integer')
         .positive('Duration must be greater than 0'),
     durationUnit: z.enum(['minutes', 'hours', 'days'], {
         required_error: 'Please select a unit',
@@ -54,12 +53,11 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
 
     useEffect(() => {
         if (isOpen) {
-            // Parse StandardDuration from initial data when editing
             const parseDuration = (value?: string): { amount: number; unit: 'minutes'|'hours'|'days' } => {
                 if (!value) return { amount: 1, unit: 'hours' };
-                const match = value.match(/(\d+)\s*(minutes?|hours?|days?|m|h|d)/i);
+                const match = value.match(/([0-9]+(?:\.[0-9]+)?)\s*(minutes?|hours?|days?|m|h|d)/i);
                 if (match) {
-                    const amt = parseInt(match[1], 10) || 1;
+                    const amt = parseFloat(match[1]) || 1;
                     const rawUnit = match[2].toLowerCase();
                     const unit = rawUnit.startsWith('m') && rawUnit !== 'months' ? 'minutes'
                         : rawUnit.startsWith('h') ? 'hours'
@@ -93,7 +91,6 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
         }
     }, [isOpen, initialData, reset, setValue]);
 
-    // Load competencies when modal opens
     useEffect(() => {
         if (!isOpen) return;
         let active = true;
@@ -103,7 +100,6 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
                 setCompError(null);
                 const list = await getAllCompetencies();
                 if (!active) return;
-                // Only include active competencies
                 setCompetencies(list.filter(c => c.isActive));
             } catch (e: any) {
                 if (!active) return;
@@ -120,12 +116,10 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
     const onSubmit = async (data: EventDefinitionFormData) => {
         setApiError(null);
         
-        // Build StandardDuration from amount + unit
         const unitLabel = data.durationUnit;
         const amount = data.durationAmount;
-        const standardDuration = `${amount} ${unitLabel}`; // e.g., "2 hours"
+        const standardDuration = `${amount} ${unitLabel}`; 
 
-        // Prepare payload for parent
         const payload: CreateEventDefinitionPayload = {
             EventName: data.EventName,
             ActivityDescription: data.ActivityDescription || '',
@@ -134,8 +128,6 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
             GrantsCertificateID: data.GrantsCertificateID,
         };
 
-        // The parent component will now handle the saving.
-        // We pass the raw payload, not the result of an API call.
         onSave(payload);
     };
 
@@ -174,8 +166,8 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
                             <input
                                 id="durationAmount"
                                 type="number"
-                                min={1}
-                                step={1}
+                                min={0.1}
+                                step={0.1}
                                 className="w-24 p-2 border rounded-md dark:bg-dark-input"
                                 {...register('durationAmount')}
                                 aria-invalid={!!errors.durationAmount}
@@ -216,6 +208,8 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
                                 })}
                                 defaultValue=""
                             >
+                                {/* Allow user to explicitly choose no competency */}
+                                <option value="">None</option>
                                 {competencies.map((c) => (
                                     <option key={c.competencyID} value={c.competencyID}>{c.competencyName}</option>
                                 ))}

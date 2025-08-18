@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../../hooks/useAuth", () => ({
@@ -23,12 +23,12 @@ import { MemoryRouter } from "react-router-dom";
 describe("RulesPage", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("renders without crashing", () => {
+  it("renders without crashing", async () => {
     const { container } = render(
       <MemoryRouter>
         <RulesPage />
       </MemoryRouter>
     );
-    expect(container).toBeTruthy();
+    await waitFor(() => expect(container).toBeTruthy());
   });
 });
