@@ -1,70 +1,104 @@
 package main
 
 import (
-	"Automated-Scheduling-Project/internal/database"
-	"Automated-Scheduling-Project/internal/database/models"
-	rules "Automated-Scheduling-Project/internal/rule_engine"
 	"context"
 	"log"
+	"time"
 
-	"gorm.io/gorm/clause"
+	"Automated-Scheduling-Project/internal/database"
+	rules "Automated-Scheduling-Project/internal/rulesV2"
 )
 
+/*
+	go run ./cmd/migrate_seed
+
+	This seeds two rulesv2 examples:
+	- EVENT_STATUS_CHANGED → logs when a schedule becomes Completed
+	- DAILY_COMPETENCY_EXPIRY_CHECK → logs when a required competency expires in ≤ 7 days
+*/
+
 func main() {
-	// Get database instance
-	var dbService = database.New()
+	// 1) DB connection
+	dbSvc := database.New()
+	DB := dbSvc.Gorm()
 
-	// Get GORM DB instance
-	var DB = dbService.Gorm()
-
-	// Run migrations
-	err := DB.AutoMigrate(&models.DBRule{})
-	if err != nil {
-		log.Fatal("Failed to migrate database:", err)
+	// 2) Migrate the rules table
+	if err := rules.EnsureRulesTable(DB); err != nil {
+		log.Fatalf("migrate rules table: %v", err)
 	}
+	log.Println("Rules table migration successful")
 
-	log.Println("Database migration successful")
+	// 3) Build a minimal registry
+	reg := rules.NewRegistryWithDefaults().
+		UseFactResolver(rules.EmployeeFacts{}).
+		UseFactResolver(rules.CompetencyFacts{}).
+		UseFactResolver(rules.EventFacts{})
 
-	rulesToSeed := []rules.RawRule{
-		{
-			ID:        "vision-6mo",
-			Type:      "recurringCheck",
-			Enabled:   true,
-			Frequency: &rules.Period{Months: 6},
-			Params: map[string]any{
-				"checkType":        "vision",
-				"notifyDaysBefore": 14,
-			},
+	// Register a simple console action so we can see results without email/webhooks
+	reg.UseAction("CONSOLE", consoleAction{})
+
+	// 4) Create the store
+	store := rules.DBRuleStore{DB: DB}
+
+	// 5) Seed rules
+	ctx := context.Background()
+
+	// Rule A: When an event schedule hits "Completed" → log
+	ruleEventCompleted := rules.Rulev2{
+		Name:    "Event Completed → Console Log",
+		Trigger: rules.TriggerSpec{Type: "EVENT_STATUS_CHANGED"},
+		Conditions: []rules.Condition{
+			{Fact: "eventSchedule.StatusName", Operator: "equals", Value: "Completed"},
 		},
-		{
-			ID:      "driver-notify",
-			Type:    "action",
-			Enabled: true,
-			When:    "user.role == 'driver' && check['checkType'] == 'vision'",
-			Actions: []rules.RawAction{
-				{
-					Type:   "notify",
-					Params: map[string]any{"message": "Driver vision check added"},
+		Actions: []rules.ActionSpec{
+			{
+				Type: "CONSOLE",
+				Parameters: map[string]any{
+					"msg": "Event {{.eventSchedule.ID}} completed by {{.employee.EmployeeNumber}}",
 				},
 			},
 		},
 	}
-	ctx := context.Background()
-	for _, rr := range rulesToSeed {
-		row := models.DBRule{
-			ID:      rr.ID,
-			Enabled: rr.Enabled,
-			Type:    rr.Type,
-			Body:    models.RawRuleJSON(rr),
-		}
-		err := DB.WithContext(ctx).
-			Clauses(clause.OnConflict{UpdateAll: true}).
-			Create(&row).Error
-		if err != nil {
-			log.Fatalf("seed rule %s: %v", rr.ID, err)
-		}
-		log.Printf("Seeded rule %s", rr.ID)
+
+	// Rule B: 7-day critical competency expiry (Active + required + ≤7 days)
+	ruleExpiry := rules.Rulev2{
+		Name:    "7-Day Critical Competency Expiry Alert (Console)",
+		Trigger: rules.TriggerSpec{Type: "DAILY_COMPETENCY_EXPIRY_CHECK", Parameters: map[string]any{"daysBefore": 7}},
+		Conditions: []rules.Condition{
+			{Fact: "employee.EmployeeStatus", Operator: "equals", Value: "Active"},
+			{Fact: "competency.IsRequiredForCurrentJob", Operator: "isTrue"},
+			{Fact: "competency.DaysUntilExpiry", Operator: "lessThanOrEqual", Value: 7},
+		},
+		Actions: []rules.ActionSpec{
+			{
+				Type: "CONSOLE",
+				Parameters: map[string]any{
+					"msg": "Competency {{.competency.ID}} expires in {{.competency.DaysUntilExpiry}} days (emp={{.employee.EmployeeNumber}})",
+				},
+			},
+		},
 	}
 
-	log.Printf("Migration and seeding complete")
+	if _, err := store.Seed(ctx, reg, ruleEventCompleted, true); err != nil {
+		log.Fatalf("seed rule A: %v", err)
+	}
+	if _, err := store.Seed(ctx, reg, ruleExpiry, true); err != nil {
+		log.Fatalf("seed rule B: %v", err)
+	}
+
+	log.Println("Rule seeding complete")
 }
+
+/* ----------------------------- Helpers ---------------------------------- */
+
+// consoleAction is a stub ActionHandler that prints to the log.
+// You can keep this for dev, and later add SEND_NOTIFICATION, WEBHOOK, etc.
+type consoleAction struct{}
+
+func (consoleAction) Execute(ctx rules.EvalContext, params map[string]any) error {
+	// Rendered params are already provided by the engine (Go templates resolved).
+	msg, _ := params["msg"].(string)
+	log.Printf("[CONSOLE] now=%s msg=%q params=%v", ctx.Now.Format(time.RFC3339), msg, params)
+	return nil
+}
+
