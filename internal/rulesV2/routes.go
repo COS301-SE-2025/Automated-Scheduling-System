@@ -8,6 +8,28 @@ import (
 func RegisterRulesRoutes(router *gin.Engine, service *RuleBackEndService) {
 	rulesGroup := router.Group("/api/rules")
 	{
+		// Metadata endpoints for frontend integration
+		rulesGroup.GET("/metadata", func(c *gin.Context) {
+			GetRulesMetadataHandler(c)
+		})
+		rulesGroup.GET("/metadata/triggers", func(c *gin.Context) {
+			GetTriggersMetadataHandler(c)
+		})
+		rulesGroup.GET("/metadata/actions", func(c *gin.Context) {
+			GetActionsMetadataHandler(c)
+		})
+		rulesGroup.GET("/metadata/facts", func(c *gin.Context) {
+			GetFactsMetadataHandler(c)
+		})
+		rulesGroup.GET("/metadata/operators", func(c *gin.Context) {
+			GetOperatorsMetadataHandler(c)
+		})
+
+		// Validation endpoint
+		rulesGroup.POST("/validate", func(c *gin.Context) {
+			ValidateRuleHandler(c)
+		})
+
 		// Trigger endpoints for external systems to notify the rules engine
 		rulesGroup.POST("/trigger/job-matrix", func(c *gin.Context) {
 			TriggerJobMatrixUpdate(c, service)
