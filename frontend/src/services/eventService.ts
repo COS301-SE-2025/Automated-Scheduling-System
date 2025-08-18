@@ -143,3 +143,25 @@ export const updateScheduledEvent = async (scheduleId: number, scheduleData: Par
 export const deleteScheduledEvent = async (scheduleId: number): Promise<void> => {
     await api(`event-schedules/${scheduleId}`, { method: 'DELETE' });
 };
+
+// --- Attendance ---
+export interface AttendanceRow { id?: number; employeeNumber: string; attended: boolean; checkInTime?: string; }
+export const getAttendance = async (scheduleId: number): Promise<AttendanceRow[]> => {
+    return api<AttendanceRow[]>(`event-schedules/${scheduleId}/attendance`, { method: 'GET' });
+};
+
+export const setAttendance = async (scheduleId: number, data: { employeeNumbers?: string[]; attendance?: Record<string, boolean>; }): Promise<void> => {
+    await api(`event-schedules/${scheduleId}/attendance`, { method: 'POST', data });
+};
+
+// --- Utilities for UI ---
+export const getEmployeesByPositions = async (codes: string[]): Promise<string[]> => {
+    if (!codes || codes.length === 0) return [];
+    const q = encodeURIComponent(codes.join(','));
+    return api<string[]>(`employees-by-positions?codes=${q}`, { method: 'GET' });
+};
+
+export const checkEmployeesHaveCompetency = async (competencyId: number, employeeNumbers: string[]): Promise<Record<string, boolean>> => {
+    const res = await api<{ result: Record<string, boolean> }>(`competency-check`, { method: 'POST', data: { competencyId, employeeNumbers } });
+    return res.result || {};
+};

@@ -44,7 +44,6 @@ const EventDefinitionsPage: React.FC = () => {
         fetchDefinitions();
     }, [fetchDefinitions]);
 
-    // Load competencies (active only)
     useEffect(() => {
         (async () => {
             try {
@@ -91,18 +90,17 @@ const EventDefinitionsPage: React.FC = () => {
     const handleSaveDefinition = async (definitionData: CreateEventDefinitionPayload) => {
         try {
             if (definitionToEdit) {
-                // Assuming you have an update function in your service
+                
                 await eventService.updateEventDefinition(definitionToEdit.CustomEventID, definitionData);
             } else {
                 await eventService.createEventDefinition(definitionData);
             }
             
-            await fetchDefinitions(); // Refetch all definitions to get the latest state
+            await fetchDefinitions(); 
             setIsFormModalOpen(false);
             setDefinitionToEdit(null);
         } catch (err) {
             console.error("Failed to save event definition:", err);
-            // Optionally, set an error state to show in the modal or on the page
             setError("Failed to save the definition.");
         }
     };
@@ -197,14 +195,10 @@ const EventDefinitionsPage: React.FC = () => {
                         </p>
                     </div>
                     <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-                        <button
-                            onClick={handleAddClick}
-                        >
-                            <Button type="button" variant="primary">
-                                <PlusCircle size={20} className="inline-block mr-2" />
-                                Add Definition
-                            </Button>
-                        </button>
+                        <Button type="button" variant="primary" onClick={handleAddClick}>
+                            <PlusCircle size={20} className="inline-block mr-2" />
+                            Add Definition
+                        </Button>
                     </div>
                 </div>
 

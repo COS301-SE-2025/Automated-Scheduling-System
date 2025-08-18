@@ -7,6 +7,8 @@ import (
 	//"log"
 	"net/http"
 	"strconv"
+	"time"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -331,7 +333,12 @@ func UpdateEventScheduleHandler(c *gin.Context) {
 		}
 	}
 
-    // FIX: After updating, fetch and return the entire updated list of schedules.
+	// If status changed to Completed, and the definition grants a competency, grant to attendees
+	if scheduleToUpdate.StatusName == "Completed" {
+		go grantCompetenciesForCompletedSchedule(scheduleToUpdate.CustomEventScheduleID)
+	}
+
+	// FIX: After updating, fetch and return the entire updated list of schedules.
     var allSchedules []models.CustomEventSchedule
 	if err := DB.Preload("CustomEventDefinition").Preload("Employees").Preload("Positions").Order("event_start_date asc").Find(&allSchedules).Error; err != nil {
         // The update succeeded, but we can't return the list.
@@ -388,4 +395,174 @@ func currentUserContext(c *gin.Context) (*gen_models.User, *gen_models.Employee,
 	if allowed, _ := role.UserHasRoleName(ext.User.ID, "HR"); allowed { isHR = true }
 
 	return ext.User, &ext.Employee, isAdmin, isHR, nil
+}
+
+// ===================== Attendance & Competency Granting =====================
+
+// AttendancePayload represents marking attendance for a schedule
+type AttendancePayload struct {
+	EmployeeNumbers []string        `json:"employeeNumbers"`
+	Attendance      map[string]bool `json:"attendance"` // optional map employeeNumber -> attended
+}
+
+// SetAttendanceHandler sets attendance for a schedule; Admin/HR only.
+func SetAttendanceHandler(c *gin.Context) {
+	scheduleIDStr := c.Param("scheduleID")
+	scheduleID, err := strconv.Atoi(scheduleIDStr)
+	if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID"}); return }
+
+	_, _, isAdmin, isHR, err := currentUserContext(c)
+	if err != nil { c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()}); return }
+	if !isAdmin && !isHR { c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"}); return }
+
+	var payload AttendancePayload
+	if err := c.ShouldBindJSON(&payload); err != nil { c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"}); return }
+
+	now := time.Now()
+	// Normalize list from either array or map keys
+	employeeSet := map[string]bool{}
+	for _, e := range payload.EmployeeNumbers { employeeSet[e] = true }
+	for e, attended := range payload.Attendance { if attended { employeeSet[e] = true } }
+
+	// Upsert attendance rows: set attended true for provided set, false for explicit false in map
+	for e := range employeeSet {
+		att := models.EventAttendance{ CustomEventScheduleID: scheduleID, EmployeeNumber: e, Attended: true, CheckInTime: &now }
+		// Upsert-like: delete existing, recreate to keep it simple on SQLite tests
+		_ = DB.Where("custom_event_schedule_id = ? AND employee_number = ?", scheduleID, e).Delete(&models.EventAttendance{})
+		_ = DB.Create(&att).Error
+	}
+	// explicit falses
+	for e, attended := range payload.Attendance {
+		if !attended {
+			// ensure a row exists with attended=false (optional)
+			_ = DB.Where("custom_event_schedule_id = ? AND employee_number = ?", scheduleID, e).Delete(&models.EventAttendance{})
+			att := models.EventAttendance{ CustomEventScheduleID: scheduleID, EmployeeNumber: e, Attended: false }
+			_ = DB.Create(&att).Error
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Attendance saved"})
+}
+
+// GetAttendanceHandler lists attendance records for a schedule.
+func GetAttendanceHandler(c *gin.Context) {
+	scheduleIDStr := c.Param("scheduleID")
+	scheduleID, err := strconv.Atoi(scheduleIDStr)
+	if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID"}); return }
+
+	var rows []models.EventAttendance
+	if err := DB.Where("custom_event_schedule_id = ?", scheduleID).Find(&rows).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch attendance"})
+		return
+	}
+	c.JSON(http.StatusOK, rows)
+}
+
+// GetAttendanceCandidates returns employees who are candidates to attend the schedule:
+// - explicitly linked employees, plus
+// - employees currently in targeted positions.
+func GetAttendanceCandidates(c *gin.Context) {
+	scheduleIDStr := c.Param("scheduleID")
+	scheduleID, err := strconv.Atoi(scheduleIDStr)
+	if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID"}); return }
+
+	// Load explicit employee links
+	var empLinks []models.EventScheduleEmployee
+	_ = DB.Where("custom_event_schedule_id = ?", scheduleID).Find(&empLinks).Error
+	empSet := map[string]struct{}{}
+	for _, l := range empLinks { empSet[l.EmployeeNumber] = struct{}{} }
+
+	// Load employees from position targets
+	var posTargets []models.EventSchedulePositionTarget
+	_ = DB.Where("custom_event_schedule_id = ?", scheduleID).Find(&posTargets).Error
+	for _, t := range posTargets {
+		rows := []struct{ EmployeeNumber string }{}
+		DB.Table("employment_history").
+			Select("employee_number").
+			Where("position_matrix_code = ? AND (end_date IS NULL OR end_date > NOW())", t.PositionMatrixCode).
+			Scan(&rows)
+		for _, r := range rows { empSet[r.EmployeeNumber] = struct{}{} }
+	}
+
+	// Fetch basic identity for the set
+	empNums := make([]string, 0, len(empSet))
+	for k := range empSet { empNums = append(empNums, k) }
+	type dto struct { EmployeeNumber string `json:"employeeNumber"`; Name string `json:"name"` }
+	var out []dto
+	if len(empNums) == 0 {
+		c.JSON(http.StatusOK, out)
+		return
+	}
+	DB.Table("employees e").
+		Select("e.employeeNumber, (e.firstName || ' ' || e.lastName) as name").
+		Where("e.employeeNumber IN ?", empNums).
+		Scan(&out)
+	c.JSON(http.StatusOK, out)
+}
+
+// grantCompetenciesForCompletedSchedule looks up any GrantsCertificateID for the schedule definition
+// and grants the competency to attended employees and to employees currently in targeted positions.
+func grantCompetenciesForCompletedSchedule(scheduleID int) {
+	// Load schedule with definition and targets
+	var schedule models.CustomEventSchedule
+	if err := DB.Preload("CustomEventDefinition").First(&schedule, scheduleID).Error; err != nil { return }
+	if schedule.CustomEventDefinition.GrantsCertificateID == nil { return }
+	compID := *schedule.CustomEventDefinition.GrantsCertificateID
+
+	// Build set of employee numbers from explicit attendance rows (attended=true) only
+	var attendance []models.EventAttendance
+	_ = DB.Where("custom_event_schedule_id = ? AND attended = ?", scheduleID, true).Find(&attendance).Error
+	empSet := map[string]struct{}{}
+	for _, a := range attendance { empSet[a.EmployeeNumber] = struct{}{} }
+
+	// Insert EmployeeCompetency for each employee if not already present for this schedule
+	for emp := range empSet {
+		// check existing record for this competency & schedule
+		var cnt int64
+		DB.Table("employee_competencies").Where("employee_number = ? AND competency_id = ? AND (granted_by_schedule_id = ? OR granted_by_schedule_id IS NULL)", emp, compID, scheduleID).Count(&cnt)
+		// grant new record
+		if cnt == 0 {
+			ec := models.EmployeeCompetency{EmployeeNumber: emp, CompetencyID: compID, AchievementDate: time.Now(), GrantedByScheduleID: &scheduleID}
+			_ = DB.Create(&ec).Error
+		}
+	}
+}
+
+// ===================== Utilities for UI (employees by positions, competency checks) =====================
+
+// GetEmployeesByPositions returns a list of employee numbers currently in any of the given position codes.
+// Query param: codes=A,B,C
+func GetEmployeesByPositions(c *gin.Context) {
+	codesParam := c.Query("codes")
+	if codesParam == "" { c.JSON(http.StatusBadRequest, gin.H{"error": "codes query parameter required"}); return }
+	codes := []string{}
+	for _, s := range strings.Split(codesParam, ",") { if t := strings.TrimSpace(s); t != "" { codes = append(codes, t) } }
+	if len(codes) == 0 { c.JSON(http.StatusOK, []string{}); return }
+	rows := []struct{ EmployeeNumber string }{}
+	DB.Table("employment_history").
+		Select("employee_number").
+		Where("position_matrix_code IN ? AND (end_date IS NULL OR end_date > NOW())", codes).
+		Group("employee_number").
+		Scan(&rows)
+	out := make([]string, 0, len(rows))
+	for _, r := range rows { out = append(out, r.EmployeeNumber) }
+	c.JSON(http.StatusOK, out)
+}
+
+type checkCompetencyReq struct { CompetencyID int `json:"competencyId"`; EmployeeNumbers []string `json:"employeeNumbers"` }
+// CheckEmployeesHaveCompetency returns a map of employeeNumber->bool indicating if the employee has the competency.
+func CheckEmployeesHaveCompetency(c *gin.Context) {
+	var req checkCompetencyReq
+	if err := c.ShouldBindJSON(&req); err != nil || req.CompetencyID == 0 { c.JSON(http.StatusBadRequest, gin.H{"error": "competencyId and employeeNumbers required"}); return }
+	if len(req.EmployeeNumbers) == 0 { c.JSON(http.StatusOK, gin.H{"result": map[string]bool{}}); return }
+	rows := []struct{ EmployeeNumber string }{}
+	DB.Table("employee_competencies").
+		Select("employee_number").
+		Where("competency_id = ? AND employee_number IN ?", req.CompetencyID, req.EmployeeNumbers).
+		Group("employee_number").
+		Scan(&rows)
+	m := map[string]bool{}
+	for _, e := range req.EmployeeNumbers { m[e] = false }
+	for _, r := range rows { m[r.EmployeeNumber] = true }
+	c.JSON(http.StatusOK, gin.H{"result": m})
 }
