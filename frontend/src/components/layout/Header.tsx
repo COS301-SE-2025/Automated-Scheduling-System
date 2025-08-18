@@ -23,7 +23,6 @@ const Header: React.FC<HeaderProps> = ({ pageTitle, children, actions = [] }) =>
                     </h1>
                 </div>
                 <div className="flex items-center space-x-2 sm:space-x-4 lg:space-x-6 flex-shrink-0">
-                    {children}
                     {actions.map((action) => (
                         <HeaderActionButton
                             key={action.label}
@@ -31,6 +30,7 @@ const Header: React.FC<HeaderProps> = ({ pageTitle, children, actions = [] }) =>
                             onClick={action.onClick}
                         />
                     ))}
+                    {children}
                 </div>
             </div>
         </header>

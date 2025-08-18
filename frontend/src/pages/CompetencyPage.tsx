@@ -286,7 +286,7 @@ const CompetencyPage: React.FC = () => {
     }
 
     return (
-        <MainLayout pageTitle="Competency Management">
+        <MainLayout pageTitle="Competency Management" helpText="Create and maintain competencies, manage types, link prerequisites, and map job position requirements.">
             <div className="px-4 sm:px-6 lg:px-8 py-8">
                 <div className="sm:flex sm:items-center">
                     <div className="sm:flex-auto">
