@@ -25,6 +25,9 @@ func setupTestDB() *gorm.DB {
 		&gen_models.Event{},
 		&gen_models.DbRule{},
 	)
+	if db == nil {
+		panic("failed to migrate database")
+	}
 
 	return db
 }
