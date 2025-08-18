@@ -10,7 +10,12 @@ import (
 func RegisterEventRoutes(r *gin.Engine) {
 	api := r.Group("/api")
 	{
-		api.GET("/event-schedules", GetEventSchedulesHandler)
+		// Protect schedules listing with auth and page permission
+		protectedList := api.Group("/")
+		protectedList.Use(auth.AuthMiddleware(), role.RequirePage("events"))
+		{
+			protectedList.GET("/event-schedules", GetEventSchedulesHandler)
+		}
 
 		protected := api.Group("/")
 		protected.Use(auth.AuthMiddleware())

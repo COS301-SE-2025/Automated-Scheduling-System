@@ -28,6 +28,8 @@ export interface BackendScheduledEvent {
     CreationDate: string;
     color: string;
     CustomEventDefinition: EventDefinition; // The nested definition object
+    Employees?: { employee_number: string; role?: string }[];
+    Positions?: { position_matrix_code: string }[];
 }
 
 export interface CalendarEvent extends EventInput {
@@ -42,7 +44,9 @@ export interface CalendarEvent extends EventInput {
         statusName: string;
         creationDate: string;
         facilitator?: string;
-        relevantParties?: string; // Added for consistency
+    relevantParties?: string; // Added for consistency
+    employees?: string[]; // employee numbers linked to this schedule
+    positions?: string[]; // position codes targeted by this schedule
         color: string;
     };
 }
@@ -57,6 +61,8 @@ export interface CreateSchedulePayload {
     minAttendees?: number;
     statusName?: string;
     color?: string;
+    employeeNumbers?: string[];
+    positionCodes?: string[];
 }
 
 // --- Event Definition API Calls ---
@@ -102,11 +108,23 @@ export const getScheduledEvents = async (): Promise<CalendarEvent[]> => {
             statusName: event.StatusName,
             creationDate: event.CreationDate,
             facilitator: event.CustomEventDefinition.Facilitator,
-            relevantParties: 'All', // Placeholder
+            relevantParties: buildRelevantParties(event),
+            employees: (event.Employees || []).map((e: any) => e.employee_number ?? e.EmployeeNumber),
+            positions: (event.Positions || []).map((p: any) => p.position_matrix_code ?? p.PositionMatrixCode),
             color: event.color,
         }
     }));
 };
+
+const buildRelevantParties = (event: BackendScheduledEvent): string => {
+    const empCount = event.Employees?.length ?? 0;
+    const posCount = event.Positions?.length ?? 0;
+    if (empCount === 0 && posCount === 0) return 'Unassigned';
+    const parts: string[] = [];
+    if (empCount > 0) parts.push(`${empCount} employee${empCount > 1 ? 's' : ''}`);
+    if (posCount > 0) parts.push(`${posCount} position${posCount > 1 ? 's' : ''}`);
+    return parts.join(', ');
+}
 
 export const createScheduledEvent = async (scheduleData: CreateSchedulePayload): Promise<any> => {
     return api('event-schedules', {
