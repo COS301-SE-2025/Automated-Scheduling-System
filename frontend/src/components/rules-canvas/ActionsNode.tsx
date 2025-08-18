@@ -2,12 +2,11 @@ import React from 'react';
 import { Handle, Position, type NodeProps, useReactFlow, type Connection } from 'reactflow';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import type { ActionsNodeData, ActionRow, ParamKV } from '../../types/rule.types';
-
-// stubbed until backend provides lists
-const ACTION_TYPES = ['SEND_NOTIFICATION', 'UPDATE_COMPLIANCE_STATUS', 'CREATE_TASK'];
+import { useRulesMetadata } from '../../contexts/RulesMetadataContext';
 
 const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
     const rf = useReactFlow();
+    const { actions, byAction } = useRulesMetadata();
 
     const update = (partial: Partial<ActionsNodeData>) => {
         const edges = rf.getEdges?.() ?? [];
@@ -39,6 +38,12 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
         update({ actions: next });
     };
 
+    const setActionType = (idx: number, type: string) => {
+        const meta = byAction.get(type);
+        const params: ParamKV[] = meta ? meta.parameters.map((p) => ({ key: p.name, value: '' })) : [];
+        setAction(idx, { type, parameters: params });
+    };
+
     const addAction = () => update({ actions: [...data.actions, { type: '', parameters: [] }] });
     const removeAction = (idx: number) => update({ actions: data.actions.filter((_, i) => i !== idx) });
 
@@ -50,14 +55,12 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
         });
         update({ actions: next });
     };
-
     const addParam = (aIdx: number) => {
         const next = data.actions.map((a, i) =>
             i === aIdx ? { ...a, parameters: [...a.parameters, { key: '', value: '' }] } : a
         );
         update({ actions: next });
     };
-
     const removeParam = (aIdx: number, pIdx: number) => {
         const next = data.actions.map((a, i) =>
             i === aIdx ? { ...a, parameters: a.parameters.filter((_, j) => j !== pIdx) } : a
@@ -192,59 +195,71 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                 </div>
 
                 <div className="space-y-3">
-                    {data.actions.map((a, aIdx) => (
-                        <div key={aIdx} className="border rounded p-2">
-                            <div className="flex items-center gap-2 mb-2">
-                                <label className="text-sm text-gray-700">Type</label>
-                                <select
-                                    className="flex-1 border rounded px-2 py-1 bg-white text-gray-800"
-                                    value={a.type}
-                                    onChange={(e) => setAction(aIdx, { type: e.target.value })}
-                                >
-                                    <option value="">Select action...</option>
-                                    {ACTION_TYPES.map((t) => (
-                                        <option key={t} value={t}>{t}</option>
-                                    ))}
-                                </select>
-                                <button className="px-2 border rounded text-xs" onClick={() => removeAction(aIdx)} type="button" aria-label="Remove action">
-                                    ×
-                                </button>
-                            </div>
-
-                            <div>
-                                <div className="flex items-center justify-between mb-1">
-                                    <span className="text-sm font-semibold">Parameters</span>
-                                    <button className="text-xs px-2 py-0.5 border rounded" onClick={() => addParam(aIdx)} type="button">
-                                        + Add
+                    {data.actions.map((a, aIdx) => {
+                        const meta = byAction.get(a.type);
+                        const metaParamMap = new Map((meta?.parameters || []).map((p) => [p.name, p]));
+                        return (
+                            <div key={aIdx} className="border rounded p-2">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <label className="text-sm text-gray-700">Type</label>
+                                    <select
+                                        className="flex-1 border rounded px-2 py-1 bg-white text-gray-800"
+                                        value={a.type}
+                                        onChange={(e) => setActionType(aIdx, e.target.value)}
+                                    >
+                                        <option value="">Select action...</option>
+                                        {actions.map((t) => (
+                                            <option key={t.type} value={t.type}>{t.name || t.type}</option>
+                                        ))}
+                                    </select>
+                                    <button className="px-2 border rounded text-xs" onClick={() => removeAction(aIdx)} type="button" aria-label="Remove action">
+                                        ×
                                     </button>
                                 </div>
-                                <div className="space-y-1">
-                                    {a.parameters.map((p, pIdx) => (
-                                        <div key={pIdx} className="flex gap-1">
-                                            <input
-                                                className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
-                                                placeholder="key"
-                                                value={p.key}
-                                                onChange={(e) => setParam(aIdx, pIdx, { key: e.target.value })}
-                                            />
-                                            <input
-                                                className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
-                                                placeholder="value"
-                                                value={p.value}
-                                                onChange={(e) => setParam(aIdx, pIdx, { value: e.target.value })}
-                                            />
-                                            <button className="px-2 border rounded text-xs" onClick={() => removeParam(aIdx, pIdx)} type="button" aria-label="Remove parameter">
-                                                ×
-                                            </button>
-                                        </div>
-                                    ))}
-                                    {a.parameters.length === 0 && (
-                                        <p className="text-xs text-gray-400 text-center">No parameters</p>
-                                    )}
+
+                                <div>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <span className="text-sm font-semibold">Parameters</span>
+                                        <button className="text-xs px-2 py-0.5 border rounded" onClick={() => addParam(aIdx)} type="button" title="Add extra parameter">
+                                            + Add
+                                        </button>
+                                    </div>
+                                    <div className="space-y-1">
+                                        {a.parameters.map((p, pIdx) => {
+                                            const def = metaParamMap.get(p.key);
+                                            const required = def?.required;
+                                            return (
+                                                <div key={`${p.key}-${pIdx}`} className="flex gap-1 items-center">
+                                                    <input
+                                                        className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800 disabled:bg-gray-100"
+                                                        placeholder="key"
+                                                        value={p.key}
+                                                        onChange={(e) => setParam(aIdx, pIdx, { key: e.target.value })}
+                                                        disabled={!!def}
+                                                        title={def ? 'Defined by action metadata' : 'Custom parameter key'}
+                                                    />
+                                                    {valueInput(def?.type, p.value, (v) => setParam(aIdx, pIdx, { value: v }))}
+                                                    <button
+                                                        className="px-2 border rounded text-xs disabled:opacity-50"
+                                                        onClick={() => removeParam(aIdx, pIdx)}
+                                                        type="button"
+                                                        aria-label="Remove parameter"
+                                                        disabled={!!required}
+                                                        title={required ? 'Required by metadata' : 'Remove parameter'}
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                        {a.parameters.length === 0 && (
+                                            <p className="text-xs text-gray-400 text-center">No parameters</p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                     {data.actions.length === 0 && (
                         <p className="text-xs text-gray-400 text-center">No actions</p>
                     )}
