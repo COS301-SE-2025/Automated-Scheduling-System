@@ -272,3 +272,26 @@ func GetMyPermissionsHandler(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, result)
 }
+
+// UserHasRoleName checks if the user has a role by name via user_has_role mapping or legacy users.role
+func UserHasRoleName(userID int64, roleName string) (bool, error) {
+	// Check mapping
+	type cnt struct{ C int64 }
+	var c cnt
+	err := DB.Raw(`
+		SELECT COUNT(*) AS c
+		FROM user_has_role uhr
+		JOIN roles r ON r.role_id = uhr.role_id
+		WHERE uhr.user_id = ? AND r.role_name = ?
+	`, userID, roleName).Scan(&c).Error
+	if err != nil {
+		return false, err
+	}
+	if c.C > 0 { return true, nil }
+	// Fallback to legacy users table
+	var u gen_models.User
+	if err := DB.First(&u, userID).Error; err == nil && u.Role == roleName {
+		return true, nil
+	}
+	return false, nil
+}

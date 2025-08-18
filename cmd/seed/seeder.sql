@@ -122,7 +122,24 @@ CREATE TABLE custom_event_schedules (
     minimum_attendees INT,
     status_name VARCHAR(50) DEFAULT 'Scheduled', -- e.g., 'Scheduled', 'Cancelled', 'Full'
     color VARCHAR(7) DEFAULT '#3788d8',
-    creation_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    creation_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    created_by_user_id BIGINT NOT NULL REFERENCES users(id)
+);
+
+-- Link scheduled events to employees and job positions
+CREATE TABLE IF NOT EXISTS event_schedule_employees (
+    schedule_employee_id BIGSERIAL PRIMARY KEY,
+    custom_event_schedule_id INT NOT NULL REFERENCES custom_event_schedules(custom_event_schedule_id) ON DELETE CASCADE,
+    employee_number VARCHAR(200) NOT NULL REFERENCES employee(EmployeeNumber) ON DELETE CASCADE,
+    role VARCHAR(50) DEFAULT 'Attendee',
+    UNIQUE(custom_event_schedule_id, employee_number)
+);
+
+CREATE TABLE IF NOT EXISTS event_schedule_position_targets (
+    schedule_position_id BIGSERIAL PRIMARY KEY,
+    custom_event_schedule_id INT NOT NULL REFERENCES custom_event_schedules(custom_event_schedule_id) ON DELETE CASCADE,
+    position_matrix_code VARCHAR(100) NOT NULL REFERENCES job_positions(position_matrix_code) ON DELETE CASCADE,
+    UNIQUE(custom_event_schedule_id, position_matrix_code)
 );
 
 -- This table tracks which employee has which certification.
@@ -180,8 +197,9 @@ CREATE TABLE user_has_role (
 
 -- Seed default roles mirroring legacy roles
 INSERT INTO roles (role_name, description) VALUES
-('Admin', 'Built-in admin with full access'),
-('User', 'Default user');
+('Admin', 'Built-in admin with full access') ON CONFLICT DO NOTHING;
+INSERT INTO roles (role_name, description) VALUES ('User', 'Default user') ON CONFLICT DO NOTHING;
+INSERT INTO roles (role_name, description) VALUES ('HR', 'Human Resources role with scheduling privileges') ON CONFLICT DO NOTHING;
 
 -- Admin gets all pages
 INSERT INTO role_permissions (role_id, page)
@@ -196,6 +214,13 @@ SELECT r.role_id, p.page FROM roles r, (VALUES
  ('dashboard'), ('calendar'), ('events'), ('main-help')
 ) AS p(page)
 WHERE r.role_name = 'User';
+
+-- HR role permissions
+INSERT INTO role_permissions (role_id, page)
+SELECT r.role_id, p.page FROM roles r, (VALUES
+ ('dashboard'), ('calendar'), ('events'), ('event-definitions'), ('competencies'), ('main-help')
+) AS p(page)
+WHERE r.role_name = 'HR';
 
 -- Link seeded users to roles
 INSERT INTO user_has_role (user_id, role_id)
