@@ -6,6 +6,10 @@ import * as eventService from '../../services/eventService';
 import MessageBox from './MessageBox';
 import { HexColorPicker } from 'react-colorful';
 import Button from './Button';
+import { useAuth } from '../../hooks/useAuth';
+import { getAllUsers } from '../../services/userService';
+import { getAllJobPositions, type JobPosition } from '../../services/jobPositionService';
+import type { User } from '../../types/user';
 
 const scheduleSchema = z.object({
     title: z.string().min(1, "Title is required."),
@@ -17,6 +21,8 @@ const scheduleSchema = z.object({
     minimumAttendees: z.number().optional().nullable(),
     statusName: z.string().optional(),
     color: z.string().optional(),
+    employeeNumbers: z.array(z.string()).optional(),
+    positionCodes: z.array(z.string()).optional(),
 }).refine(data => new Date(data.start) < new Date(data.end), {
     message: "End date must be after start date.",
     path: ["end"],
@@ -50,6 +56,8 @@ export interface EventFormModalProps {
         minimumAttendees?: number;
         statusName?: string;
         color?: string;
+    employeeNumbers?: string[];
+    positionCodes?: string[];
     };
     eventDefinitions: eventService.EventDefinition[];
     onNeedDefinition: () => void;
@@ -59,11 +67,17 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
     const [apiError, setApiError] = useState<string | null>(null);
     const isEditMode = !!initialData?.id;
     const [showColorPicker, setShowColorPicker] = useState(false);
+    const auth = useAuth();
+    const isElevated = auth.permissions?.includes('events') && (auth.user?.role === 'Admin' || auth.user?.role === 'HR');
+    const [users, setUsers] = useState<User[]>([]);
+    const [positions, setPositions] = useState<JobPosition[]>([]);
 
     const { register, handleSubmit, reset, control, formState: { errors, isSubmitting } } = useForm<ScheduleFormData>({
         resolver: zodResolver(scheduleSchema),
         defaultValues: {
-            color: '#3788d8' // Default color
+            color: '#3788d8', // Default color
+            employeeNumbers: [],
+            positionCodes: [],
         }
     });
 
@@ -83,6 +97,8 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                     minimumAttendees: initialData.minimumAttendees || 0,
                     statusName: initialData.statusName || 'Scheduled',
                     color: initialData.color || '#3788d8',
+                    employeeNumbers: initialData.employeeNumbers || [],
+                    positionCodes: initialData.positionCodes || [],
                 });
             } else {
                 // In add mode, use defaults
@@ -96,11 +112,32 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                     minimumAttendees: 0,
                     statusName: 'Scheduled',
                     color: '#3788d8',
+                    employeeNumbers: [],
+                    positionCodes: [],
                 });
             }
             setApiError(null);
         }
     }, [isOpen, showNoDefinitionsMessage, initialData, isEditMode, reset]);
+
+    useEffect(() => {
+        if (!isOpen || !isElevated) return;
+        let active = true;
+        (async () => {
+            try {
+                const [u, p] = await Promise.all([
+                    getAllUsers(),
+                    getAllJobPositions(),
+                ]);
+                if (!active) return;
+                setUsers(u);
+                setPositions(p.filter(x => x.isActive));
+            } catch (e) {
+                // non-fatal
+            }
+        })();
+        return () => { active = false; };
+    }, [isOpen, isElevated]);
 
     const onSubmit = async (data: ScheduleFormData) => {
         setApiError(null);
@@ -148,6 +185,61 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                             <input id="title" {...register('title')} className="w-full p-2 border rounded-md dark:bg-dark-input" placeholder="e.g., Q3 All-Hands Meeting" />
                             {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title.message}</p>}
                         </div>
+
+                        {isElevated && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label htmlFor="employeeNumbers" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Employees (optional)</label>
+                                    <Controller
+                                        name="employeeNumbers"
+                                        control={control}
+                                        render={({ field }) => (
+                                            <select
+                                                id="employeeNumbers"
+                                                multiple
+                                                value={field.value || []}
+                                                onChange={(e) => {
+                                                    const options = Array.from(e.target.selectedOptions).map(o => o.value);
+                                                    field.onChange(options);
+                                                }}
+                                                className="w-full p-2 border rounded-md dark:bg-dark-input min-h-24"
+                                            >
+                                                {users.map(u => (
+                                                    <option key={u.id} value={u.employeeNumber}>
+                                                        {u.name} ({u.employeeNumber})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="positionCodes" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Job Positions (optional)</label>
+                                    <Controller
+                                        name="positionCodes"
+                                        control={control}
+                                        render={({ field }) => (
+                                            <select
+                                                id="positionCodes"
+                                                multiple
+                                                value={field.value || []}
+                                                onChange={(e) => {
+                                                    const options = Array.from(e.target.selectedOptions).map(o => o.value);
+                                                    field.onChange(options);
+                                                }}
+                                                className="w-full p-2 border rounded-md dark:bg-dark-input min-h-24"
+                                            >
+                                                {positions.map(p => (
+                                                    <option key={p.positionMatrixCode} value={p.positionMatrixCode}>
+                                                        {p.jobTitle} ({p.positionMatrixCode})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        )}
+                                    />
+                                </div>
+                            </div>
+                        )}
 
                         <div>
                             <label htmlFor="customEventId" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Event Type</label>

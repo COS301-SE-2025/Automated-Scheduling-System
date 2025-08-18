@@ -36,6 +36,10 @@ type CustomEventSchedule struct {
 	Color                 string    `json:"color"`
 	CreationDate          time.Time `gorm:"autoCreateTime"`
 	CustomEventDefinition CustomEventDefinition `gorm:"foreignKey:CustomEventID;references:CustomEventID"`
+	CreatedByUserID       int64
+	// Associations
+	Employees             []EventScheduleEmployee        `gorm:"foreignKey:CustomEventScheduleID"`
+	Positions             []EventSchedulePositionTarget  `gorm:"foreignKey:CustomEventScheduleID"`
 }
 
 // =====================================================================
@@ -62,6 +66,8 @@ type CreateEventScheduleRequest struct {
 	MinimumAttendees int       `json:"minAttendees"`
 	StatusName       string    `json:"statusName"`
 	Color            string    `json:"color"`
+	EmployeeNumbers  []string  `json:"employeeNumbers"`
+	PositionCodes    []string  `json:"positionCodes"`
 }
 
 // JSON structure for returning a scheduled event to the front-end
@@ -75,3 +81,21 @@ type EventScheduleResponse struct {
 	Status      string    `json:"status,omitempty"`
 	AllDay      bool      `json:"allDay"` // Logic to be implemented if needed
 }
+
+// Linking tables for schedule targets
+type EventScheduleEmployee struct {
+	ScheduleEmployeeID     int    `gorm:"primaryKey;autoIncrement"`
+	CustomEventScheduleID  int    `gorm:"column:custom_event_schedule_id"`
+	EmployeeNumber         string `gorm:"column:employee_number"`
+	Role                   string `gorm:"column:role"`
+}
+
+func (EventScheduleEmployee) TableName() string { return "event_schedule_employees" }
+
+type EventSchedulePositionTarget struct {
+	SchedulePositionID     int    `gorm:"primaryKey;autoIncrement"`
+	CustomEventScheduleID  int    `gorm:"column:custom_event_schedule_id"`
+	PositionMatrixCode     string `gorm:"column:position_matrix_code"`
+}
+
+func (EventSchedulePositionTarget) TableName() string { return "event_schedule_position_targets" }

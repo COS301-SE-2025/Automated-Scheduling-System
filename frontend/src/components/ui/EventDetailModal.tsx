@@ -1,6 +1,7 @@
 import React from 'react';
 import type { EventClickArg } from '@fullcalendar/core';
 import Button from './Button';
+import { useAuth } from '../../hooks/useAuth';
 
 export interface EventDetailModalProps {
     isOpen: boolean;
@@ -25,6 +26,8 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
             year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
         });
     };
+    const auth = useAuth();
+    const canManage = !!(auth.permissions?.includes('events') && (auth.user?.role === 'Admin' || auth.user?.role === 'HR'));
 
     const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
         <div>
@@ -46,15 +49,26 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
                     <DetailItem label="Status" value={extendedProps.statusName} />
                     <DetailItem label="Max Attendees" value={extendedProps.maxAttendees} />
                     <DetailItem label="Min Attendees" value={extendedProps.minAttendees} />
+                    <DetailItem label="Targets" value={extendedProps.relevantParties || 'Unassigned'} />
+                    {extendedProps.employees && extendedProps.employees.length > 0 && (
+                        <DetailItem label="Employees" value={extendedProps.employees.join(', ')} />
+                    )}
+                    {extendedProps.positions && extendedProps.positions.length > 0 && (
+                        <DetailItem label="Positions" value={extendedProps.positions.join(', ')} />
+                    )}
                     <DetailItem label="Created On" value={formatDateTime(new Date(extendedProps.creationDate))} />
                 </div>
                 <div className="mt-6 flex justify-end space-x-3">
-                    <Button onClick={() => onEdit(event)} variant="outline">
-                        Edit
-                    </Button>
-                    <Button onClick={() => onDelete(event)} variant="danger">
-                        Delete
-                    </Button>
+                    {canManage && (
+                        <>
+                            <Button onClick={() => onEdit(event)} variant="outline">
+                                Edit
+                            </Button>
+                            <Button onClick={() => onDelete(event)} variant="danger">
+                                Delete
+                            </Button>
+                        </>
+                    )}
                     <Button onClick={onClose} variant="primary">
                         Close
                     </Button>

@@ -20,7 +20,8 @@ type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
 type SelectedInfoType = DateSelectArg | DateClickArg | (EventClickArg['event'] & { eventType?: string; relevantParties?: string });
 
 const CalendarPage: React.FC = () => {
-    const { permissions } = useAuth();
+    const { permissions, user } = useAuth();
+    const isElevated = !!(permissions?.includes('events') && (user?.role === 'Admin' || user?.role === 'HR'));
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDefinitionModalOpen, setIsDefinitionModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -198,7 +199,7 @@ const CalendarPage: React.FC = () => {
 
     const handleSaveEvent = async (eventData: EventSaveData) => {
         try {
-            const scheduleData: eventService.CreateSchedulePayload = {
+            const baseData: eventService.CreateSchedulePayload = {
                 title: eventData.title,
                 customEventId: eventData.customEventId,
                 start: new Date(eventData.start).toISOString(),
@@ -209,6 +210,14 @@ const CalendarPage: React.FC = () => {
                 statusName: eventData.statusName,
                 color: eventData.color,
             };
+
+            const scheduleData: eventService.CreateSchedulePayload = isElevated
+                ? {
+                    ...baseData,
+                    employeeNumbers: (eventData as any).employeeNumbers,
+                    positionCodes: (eventData as any).positionCodes,
+                }
+                : baseData;
 
             if (eventData.id) {
                 await eventService.updateScheduledEvent(Number(eventData.id), scheduleData);
@@ -249,6 +258,8 @@ const CalendarPage: React.FC = () => {
                 minimumAttendees: eventToEdit.extendedProps.minAttendees,
                 statusName: eventToEdit.extendedProps.statusName,
                 color: eventToEdit.extendedProps.color,
+                employeeNumbers: eventToEdit.extendedProps.employees || [],
+                positionCodes: eventToEdit.extendedProps.positions || [],
             };
         }
         
