@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useReactFlow } from 'reactflow';
 import { FileText, Zap, Filter, PlayCircle, GripVertical } from 'lucide-react';
+import { loadRuleLibrary, type StoredRuleRecord } from '../../utils/canvasStorage';
 
 const palette: Record<string, { bar: string; ring: string }> = {
     rule: { bar: 'bg-blue-300', ring: 'hover:ring-blue-200/60' },
@@ -45,31 +46,51 @@ const ToolboxItem = ({ type, label }: { type: ItemType; label: string }) => {
     );
 };
 
-const Toolbox: React.FC<{ onReset?: () => void }> = ({ onReset }) => {
+const Toolbox: React.FC = () => {
     const rf = useReactFlow();
+    const [rules, setRules] = useState<StoredRuleRecord[]>([]);
 
-    const resetCanvas = () => {
-        if (window.confirm('Reset the canvas?')) {
-            rf.setNodes([]);
-            rf.setEdges([]);
-            onReset?.();
-        }
+    useEffect(() => {
+        const refresh = () => setRules(loadRuleLibrary());
+        refresh();
+        const onSaved = () => refresh();
+        const onDeleted = () => refresh();
+        window.addEventListener('rule:saved', onSaved as any);
+        window.addEventListener('rule:delete-confirmed', onDeleted as any);
+        return () => {
+            window.removeEventListener('rule:saved', onSaved as any);
+            window.removeEventListener('rule:delete-confirmed', onDeleted as any);
+        };
+    }, []);
+
+    const gotoRule = (ruleId: string) => {
+        if (!ruleId) return;
+        const n = rf.getNode(ruleId);
+        if (!n) return;
+        const x = (n.positionAbsolute?.x ?? n.position.x) + (n.width ?? 150) / 2;
+        const y = (n.positionAbsolute?.y ?? n.position.y) + (n.height ?? 60) / 2;
+        rf.setCenter(x, y, { duration: 400 });
     };
 
     return (
         <aside className="w-full flex-none border-2 border-gray-300 dark:border-gray-600 bg-white/90 dark:bg-dark-input/90 backdrop-blur-sm">
             <div className="px-3 sm:px-4 py-3">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 gap-3">
                     <h2 className="text-lg sm:text-xl font-bold text-custom-secondary">Toolbox</h2>
-                    <button
-                        type="button"
-                        onClick={resetCanvas}
-                        title="Reset canvas"
-                        className="px-3 py-1 text-xs border rounded bg-gradient-to-r from-custom-secondary/10 to-custom-third/10
-                                   hover:from-custom-secondary/20 hover:to-custom-third/20 text-custom-secondary"
-                    >
-                        Reset canvas
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <select
+                            className="min-w-[220px] px-2 py-1 text-xs border rounded bg-white text-custom-primary
+                                       dark:bg-dark-input dark:text-dark-primary dark:border-gray-700"
+                            onChange={(e) => gotoRule(e.target.value)}
+                            defaultValue=""
+                            title="Jump to saved rule"
+                        >
+                            <option value="" disabled>Jump to rule…</option>
+                            {rules.map((r) => (
+                                <option key={r.id} value={r.id}>{r.name}</option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
 
                 <div className="flex flex-wrap justify-center gap-3">
