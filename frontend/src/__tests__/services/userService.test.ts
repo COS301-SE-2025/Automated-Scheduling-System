@@ -46,7 +46,7 @@ describe('User Service', () => {
         it('should fetch all users successfully', async () => {
             mockApi.mockResolvedValue(mockUsers);
             const result = await getAllUsers();
-            expect(mockApi).toHaveBeenCalledWith('api/users', { method: 'GET' });
+            expect(mockApi).toHaveBeenCalledWith('users', { method: 'GET' });
             expect(result).toEqual(mockUsers);
         });
 
@@ -74,7 +74,7 @@ describe('User Service', () => {
 
             const result = await addUser(newUserData);
 
-            expect(mockApi).toHaveBeenCalledWith('api/users', { method: 'POST', data: newUserData });
+            expect(mockApi).toHaveBeenCalledWith('users', { method: 'POST', data: newUserData });
             expect(result).toEqual(createdUser);
         });
 
@@ -94,7 +94,7 @@ describe('User Service', () => {
 
             const result = await updateUser(userId, updates);
 
-            expect(mockApi).toHaveBeenCalledWith(`api/users/${userId}`, { method: 'PATCH', data: updates });
+            expect(mockApi).toHaveBeenCalledWith(`users/${userId}`, { method: 'PATCH', data: updates });
             expect(result).toEqual(updatedUser);
         });
 
