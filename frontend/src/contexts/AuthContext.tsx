@@ -1,16 +1,16 @@
 import React, { useReducer, type ReactNode, useEffect, useCallback } from 'react';
-import { AuthContext, type AuthContextType } from './AuthContextDefinition'; 
+import { AuthContext, type AuthContextType } from './AuthContextDefinition';
 import * as authService from '../services/auth';
-import { saveToken, removeToken, saveUser, removeUser, getToken, savePermissions, getPermissions, removePermissions } from '../utils/localStorage';
+import { saveToken, removeToken, saveUser, removeUser, getToken, savePermissions, getPermissions, removePermissions, getUser } from '../utils/localStorage';
 import type {
     AuthState,
     AuthAction,
-    
+
     LoginFormData,
     SignupFormData,
 } from '../types/auth.types';
-import { ApiError } from '../services/api'; 
-import type {User} from '../types/user'
+import { ApiError } from '../services/api';
+import type { User } from '../types/user'
 
 const initialState: AuthState = {
     isAuthenticated: false,
@@ -84,9 +84,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const initializeAuth = useCallback(async () => {
         dispatch({ type: 'INIT_AUTH' });
-    const storedToken = getToken();
+        const storedToken = getToken();
+        const storedUser = getUser();
+        const storedPerms = getPermissions();
+
         let userToSet: User | null = null;
         let tokenToSet: string | null = null;
+
+        if (storedPerms) {
+            dispatch({ type: 'SET_PERMISSIONS', payload: storedPerms });
+        }
 
         if (storedToken) {
             try {
@@ -94,20 +101,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 userToSet = profile;
                 tokenToSet = storedToken;
                 saveUser(userToSet);
-                const storedPerms = getPermissions();
-                if (storedPerms) {
-                    dispatch({ type: 'SET_PERMISSIONS', payload: storedPerms });
-                }
-                authService.fetchMyPermissions()
-                    .then(perms => { savePermissions(perms); dispatch({ type: 'SET_PERMISSIONS', payload: perms }); })
+                authService
+                    .fetchMyPermissions()
+                    .then((perms) => {
+                        savePermissions(perms);
+                        dispatch({ type: 'SET_PERMISSIONS', payload: perms });
+                    })
                     .catch(() => dispatch({ type: 'SET_PERMISSIONS', payload: [] }));
             } catch (error) {
-                console.warn('Token validation failed on init:', error);
-                removeToken();
-                removeUser();
-                removePermissions();
+                // Only clear auth on explicit 401/Unauthorized; keep session for transient/server errors
+                if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+                    console.warn('Token invalid on init; clearing session. Details:', error);
+                    removeToken();
+                    removeUser();
+                    removePermissions();
+                    userToSet = null;
+                    tokenToSet = null;
+                } else {
+                    console.warn('Profile fetch failed on init but keeping stored session (non-auth error):', error);
+                    userToSet = storedUser ?? null;
+                    tokenToSet = storedToken;
+                    // permissions already set from storage if any
+                }
             }
         }
+
         dispatch({
             type: 'SET_USER_FROM_STORAGE',
             payload: { user: userToSet, token: tokenToSet },
@@ -121,11 +139,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const login = async (credentials: LoginFormData) => {
         dispatch({ type: 'AUTH_REQUEST' });
         try {
-            // const { token } = await authService.login(credentials);
-            // saveToken(token);
-            // const user = await authService.fetchUserProfile();
-            // saveUser(user);
-            // const payload: AuthSuccessPayload = { user, token };
             const payload = await authService.login(credentials);
             saveToken(payload.token);
             saveUser(payload.user);
@@ -215,4 +228,3 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         </AuthContext.Provider>
     );
 };
-

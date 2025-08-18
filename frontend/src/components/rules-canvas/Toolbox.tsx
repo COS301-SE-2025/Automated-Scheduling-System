@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useReactFlow } from 'reactflow';
 import { FileText, Zap, Filter, PlayCircle, GripVertical } from 'lucide-react';
-import { loadRuleLibrary, type StoredRuleRecord } from '../../utils/canvasStorage';
+import { listRuleRecords } from '../../services/ruleService';
 
 const palette: Record<string, { bar: string; ring: string }> = {
     rule: { bar: 'bg-blue-300', ring: 'hover:ring-blue-200/60' },
@@ -46,12 +46,31 @@ const ToolboxItem = ({ type, label }: { type: ItemType; label: string }) => {
     );
 };
 
+type JumpItem = { id: string | number; name: string; canvasRuleId: string };
+
 const Toolbox: React.FC = () => {
     const rf = useReactFlow();
-    const [rules, setRules] = useState<StoredRuleRecord[]>([]);
+    const [rules, setRules] = useState<JumpItem[]>([]);
 
     useEffect(() => {
-        const refresh = () => setRules(loadRuleLibrary());
+        const refresh = async () => {
+            try {
+                const recs = await listRuleRecords();
+                const items: JumpItem[] = [];
+                for (const r of recs) {
+                    const ui = (r.spec as any)?._ui;
+                    if (!ui?.nodes) continue;
+                    // pick the rule id from _ui.nodes (the one with type 'rule')
+                    const entry = Object.entries<any>(ui.nodes).find(([, v]) => v.type === 'rule');
+                    if (!entry) continue;
+                    const [canvasRuleId] = entry;
+                    items.push({ id: r.id, name: r.name, canvasRuleId });
+                }
+                setRules(items);
+            } catch {
+                setRules([]);
+            }
+        };
         refresh();
         const onSaved = () => refresh();
         const onDeleted = () => refresh();
@@ -63,9 +82,9 @@ const Toolbox: React.FC = () => {
         };
     }, []);
 
-    const gotoRule = (ruleId: string) => {
-        if (!ruleId) return;
-        const n = rf.getNode(ruleId);
+    const gotoRule = (canvasRuleId: string) => {
+        if (!canvasRuleId) return;
+        const n = rf.getNode(canvasRuleId);
         if (!n) return;
         const x = (n.positionAbsolute?.x ?? n.position.x) + (n.width ?? 150) / 2;
         const y = (n.positionAbsolute?.y ?? n.position.y) + (n.height ?? 60) / 2;
@@ -86,9 +105,7 @@ const Toolbox: React.FC = () => {
                             title="Jump to saved rule"
                         >
                             <option value="" disabled>Jump to rule…</option>
-                            {rules.map((r) => (
-                                <option key={r.id} value={r.id}>{r.name}</option>
-                            ))}
+                            {rules.map(r => <option key={r.id} value={r.canvasRuleId}>{r.name}</option>)}
                         </select>
                     </div>
                 </div>

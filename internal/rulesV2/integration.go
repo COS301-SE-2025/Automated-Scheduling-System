@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 
-	"Automated-Scheduling-Project/internal/database/gen_models"
+	// swap to your models.Rule (rules table)
+	"Automated-Scheduling-Project/internal/database/models"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -39,6 +42,11 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 		R:                       registry,
 		ContinueActionsOnError:  true,
 		StopOnFirstConditionErr: false,
+	}
+
+	// ensure rules table exists
+	if err := db.AutoMigrate(&models.Rule{}); err != nil {
+		panic(err)
 	}
 
 	store := &DbRuleStore{DB: db}
@@ -81,193 +89,190 @@ func (s *RuleBackEndService) RunScheduledChecks(ctx context.Context) error {
 
 // CreateSampleRules creates some example rules for demonstration
 func (s *RuleBackEndService) CreateSampleRules(ctx context.Context) error {
-	sampleRules := []Rulev2{
-		{
-			Name: "Notify Manager on Critical Competency Gap",
-			Trigger: TriggerSpec{
-				Type: "job_matrix_update",
-			},
-			Conditions: []Condition{
-				{
-					Fact:     "employee.Employeestatus",
-					Operator: "equals",
-					Value:    "Active",
-				},
-			},
-			Actions: []ActionSpec{
-				{
-					Type: "notification",
-					Parameters: map[string]any{
-						"recipient": "manager@company.com",
-						"subject":   "Critical Competency Gap Identified",
-						"message":   "Employee needs training",
-					},
-				},
-			},
-		},
-	}
+	// sampleRules := []Rulev2{
+	// 	{
+	// 		Name: "Notify Manager on Critical Competency Gap",
+	// 		Trigger: TriggerSpec{
+	// 			Type: "job_matrix_update",
+	// 		},
+	// 		Conditions: []Condition{
+	// 			{
+	// 				Fact:     "employee.Employeestatus",
+	// 				Operator: "equals",
+	// 				Value:    "Active",
+	// 			},
+	// 		},
+	// 		Actions: []ActionSpec{
+	// 			{
+	// 				Type: "notification",
+	// 				Parameters: map[string]any{
+	// 					"recipient": "manager@company.com",
+	// 					"subject":   "Critical Competency Gap Identified",
+	// 					"message":   "Employee needs training",
+	// 				},
+	// 			},
+	// 		},
+	// 	},
+	// }
 
-	// Convert to database storage format and save
-	for i, rule := range sampleRules {
-		ruleData, err := json.Marshal(rule)
-		if err != nil {
-			return fmt.Errorf("failed to marshal rule %s: %w", rule.Name, err)
-		}
-
-		dbRule := gen_models.DbRule{
-			ID:      fmt.Sprintf("rule_%d", i+1),
-			Type:    rule.Trigger.Type,
-			Enabled: true,
-			Body:    string(ruleData),
-		}
-
-		if err := s.DB.Create(&dbRule).Error; err != nil {
-			log.Printf("Failed to create rule %s: %v", rule.Name, err)
-		} else {
-			log.Printf("Created sample rule: %s", rule.Name)
-		}
-	}
+	// // Save into rules table (models.Rule)
+	// for _, rule := range sampleRules {
+	// 	body, err := json.Marshal(rule)
+	// 	if err != nil {
+	// 		return fmt.Errorf("failed to marshal rule %s: %w", rule.Name, err)
+	// 	}
+	// 	row := models.Rule{
+	// 		Name:        rule.Name,
+	// 		TriggerType: rule.Trigger.Type,
+	// 		Spec:        datatypes.JSON(body),
+	// 		Enabled:     true,
+	// 	}
+	// 	if err := s.DB.Create(&row).Error; err != nil {
+	// 		log.Printf("Failed to create rule %s: %v", rule.Name, err)
+	// 	} else {
+	// 		log.Printf("Created sample rule: %s (id=%d)", rule.Name, row.ID)
+	// 	}
+	// }
 
 	return nil
 }
 
-// DbRuleStore implements RuleStore interface for database persistence
+// DbRuleStore implements RuleStore interface for database persistence (uses models.Rule -> table "rules")
 type DbRuleStore struct {
 	DB *gorm.DB
 }
 
 func (s *DbRuleStore) ListByTrigger(ctx context.Context, triggerType string) ([]Rulev2, error) {
-	var dbRules []gen_models.DbRule
-	err := s.DB.Where("type = ? AND enabled = ?", triggerType, true).Find(&dbRules).Error
-	if err != nil {
+	var rows []models.Rule
+	if err := s.DB.WithContext(ctx).
+		Where("trigger_type = ? AND enabled = ?", triggerType, true).
+		Order("id ASC").
+		Find(&rows).Error; err != nil {
 		return nil, err
 	}
-
-	var rules []Rulev2
-	for _, dbRule := range dbRules {
-		var rule Rulev2
-		if err := json.Unmarshal([]byte(dbRule.Body), &rule); err != nil {
-			log.Printf("Failed to unmarshal rule %s: %v", dbRule.ID, err)
+	out := make([]Rulev2, 0, len(rows))
+	for _, r := range rows {
+		var spec Rulev2
+		if err := json.Unmarshal(r.Spec, &spec); err != nil {
+			log.Printf("Failed to unmarshal rule id=%d: %v", r.ID, err)
 			continue
 		}
-		rules = append(rules, rule)
+		out = append(out, spec)
 	}
-
-	return rules, nil
+	return out, nil
 }
 
-// GetRuleByID retrieves a specific rule by ID
 func (s *DbRuleStore) GetRuleByID(ctx context.Context, ruleID string) (*Rulev2, error) {
-	var dbRule gen_models.DbRule
-	err := s.DB.Where("id = ?", ruleID).First(&dbRule).Error
+	id, err := strconv.ParseUint(ruleID, 10, 64)
 	if err != nil {
+		return nil, fmt.Errorf("invalid rule id: %w", err)
+	}
+	var row models.Rule
+	if err := s.DB.WithContext(ctx).First(&row, uint(id)).Error; err != nil {
 		return nil, err
 	}
-
-	var rule Rulev2
-	if err := json.Unmarshal([]byte(dbRule.Body), &rule); err != nil {
+	var spec Rulev2
+	if err := json.Unmarshal(row.Spec, &spec); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal rule: %w", err)
 	}
-
-	return &rule, nil
+	return &spec, nil
 }
 
-// CreateRule creates a new rule in the database
-func (s *DbRuleStore) CreateRule(ctx context.Context, rule Rulev2, ruleID string) error {
-	ruleData, err := json.Marshal(rule)
+func (s *DbRuleStore) CreateRule(ctx context.Context, rule Rulev2, _ string) error {
+	body, err := json.Marshal(rule)
 	if err != nil {
 		return fmt.Errorf("failed to marshal rule: %w", err)
 	}
-
-	dbRule := gen_models.DbRule{
-		ID:      ruleID,
-		Type:    rule.Trigger.Type,
-		Enabled: true,
-		Body:    string(ruleData),
+	row := models.Rule{
+		Name:        rule.Name,
+		TriggerType: rule.Trigger.Type,
+		Spec:        datatypes.JSON(body),
+		Enabled:     true,
 	}
-
-	return s.DB.Create(&dbRule).Error
+	return s.DB.WithContext(ctx).Create(&row).Error
 }
 
-// UpdateRule updates an existing rule
 func (s *DbRuleStore) UpdateRule(ctx context.Context, ruleID string, rule Rulev2) error {
-	ruleData, err := json.Marshal(rule)
+	id, err := strconv.ParseUint(ruleID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid rule id: %w", err)
+	}
+	body, err := json.Marshal(rule)
 	if err != nil {
 		return fmt.Errorf("failed to marshal rule: %w", err)
 	}
-
-	return s.DB.Model(&gen_models.DbRule{}).
-		Where("id = ?", ruleID).
-		Updates(map[string]interface{}{
-			"type": rule.Trigger.Type,
-			"body": string(ruleData),
+	return s.DB.WithContext(ctx).Model(&models.Rule{}).
+		Where("id = ?", uint(id)).
+		Updates(map[string]any{
+			"name":         rule.Name,
+			"trigger_type": rule.Trigger.Type,
+			"spec":         datatypes.JSON(body),
 		}).Error
 }
 
-// DeleteRule removes a rule from the database
 func (s *DbRuleStore) DeleteRule(ctx context.Context, ruleID string) error {
-	return s.DB.Where("id = ?", ruleID).Delete(&gen_models.DbRule{}).Error
+	id, err := strconv.ParseUint(ruleID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid rule id: %w", err)
+	}
+	return s.DB.WithContext(ctx).Delete(&models.Rule{}, uint(id)).Error
 }
 
-// EnableRule enables or disables a rule
 func (s *DbRuleStore) EnableRule(ctx context.Context, ruleID string, enabled bool) error {
-	return s.DB.Model(&gen_models.DbRule{}).
-		Where("id = ?", ruleID).
+	id, err := strconv.ParseUint(ruleID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid rule id: %w", err)
+	}
+	return s.DB.WithContext(ctx).Model(&models.Rule{}).
+		Where("id = ?", uint(id)).
 		Update("enabled", enabled).Error
 }
 
-// ListAllRules returns all rules in the system
 func (s *DbRuleStore) ListAllRules(ctx context.Context) ([]Rulev2, error) {
-	var dbRules []gen_models.DbRule
-	err := s.DB.Find(&dbRules).Error
-	if err != nil {
+	var rows []models.Rule
+	if err := s.DB.WithContext(ctx).Order("id ASC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
-
-	var rules []Rulev2
-	for _, dbRule := range dbRules {
-		var rule Rulev2
-		if err := json.Unmarshal([]byte(dbRule.Body), &rule); err != nil {
-			log.Printf("Failed to unmarshal rule %s: %v", dbRule.ID, err)
+	out := make([]Rulev2, 0, len(rows))
+	for _, r := range rows {
+		var spec Rulev2
+		if err := json.Unmarshal(r.Spec, &spec); err != nil {
+			log.Printf("Failed to unmarshal rule id=%d: %v", r.ID, err)
 			continue
 		}
-		rules = append(rules, rule)
+		out = append(out, spec)
 	}
-
-	return rules, nil
+	return out, nil
 }
 
-// GetRuleStats returns statistics about rules in the system
 func (s *DbRuleStore) GetRuleStats(ctx context.Context) (map[string]interface{}, error) {
-	var totalRules int64
-	var enabledRules int64
-	var rulesByType []struct {
-		Type  string
-		Count int64
+	var total int64
+	var enabled int64
+	type byType struct {
+		TriggerType string
+		Count       int64
 	}
 
-	// Count total rules
-	if err := s.DB.Model(&gen_models.DbRule{}).Count(&totalRules).Error; err != nil {
+	if err := s.DB.WithContext(ctx).Model(&models.Rule{}).Count(&total).Error; err != nil {
 		return nil, err
 	}
-
-	// Count enabled rules
-	if err := s.DB.Model(&gen_models.DbRule{}).Where("enabled = ?", true).Count(&enabledRules).Error; err != nil {
+	if err := s.DB.WithContext(ctx).Model(&models.Rule{}).
+		Where("enabled = ?", true).
+		Count(&enabled).Error; err != nil {
 		return nil, err
 	}
-
-	// Count rules by type
-	if err := s.DB.Model(&gen_models.DbRule{}).
-		Select("type, count(*) as count").
-		Group("type").
-		Scan(&rulesByType).Error; err != nil {
+	var rows []byType
+	if err := s.DB.WithContext(ctx).Model(&models.Rule{}).
+		Select("trigger_type, COUNT(*) as count").
+		Group("trigger_type").
+		Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 
 	return map[string]interface{}{
-		"total_rules":    totalRules,
-		"enabled_rules":  enabledRules,
-		"disabled_rules": totalRules - enabledRules,
-		"rules_by_type":  rulesByType,
+		"total_rules":    total,
+		"enabled_rules":  enabled,
+		"disabled_rules": total - enabled,
+		"rules_by_type":  rows,
 	}, nil
 }

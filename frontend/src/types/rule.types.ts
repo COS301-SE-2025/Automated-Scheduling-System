@@ -13,7 +13,8 @@ export interface ParamKV {
 // Rule node data
 export interface RuleNodeData extends NodeData {
     name: string;
-    saved?: boolean; // indicates if this rule is saved to storage
+    saved?: boolean;
+    backendId?: number; // db id for this rule
 }
 
 // Trigger node data
