@@ -3,7 +3,7 @@ import React from 'react';
 import { Handle, Position, type NodeProps, useReactFlow, type Connection, useStore } from 'reactflow';
 import { Trash2 } from 'lucide-react';
 import type { RuleNodeData } from '../../types/rule.types';
-import { saveRuleFromGraph } from '../../utils/canvasStorage';
+import { saveRuleToBackend } from '../../utils/canvasBackend';
 
 const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({ id, data }) => {
     const rf = useReactFlow();
@@ -69,22 +69,25 @@ const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({ id, data }) => {
 
     const isSaved = Boolean((data as any).saved);
 
-    const onSave = () => {
+    const onSave = async () => {
         if (!isComplete) {
             window.alert('A rule must be connected to a Trigger, Conditions, and Actions block before saving.');
             return;
         }
-
         const allNodes = rf.getNodes?.() ?? (nodes as any);
         const allEdges = rf.getEdges?.() ?? (edges as any);
-        const rec = saveRuleFromGraph(allNodes as any, allEdges as any, id);
-        if (!rec) return;
-
-        // mark this rule as saved
-        rf.setNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data: { ...(n.data as any), saved: true } } : n)));
-
-        // toast
-        window.dispatchEvent(new CustomEvent('rule:saved', { detail: { id, name: rec.name } }));
+        try {
+            const newId = await saveRuleToBackend(allNodes as any, allEdges as any, id, (data as any)?.backendId);
+            // mark saved + store backend id
+            rf.setNodes((nds) =>
+                nds.map((n) =>
+                    n.id === id ? { ...n, data: { ...(n.data as any), saved: true, backendId: newId } } : n
+                )
+            );
+            window.dispatchEvent(new CustomEvent('rule:saved', { detail: { id, name: (data as any)?.name || (data as any)?.label } }));
+        } catch (e) {
+            window.alert('Failed to save rule. Please try again. ' + e);
+        }
     };
 
     return (
@@ -102,8 +105,8 @@ const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({ id, data }) => {
                             isSaved
                                 ? 'Rule is saved'
                                 : isComplete
-                                ? 'Save rule'
-                                : 'Connect Trigger, Conditions, and Actions to enable saving'
+                                    ? 'Save rule'
+                                    : 'Connect Trigger, Conditions, and Actions to enable saving'
                         }
                         disabled={!isComplete || isSaved}
                     >
