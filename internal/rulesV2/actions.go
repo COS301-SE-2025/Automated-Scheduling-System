@@ -57,8 +57,6 @@ func (a *ScheduleTrainingAction) Execute(ctx EvalContext, params map[string]any)
 		return fmt.Errorf("schedule_training requires employeeNumber and eventType")
 	}
 
-	// Convert competencyID from float64 if needed (JSON unmarshaling)
-
 	// Parse scheduled date
 	var scheduledTime time.Time
 	if scheduledDate != "" {
@@ -228,6 +226,12 @@ func (a *WebhookAction) Execute(ctx EvalContext, params map[string]any) error {
 	if err != nil {
 		return fmt.Errorf("webhook request failed: %w", err)
 	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("Failed to close response body: %v", err)
+		}
+	}()
+
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("webhook returned status %d", resp.StatusCode)
 	}
