@@ -3,14 +3,28 @@ package role
 import (
 	"Automated-Scheduling-Project/internal/database/gen_models"
 	"Automated-Scheduling-Project/internal/database/models"
+	"Automated-Scheduling-Project/internal/rulesV2" // added
+	"context"                                       // added
 	"net/http"
 	"strconv"
+	"time" // added
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 var DB *gorm.DB
+
+// added: rules service wiring
+var RulesSvc *rulesv2.RuleBackEndService
+func SetRulesService(s *rulesv2.RuleBackEndService) { RulesSvc = s }
+
+func fireRolesTrigger(c *gin.Context, operation, updateKind string) {
+    if RulesSvc == nil { return }
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+    _ = RulesSvc.OnRoles(ctx, operation, updateKind)
+}
 
 // Helpers
 func toResponse(r models.Role, perms []models.RolePermission) models.RoleResponse {
@@ -66,6 +80,9 @@ func CreateRoleHandler(c *gin.Context) {
 		_ = DB.Create(&models.RolePermission{RoleID: role.RoleID, Page: p}).Error
 	}
 
+	// fire trigger: roles create
+	fireRolesTrigger(c, "create", "general")
+
 	var perms []models.RolePermission
 	_ = DB.Where("role_id = ?", role.RoleID).Find(&perms).Error
 	c.JSON(http.StatusCreated, toResponse(role, perms))
@@ -92,6 +109,14 @@ func UpdateRoleHandler(c *gin.Context) {
 		return
 	}
 
+	// track permission changes (before overwrite)
+	var oldPerms []models.RolePermission
+	_ = DB.Where("role_id = ?", role.RoleID).Find(&oldPerms).Error
+	oldSet := map[string]struct{}{}
+	for _, p := range oldPerms {
+		oldSet[p.Page] = struct{}{}
+	}
+
 	if req.Name != nil {
 		role.RoleName = *req.Name
 	}
@@ -104,15 +129,40 @@ func UpdateRoleHandler(c *gin.Context) {
 		return
 	}
 
+	var added, removed bool
 	if req.Permissions != nil {
 		// replace perms
 		if err := DB.Where("role_id = ?", role.RoleID).Delete(&models.RolePermission{}).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update permissions"})
 			return
 		}
+		newSet := map[string]struct{}{}
 		for _, p := range *req.Permissions {
+			newSet[p] = struct{}{}
 			_ = DB.Create(&models.RolePermission{RoleID: role.RoleID, Page: p}).Error
+			if _, ok := oldSet[p]; !ok {
+				added = true
+			}
 		}
+		for p := range oldSet {
+			if _, ok := newSet[p]; !ok {
+				removed = true
+			}
+		}
+	}
+
+	// fire trigger: roles update
+	// emit specific kinds if we detected permission changes; otherwise general
+	switch {
+    case added && removed:
+        fireRolesTrigger(c, "update", "permission_added")
+        fireRolesTrigger(c, "update", "permission_removed")
+    case added:
+        fireRolesTrigger(c, "update", "permission_added")
+    case removed:
+        fireRolesTrigger(c, "update", "permission_removed")
+    default:
+        fireRolesTrigger(c, "update", "general")
 	}
 
 	var perms []models.RolePermission

@@ -34,7 +34,12 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
 
     const setTriggerType = (newType: string) => {
         const meta = byTrigger.get(newType);
-        const params: ParamKV[] = meta ? meta.parameters.map((p) => ({ key: p.name, value: '' })) : [];
+        const params: ParamKV[] = meta
+            ? meta.parameters.map((p) => {
+                  const firstOpt = (p as any).options?.length ? String((p as any).options[0]) : '';
+                  return { key: p.name, value: firstOpt };
+              })
+            : [];
         update({ triggerType: newType, parameters: params });
     };
 
@@ -87,28 +92,64 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
         const def = metaParamMap.get(p.key);
         const type = def?.type || 'string';
         const required = def?.required;
+        const options = (def as any)?.options as any[] | undefined;
         const placeholder = `${type}${required ? ' • required' : ''}`;
+
+        const stopAll = {
+            onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
+            onMouseDown: (e: React.MouseEvent) => e.stopPropagation(),
+            onWheel: (e: React.WheelEvent) => { e.preventDefault(); e.stopPropagation(); },
+            onKeyDown: (e: React.KeyboardEvent) => {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }
+            },
+        };
+
+        if (options && options.length > 0) {
+            return (
+                <select
+                    className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
+                    value={p.value}
+                    onChange={(e) => setParam(idx, { value: e.target.value })}
+                    {...stopAll}
+                >
+                    <option value="">{required ? 'Select…' : '—'}</option>
+                    {options.map((opt, i) => {
+                        const val = String(opt);
+                        return <option key={`${p.key}-opt-${i}`} value={val}>{val}</option>;
+                    })}
+                </select>
+            );
+        }
+
         if (type === 'boolean') {
             return (
                 <select
                     className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
                     value={p.value}
                     onChange={(e) => setParam(idx, { value: e.target.value })}
+                    {...stopAll}
                 >
-                    <option value="">Select…</option>
+                    <option value="">{required ? 'Select…' : '—'}</option>
                     <option value="true">true</option>
                     <option value="false">false</option>
                 </select>
             );
         }
         if (type === 'number') {
+            // Fallback to text input to avoid auto-increment issues
             return (
                 <input
                     className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     placeholder={placeholder}
                     value={p.value}
                     onChange={(e) => setParam(idx, { value: e.target.value })}
+                    {...stopAll}
                 />
             );
         }
@@ -120,6 +161,8 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
                     placeholder={placeholder}
                     value={p.value}
                     onChange={(e) => setParam(idx, { value: e.target.value })}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onWheel={(e) => e.stopPropagation()}
                 />
             );
         }
@@ -129,12 +172,19 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
                 placeholder={placeholder}
                 value={p.value}
                 onChange={(e) => setParam(idx, { value: e.target.value })}
+                onPointerDown={(e) => e.stopPropagation()}
+                onWheel={(e) => e.stopPropagation()}
             />
         );
     };
 
     return (
-        <div className="bg-white border-2 border-amber-300 rounded-md shadow-md w-72 text-gray-800">
+        <div
+            className="bg-white border-2 border-amber-300 rounded-md shadow-md w-[34rem] md:w-[40rem] text-gray-800"
+            onMouseDown={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            onWheel={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        >
             <Handle type="target" position={Position.Top} isValidConnection={validIfRule} />
             <Handle type="source" position={Position.Bottom} isValidConnection={validIfRule} />
 

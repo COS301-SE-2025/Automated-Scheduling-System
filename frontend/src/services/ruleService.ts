@@ -43,6 +43,7 @@ export type ParameterMeta = {
     required: boolean;
     description: string;
     example?: any;
+    options?: any[]; // NEW: enum-like choices for dropdowns
 };
 export type TriggerMetadata = {
     type: string;

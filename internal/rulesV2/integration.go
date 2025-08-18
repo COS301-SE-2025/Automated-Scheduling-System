@@ -31,6 +31,14 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 		UseTrigger("job_matrix_update", &JobMatrixTrigger{DB: db}).
 		UseTrigger("scheduled_competency_check", &ScheduledCompetencyCheckTrigger{DB: db}).
 		UseTrigger("new_hire", &NewHireTrigger{DB: db}).
+		UseTrigger("job_position", &JobPositionTrigger{DB: db}).
+		UseTrigger("competency_type", &CompetencyTypeTrigger{DB: db}).
+		UseTrigger("competency", &CompetencyTrigger{DB: db}).
+		UseTrigger("event_definition", &EventDefinitionTrigger{DB: db}).
+		UseTrigger("scheduled_event", &ScheduledEventTrigger{DB: db}).
+		UseTrigger("roles", &RolesTrigger{DB: db}).
+		UseTrigger("link_job_to_competency", &LinkJobToCompetencyTrigger{DB: db}). // NEW
+		UseTrigger("competency_prerequisite", &CompetencyPrerequisiteTrigger{DB: db}). // NEW
 		UseAction("notification", &NotificationAction{DB: db}).
 		UseAction("schedule_training", &ScheduleTrainingAction{DB: db}).
 		UseAction("competency_assignment", &CompetencyAssignmentAction{DB: db}).
@@ -275,4 +283,46 @@ func (s *DbRuleStore) GetRuleStats(ctx context.Context) (map[string]interface{},
 		"disabled_rules": total - enabled,
 		"rules_by_type":  rows,
 	}, nil
+}
+
+// New trigger entrypoints for DispatchEvent
+
+func (s *RuleBackEndService) OnJobPosition(ctx context.Context, operation string) error {
+	data := map[string]any{"operation": operation}
+	return DispatchEvent(ctx, s.Engine, s.Store, "job_position", data)
+}
+
+func (s *RuleBackEndService) OnCompetencyType(ctx context.Context, operation string) error {
+	data := map[string]any{"operation": operation}
+	return DispatchEvent(ctx, s.Engine, s.Store, "competency_type", data)
+}
+
+func (s *RuleBackEndService) OnCompetency(ctx context.Context, operation string) error {
+	data := map[string]any{"operation": operation}
+	return DispatchEvent(ctx, s.Engine, s.Store, "competency", data)
+}
+
+func (s *RuleBackEndService) OnEventDefinition(ctx context.Context, operation string) error {
+	data := map[string]any{"operation": operation}
+	return DispatchEvent(ctx, s.Engine, s.Store, "event_definition", data)
+}
+
+func (s *RuleBackEndService) OnScheduledEvent(ctx context.Context, operation, updateField string) error {
+	data := map[string]any{"operation": operation, "update_field": updateField}
+	return DispatchEvent(ctx, s.Engine, s.Store, "scheduled_event", data)
+}
+
+func (s *RuleBackEndService) OnRoles(ctx context.Context, operation, updateKind string) error {
+	data := map[string]any{"operation": operation, "update_kind": updateKind}
+	return DispatchEvent(ctx, s.Engine, s.Store, "roles", data)
+}
+
+func (s *RuleBackEndService) OnLinkJobToCompetency(ctx context.Context, operation string) error {
+	data := map[string]any{"operation": operation}
+	return DispatchEvent(ctx, s.Engine, s.Store, "link_job_to_competency", data)
+}
+
+func (s *RuleBackEndService) OnCompetencyPrerequisite(ctx context.Context, operation string) error {
+	data := map[string]any{"operation": operation}
+	return DispatchEvent(ctx, s.Engine, s.Store, "competency_prerequisite", data)
 }

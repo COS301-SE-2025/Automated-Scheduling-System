@@ -4,12 +4,14 @@ import { Handle, Position, type NodeProps, useReactFlow, type Connection, useSto
 import { Trash2 } from 'lucide-react';
 import type { RuleNodeData } from '../../types/rule.types';
 import { saveRuleToBackend } from '../../utils/canvasBackend';
+import { useRulesMetadata } from '../../contexts/RulesMetadataContext';
 
 const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({ id, data }) => {
     const rf = useReactFlow();
 
     const nodes = useStore((s) => Array.from(s.nodeInternals.values()));
     const edges = useStore((s) => s.edges);
+    const { byTrigger, byAction } = useRulesMetadata();
 
     const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const name = e.target.value;
@@ -74,6 +76,89 @@ const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({ id, data }) => {
             window.alert('A rule must be connected to a Trigger, Conditions, and Actions block before saving.');
             return;
         }
+
+        // Validate name
+        const ruleName = (data as any)?.name ?? (data as any)?.label ?? '';
+        if (!String(ruleName).trim()) {
+            window.alert('Please provide a name for the rule.');
+            return;
+        }
+
+        // Collect neighbors (trigger/actions nodes)
+        const neighborIds = edges
+            .filter((e) => e.source === id || e.target === id)
+            .map((e) => (e.source === id ? e.target : e.source));
+        const neighbors = nodes.filter((n) => neighborIds.includes(n.id));
+
+        const triggerData = neighbors.find((n) => n.type === 'trigger')?.data as any | undefined;
+        const actionsData = neighbors.find((n) => n.type === 'actions')?.data as any | undefined;
+
+        // Basic numeric validator (accepts integers or decimals, optional leading minus)
+        const isNumberString = (v: unknown) => /^-?\d+(\.\d+)?$/.test(String(v));
+
+        const errors: string[] = [];
+
+        // Validate trigger params from metadata
+        if (triggerData?.triggerType) {
+            const tMeta = byTrigger.get(triggerData.triggerType);
+            const tMetaMap = new Map((tMeta?.parameters || []).map((p) => [p.name, p]));
+
+            for (const p of triggerData.parameters || []) {
+                const def = tMetaMap.get(p.key);
+                if (!def) continue;
+
+                const val = p.value;
+                const hasVal = !(val === '' || val === undefined || val === null);
+
+                if (def.required && !hasVal) {
+                    errors.push(`Trigger parameter '${p.key}' is required`);
+                }
+                if (def.type === 'number' && hasVal && !isNumberString(val)) {
+                    errors.push(`Trigger parameter '${p.key}' must be a number`);
+                }
+                if (Array.isArray((def as any).options) && (def as any).options.length && hasVal) {
+                    const ok = (def as any).options.map(String).includes(String(val));
+                    if (!ok) errors.push(`Trigger parameter '${p.key}' must be one of: ${((def as any).options || []).join(', ')}`);
+                }
+            }
+        }
+
+        // Validate action params from metadata
+        if (actionsData?.actions?.length) {
+            actionsData.actions.forEach((act: any, idx: number) => {
+                if (!act?.type) {
+                    errors.push(`Action[${idx + 1}] type is required`);
+                    return;
+                }
+                const aMeta = byAction.get(act.type);
+                const aMetaMap = new Map((aMeta?.parameters || []).map((p) => [p.name, p]));
+
+                for (const ap of act.parameters || []) {
+                    const def = aMetaMap.get(ap.key);
+                    if (!def) continue;
+
+                    const val = ap.value;
+                    const hasVal = !(val === '' || val === undefined || val === null);
+
+                    if (def.required && !hasVal) {
+                        errors.push(`Action[${idx + 1}] parameter '${ap.key}' is required`);
+                    }
+                    if (def.type === 'number' && hasVal && !isNumberString(val)) {
+                        errors.push(`Action[${idx + 1}] parameter '${ap.key}' must be a number`);
+                    }
+                    if (Array.isArray((def as any).options) && (def as any).options.length && hasVal) {
+                        const ok = (def as any).options.map(String).includes(String(val));
+                        if (!ok) errors.push(`Action[${idx + 1}] parameter '${ap.key}' must be one of: ${((def as any).options || []).join(', ')}`);
+                    }
+                }
+            });
+        }
+
+        if (errors.length) {
+            window.alert(errors.join('\n'));
+            return;
+        }
+
         const allNodes = rf.getNodes?.() ?? (nodes as any);
         const allEdges = rf.getEdges?.() ?? (edges as any);
         try {
@@ -84,7 +169,9 @@ const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({ id, data }) => {
                     n.id === id ? { ...n, data: { ...(n.data as any), saved: true, backendId: newId } } : n
                 )
             );
-            window.dispatchEvent(new CustomEvent('rule:saved', { detail: { id, name: (data as any)?.name || (data as any)?.label } }));
+            window.dispatchEvent(
+                new CustomEvent('rule:saved', { detail: { id, name: (data as any)?.name || (data as any)?.label } })
+            );
         } catch (e) {
             window.alert('Failed to save rule. Please try again. ' + e);
         }

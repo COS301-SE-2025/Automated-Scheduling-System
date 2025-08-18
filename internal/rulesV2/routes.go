@@ -41,6 +41,16 @@ func RegisterRulesRoutes(router *gin.Engine, service *RuleBackEndService) {
 			TriggerScheduledCheck(c, service)
 		})
 
+		// New/updated trigger endpoints
+		rulesGroup.POST("/trigger/job-position", func(c *gin.Context) { TriggerJobPosition(c, service) })
+		rulesGroup.POST("/trigger/competency-type", func(c *gin.Context) { TriggerCompetencyType(c, service) })
+		rulesGroup.POST("/trigger/competency", func(c *gin.Context) { TriggerCompetency(c, service) })
+		rulesGroup.POST("/trigger/event-definition", func(c *gin.Context) { TriggerEventDefinition(c, service) })
+		rulesGroup.POST("/trigger/scheduled-event", func(c *gin.Context) { TriggerScheduledEvent(c, service) })
+		rulesGroup.POST("/trigger/roles", func(c *gin.Context) { TriggerRoles(c, service) })
+		rulesGroup.POST("/trigger/link-job-to-competency", func(c *gin.Context) { TriggerLinkJobToCompetency(c, service) })
+        rulesGroup.POST("/trigger/competency-prerequisite", func(c *gin.Context) { TriggerCompetencyPrerequisite(c, service) })
+
 		// Status and monitoring endpoints
 		rulesGroup.GET("/status", func(c *gin.Context) {
 			GetRulesStatus(c, service)
