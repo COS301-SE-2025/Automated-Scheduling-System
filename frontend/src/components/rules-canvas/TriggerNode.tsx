@@ -2,11 +2,11 @@ import React from 'react';
 import { Handle, Position, type NodeProps, useReactFlow, type Connection } from 'reactflow';
 import { Trash2 } from 'lucide-react';
 import type { TriggerNodeData, ParamKV } from '../../types/rule.types';
-
-const TRIGGER_TYPES = ['DAILY_COMPETENCY_EXPIRY_CHECK', 'WEEKLY_ROSTER_GENERATION', 'ON_DEMAND_MANUAL'];
+import { useRulesMetadata } from '../../contexts/RulesMetadataContext';
 
 const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
     const rf = useReactFlow();
+    const { triggers, byTrigger } = useRulesMetadata();
 
     const update = (partial: Partial<TriggerNodeData>) => {
         const edges = rf.getEdges?.() ?? [];
@@ -18,7 +18,6 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
                 if (other?.type === 'rule') ruleIds.add(other.id);
             }
         }
-
         rf.setNodes((nds) =>
             nds.map((n) => {
                 if (n.id === id) {
@@ -200,11 +199,11 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
                     <select
                         className="w-full mt-1 border rounded px-2 py-1 bg-white text-gray-800"
                         value={data.triggerType}
-                        onChange={(e) => update({ triggerType: e.target.value })}
+                        onChange={(e) => setTriggerType(e.target.value)}
                     >
                         <option value="">Select trigger...</option>
-                        {TRIGGER_TYPES.map((t) => (
-                            <option key={t} value={t}>{t}</option>
+                        {triggers.map((t) => (
+                            <option key={t.type} value={t.type}>{t.name || t.type}</option>
                         ))}
                     </select>
                 </div>
