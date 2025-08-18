@@ -164,7 +164,7 @@ const UsersPage: React.FC = () => {
     }
 
     return (
-        <MainLayout pageTitle="Users List">
+        <MainLayout pageTitle="Users" helpText="Manage user accounts, view details, and update roles and access permissions for your organization.">
             <div className="px-4 sm:px-6 lg:px-8 py-8">
                 <div className="sm:flex sm:items-center">
                     <div className="sm:flex-auto">
