@@ -21,14 +21,13 @@ import { exportRulesJSON } from '../utils/ruleSerialiser';
 import CanvasNavigator from '../components/rules-canvas/CanvasNavigator';
 import CanvasToast from '../components/rules-canvas/CanvasToast';
 import CanvasConfirm from '../components/rules-canvas/CanvasConfirm';
-import { materializeFromBackend, deleteRuleInBackend } from '../utils/canvasBackend';
-import { RulesMetadataProvider } from '../contexts/RulesMetadataContext';
+import { loadCanvas, materializeFromLibrary, deleteRuleFromLibrary } from '../utils/canvasStorage';
 
 const initialNodes: any[] = [];
 
 const RulesPage: React.FC = () => {
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
-
+    
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
     const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
@@ -42,15 +41,17 @@ const RulesPage: React.FC = () => {
     useEffect(() => { edgesRef.current = edges; }, [edges]);
 
     useEffect(() => {
-        (async () => {
-            try {
-                const { nodes, edges } = await materializeFromBackend();
-                setNodes(nodes as any);
-                setEdges(edges as any);
-            } catch {
-                // no-op: empty canvas
+        const saved = loadCanvas();
+        if (saved) {
+            setNodes(saved.nodes as any);
+            setEdges(saved.edges as any);
+        } else {
+            const rebuilt = materializeFromLibrary();
+            if (rebuilt) {
+                setNodes(rebuilt.nodes as any);
+                setEdges(rebuilt.edges as any);
             }
-        })();
+        }
     }, [setNodes, setEdges]);
 
     // Handle confirmed deletions centrally (remove from canvas and storage)
@@ -60,18 +61,18 @@ const RulesPage: React.FC = () => {
             const currNodes = nodesRef.current as any[];
             const currEdges = edgesRef.current as any[];
 
-            const ruleNode = currNodes.find(n => n.id === ruleId);
-            const backendId = ruleNode?.data?.backendId as string | number | undefined;
-
+            // remove only the rule node
             const nextNodes = currNodes.filter(n => n.id !== ruleId);
+            // remove edges connected to the rule
             const nextEdges = currEdges.filter(e => e.source !== ruleId && e.target !== ruleId);
+
             setNodes(nextNodes as any);
             setEdges(nextEdges as any);
 
-            (async () => {
-                try { await deleteRuleInBackend(backendId); } catch { /* no-op */ }
-            })();
+            // purge from local storage library
+            deleteRuleFromLibrary(ruleId);
         };
+
         window.addEventListener('rule:delete-confirmed', onConfirm as any);
         return () => window.removeEventListener('rule:delete-confirmed', onConfirm as any);
     }, [setNodes, setEdges]);
@@ -214,56 +215,52 @@ const RulesPage: React.FC = () => {
     };
 
     return (
-        <MainLayout pageTitle="Rule Builder" helpText="Visually design rules by composing triggers, conditions, and actions. Drag items from the toolbox and connect them on the canvas.">
-            {/* below sticky header, and to the right of sidebar via MainLayout; column layout */}
+        <MainLayout pageTitle="Rule Builder">
             <div className="flex flex-col h-[calc(100vh-120px)] min-h-0">
                 <ReactFlowProvider>
-                    <RulesMetadataProvider>
-                        <Toolbox />
-                        <div className="flex flex-1 min-h-0">
-                            <div className="flex-1 min-w-0 relative" ref={reactFlowWrapper}>
-                                <div className="absolute z-10 right-3 top-3 flex gap-2">
-                                    <button
-                                        className="px-3 py-1 border rounded bg-white text-sm shadow dark:bg-gray-900 dark:text-gray-100"
-                                        onClick={togglePreview}
-                                        type="button"
-                                    >
-                                        {showPreview ? 'Hide Preview' : 'Preview JSON'}
-                                    </button>
-                                </div>
+                    <Toolbox />
 
-                                <ReactFlow
-                                    nodes={nodes}
-                                    edges={edges}
-                                    onNodesChange={handleNodesChange}
-                                    onEdgesChange={onEdgesChange}
-                                    onConnect={onConnect}
-                                    onInit={setReactFlowInstance}
-                                    onDrop={onDrop}
-                                    onDragOver={onDragOver}
-                                    nodeTypes={nodeTypes}
-                                    fitView
+                    <div className="flex flex-1 min-h-0">
+                        <div className="flex-1 min-w-0 relative" ref={reactFlowWrapper}>
+                            <div className="absolute z-10 right-3 top-3 flex gap-2">
+                                {/* Removed Load Canvas button */}
+                                <button
+                                    className="px-3 py-1 border rounded bg-white text-sm shadow"
+                                    onClick={togglePreview}
+                                    type="button"
                                 >
-                                    <Controls />
-                                    <Background />
-                                </ReactFlow>
-
-                                <CanvasNavigator />
-                                <CanvasToast />
-                                <CanvasConfirm />
+                                    {showPreview ? 'Hide Preview' : 'Preview JSON'}
+                                </button>
                             </div>
 
-                            {showPreview && (
-                                <aside className="w-96 p-3 border-l bg-gray-50 overflow-auto
-                                              dark:bg-dark-input/90 dark:border-gray-700/40">
-                                    <h3 className="font-semibold mb-2 text-sm text-custom-primary dark:text-dark-primary">Preview</h3>
-                                    <pre className="text-xs whitespace-pre-wrap text-gray-800 dark:text-dark-primary">
-                                        {exported}
-                                    </pre>
-                                </aside>
-                            )}
+                            <ReactFlow
+                                nodes={nodes}
+                                edges={edges}
+                                onNodesChange={handleNodesChange}
+                                onEdgesChange={onEdgesChange}
+                                onConnect={onConnect}
+                                onInit={setReactFlowInstance}
+                                onDrop={onDrop}
+                                onDragOver={onDragOver}
+                                nodeTypes={nodeTypes}
+                                fitView
+                            >
+                                <Controls />
+                                <Background />
+                            </ReactFlow>
+
+                            <CanvasNavigator />
+                            <CanvasToast />
+                            <CanvasConfirm />
                         </div>
-                    </RulesMetadataProvider>
+
+                        {showPreview && (
+                            <aside className="w-96 p-3 border-l bg-gray-50 overflow-auto">
+                                <h3 className="font-semibold mb-2 text-sm">Preview</h3>
+                                <pre className="text-xs whitespace-pre-wrap">{exported}</pre>
+                            </aside>
+                        )}
+                    </div>
                 </ReactFlowProvider>
             </div>
         </MainLayout>

@@ -71,7 +71,7 @@ const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({ id, data }) => {
 
     const isSaved = Boolean((data as any).saved);
 
-    const onSave = async () => {
+    const onSave = () => {
         if (!isComplete) {
             window.alert('A rule must be connected to a Trigger, Conditions, and Actions block before saving.');
             return;
@@ -192,8 +192,8 @@ const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({ id, data }) => {
                             isSaved
                                 ? 'Rule is saved'
                                 : isComplete
-                                    ? 'Save rule'
-                                    : 'Connect Trigger, Conditions, and Actions to enable saving'
+                                ? 'Save rule'
+                                : 'Connect Trigger, Conditions, and Actions to enable saving'
                         }
                         disabled={!isComplete || isSaved}
                     >
