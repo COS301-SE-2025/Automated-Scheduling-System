@@ -2,7 +2,8 @@ import React, { useMemo } from 'react';
 import { Handle, Position, type NodeProps, useReactFlow, type Connection, useStore } from 'reactflow';
 import { PlusCircle, Trash2 } from 'lucide-react';
 import type { ConditionsNodeData, ConditionRow } from '../../types/rule.types';
-import { useRulesMetadata } from '../../contexts/RulesMetadataContext';
+
+const OPERATORS = ['equals', 'notEquals', 'greaterThan', 'lessThan', 'greaterOrEquals', 'lessOrEquals', 'isTrue', 'isFalse', 'in', 'notIn', 'contains', 'startsWith', 'endsWith'];
 
 const ConditionsNode: React.FC<NodeProps<ConditionsNodeData>> = ({ id, data }) => {
     const rf = useReactFlow();
