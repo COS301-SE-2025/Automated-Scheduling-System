@@ -5,13 +5,14 @@ interface FeatureBlockProps {
     icon?: React.ReactNode;
     children: React.ReactNode;
     className?: string;
+    minSubtext?: boolean;
 }
 
-const FeatureBlock: React.FC<FeatureBlockProps> = ({ title, icon, children, className = '' }) => {
+const FeatureBlock: React.FC<FeatureBlockProps> = ({ title, icon, children, className = '', minSubtext = false }) => {
     return (
-        <div className={`
+                <div className={`
       rounded-xl bg-gradient-to-br from-custom-secondary to-custom-third 
-      p-[2px] shadow-lg transition-all duration-300 hover:shadow-2xl hover:scale-[1.02]
+            p-[2px] shadow-lg transition-all duration-300 hover:shadow-2xl hover:scale-[1.02]
       ${className}
     `}>
             <div className="flex h-full w-full flex-col rounded-[10px] bg-white dark:bg-dark-div p-4 sm:p-6">
@@ -27,7 +28,7 @@ const FeatureBlock: React.FC<FeatureBlockProps> = ({ title, icon, children, clas
                     </h3>
                 </div>
 
-                <div className="text-sm text-custom-text dark:text-dark-secondary">
+                <div className={`text-sm text-custom-text dark:text-dark-secondary ${minSubtext ? 'min-h-[2.5rem]' : ''}`}>            
                     {children}
                 </div>
 
