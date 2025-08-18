@@ -17,6 +17,7 @@ import (
 	"Automated-Scheduling-Project/internal/jobposition"
 	"Automated-Scheduling-Project/internal/matrix"
 	"Automated-Scheduling-Project/internal/role"
+	rulesv2 "Automated-Scheduling-Project/internal/rulesV2"
 	"Automated-Scheduling-Project/internal/server"
 	"Automated-Scheduling-Project/internal/user"
 )
@@ -59,7 +60,16 @@ func main() {
 	jobposition.DB = dbConnection
 	role.DB = dbConnection
 
-	server := server.NewServer()
+	// Initialize RulesV2 Backend Service
+	rulesService := rulesv2.NewRuleBackEndService(dbConnection)
+
+	// Create sample rules for demonstration (optional - remove in production)
+	ctx := context.Background()
+	if err := rulesService.CreateSampleRules(ctx); err != nil {
+		log.Printf("Warning: Failed to create sample rules: %v", err)
+	}
+
+	server := server.NewServer(rulesService)
 
 	// Create a done channel to signal when the shutdown is complete
 	done := make(chan bool, 1)

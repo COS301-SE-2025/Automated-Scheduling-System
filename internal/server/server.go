@@ -10,20 +10,23 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 
 	"Automated-Scheduling-Project/internal/database"
+	rulesv2 "Automated-Scheduling-Project/internal/rulesV2"
 )
 
 type Server struct {
 	port int
 
-	db database.Service
+	db           database.Service
+	rulesService *rulesv2.RuleBackEndService
 }
 
-func NewServer() *http.Server {
+func NewServer(rulesService *rulesv2.RuleBackEndService) *http.Server {
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
 	NewServer := &Server{
 		port: port,
 
-		db: database.New(),
+		db:           database.New(),
+		rulesService: rulesService,
 	}
 
 	// Declare Server config
