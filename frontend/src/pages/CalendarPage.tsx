@@ -65,7 +65,7 @@ const CalendarPage: React.FC = () => {
     };
 
     const handleOpenDefinitionModal = () => {
-        setIsModalOpen(false); // Close schedule modal if open
+        setIsModalOpen(false); 
         setIsDefinitionModalOpen(true);
     };
 
@@ -83,19 +83,17 @@ const CalendarPage: React.FC = () => {
                 const startDate = new Date(event.start as string);
                 const endDate = new Date(event.end as string);
 
-                // Check if the event spans across midnight into another day
                 if (startDate.toDateString() !== endDate.toDateString()) {
-                    // Make it appear as a 2-hour event on the start day for rendering
                     const displayEndDate = new Date(startDate);
                     displayEndDate.setHours(startDate.getHours() + 2);
 
                     return {
                         ...event,
-                        end: displayEndDate.toISOString(), // Visually shorten the event
+                        end: displayEndDate.toISOString(), 
                         extendedProps: {
                             ...event.extendedProps,
-                            isMultiDay: true, // Add a flag
-                            originalEnd: event.end, // Store the real end date
+                            isMultiDay: true,
+                            originalEnd: event.end, 
                         }
                     };
                 }
@@ -187,12 +185,10 @@ const CalendarPage: React.FC = () => {
 
             await eventService.updateScheduledEvent(Number(event.id), scheduleData);
             
-            // Optional: refetch all data to ensure consistency, though FullCalendar updates the UI optimistically.
             await fetchAndSetData();
 
         } catch (err) {
             console.error('Failed to update event after drop:', err);
-            // If the API call fails, revert the event to its original position
             dropInfo.revert(); 
         }
     };
@@ -292,7 +288,7 @@ const CalendarPage: React.FC = () => {
                     <div className="flex space-x-2">
                         <Button type="button" variant="outline" onClick={handleOpenDefinitionModal}>
                             <Settings size={20} className="inline-block mr-2" />
-                            Manage Event Types
+                            Create New Event Types
                         </Button>
                         <Button type="button" variant="primary" onClick={handleAddEventClick}>
                             <PlusCircle size={20} className="inline-block mr-2" />

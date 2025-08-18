@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import * as eventService from '../../services/eventService';
+import { ApiError } from '../../services/api';
 import Button from './Button';
 
 interface EventDeleteConfirmationModalProps {
@@ -35,6 +36,14 @@ const EventDeleteConfirmationModal: React.FC<EventDeleteConfirmationModalProps> 
             onClose();
         } catch (err) {
             console.error("Failed to delete:", err);
+            
+            if (isDefinition && err instanceof ApiError) {
+                const msg = String(err.data?.error || err.message || '').toLowerCase();
+                if ([400, 409, 423].includes(err.status) || msg.includes('in use') || msg.includes('linked') || msg.includes('foreign key')) {
+                    setError('This event definition is linked to one or more scheduled events and cannot be deleted at this time. Remove or update those schedules first.');
+                    return;
+                }
+            }
             const itemType = isDefinition ? 'definition' : 'event';
             setError(`Could not delete the ${itemType}. It might be in use or a server error occurred.`);
         } finally {
