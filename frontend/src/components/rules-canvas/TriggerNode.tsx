@@ -7,8 +7,30 @@ const TRIGGER_TYPES = ['DAILY_COMPETENCY_EXPIRY_CHECK', 'WEEKLY_ROSTER_GENERATIO
 
 const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
     const rf = useReactFlow();
+
     const update = (partial: Partial<TriggerNodeData>) => {
-        rf.setNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data: { ...data, ...partial } } : n)));
+        const edges = rf.getEdges?.() ?? [];
+        const ruleIds = new Set<string>();
+        for (const e of edges) {
+            if (e.source === id || e.target === id) {
+                const otherId = e.source === id ? e.target : e.source;
+                const other = rf.getNode(otherId);
+                if (other?.type === 'rule') ruleIds.add(other.id);
+            }
+        }
+
+        rf.setNodes((nds) =>
+            nds.map((n) => {
+                if (n.id === id) {
+                    const cur = n.data as TriggerNodeData;
+                    return { ...n, data: { ...cur, ...partial } };
+                }
+                if (n.type === 'rule' && ruleIds.has(n.id)) {
+                    return { ...n, data: { ...(n.data as any), saved: false } };
+                }
+                return n;
+            })
+        );
     };
     const setParam = (idx: number, patch: Partial<ParamKV>) => {
         const next = data.parameters.map((p, i) => (i === idx ? { ...p, ...patch } : p));

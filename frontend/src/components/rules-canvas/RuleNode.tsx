@@ -1,16 +1,26 @@
 //frontend/src/components/rules-canvas/RuleNode.tsx
 import React from 'react';
-import { Handle, Position, type NodeProps, useReactFlow, type Connection } from 'reactflow';
+import { Handle, Position, type NodeProps, useReactFlow, type Connection, useStore } from 'reactflow';
 import { Trash2 } from 'lucide-react';
 import type { RuleNodeData } from '../../types/rule.types';
+import { saveRuleFromGraph } from '../../utils/canvasStorage';
 
 const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({ id, data }) => {
     const rf = useReactFlow();
+
+    const nodes = useStore((s) => Array.from(s.nodeInternals.values()));
+    const edges = useStore((s) => s.edges);
+
     const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const name = e.target.value;
-        rf.setNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data: { ...data, label: name, name } } : n)));
+        rf.setNodes((nds) =>
+            nds.map((n) => (n.id === id ? { ...n, data: { ...n.data, label: name, name, saved: false } } : n))
+        );
     };
-    const onDelete = () => rf.deleteElements({ nodes: [{ id }] });
+    const onDelete = () => {
+        const name = (data as any)?.name || (data as any)?.label || 'Rule';
+        window.dispatchEvent(new CustomEvent('rule:confirm-delete', { detail: { id, name } }));
+    };
 
     const validIfRule = (c: Connection) => {
         if (!c.source || !c.target) return false;
@@ -49,15 +59,60 @@ const RuleNode: React.FC<NodeProps<RuleNodeData>> = ({ id, data }) => {
         return true;
     };
 
+    // helpers for save
+    const neighborIds = edges
+        .filter((e) => e.source === id || e.target === id)
+        .map((e) => (e.source === id ? e.target : e.source));
+    const neighbors = nodes.filter((n) => neighborIds.includes(n.id));
+    const types = new Set(neighbors.map((n) => n.type));
+    const isComplete = types.has('trigger') && types.has('conditions') && types.has('actions');
+
+    const isSaved = Boolean((data as any).saved);
+
+    const onSave = () => {
+        if (!isComplete) {
+            window.alert('A rule must be connected to a Trigger, Conditions, and Actions block before saving.');
+            return;
+        }
+
+        const allNodes = rf.getNodes?.() ?? (nodes as any);
+        const allEdges = rf.getEdges?.() ?? (edges as any);
+        const rec = saveRuleFromGraph(allNodes as any, allEdges as any, id);
+        if (!rec) return;
+
+        // mark this rule as saved
+        rf.setNodes((nds) => nds.map((n) => (n.id === id ? { ...n, data: { ...(n.data as any), saved: true } } : n)));
+
+        // toast
+        window.dispatchEvent(new CustomEvent('rule:saved', { detail: { id, name: rec.name } }));
+    };
+
     return (
         <div className="bg-white border-2 border-blue-300 rounded-md shadow-md w-64 text-gray-800">
             <Handle type="target" position={Position.Top} isValidConnection={validIfRule} />
             <Handle type="source" position={Position.Bottom} isValidConnection={validIfRule} />
-            <div className="bg-blue-50 p-2 font-semibold rounded-t-md flex items-center justify-between">
+            <div className="bg-blue-50 p-2 font-semibold rounded-t-md flex items-center justify-between gap-2">
                 <span>Rule</span>
-                <button className="text-xs px-2 py-0.5 border rounded" onClick={onDelete} type="button" aria-label="Delete rule">
-                    <Trash2 size={16} />
-                </button>
+                <div className="flex items-center gap-1">
+                    <button
+                        className={`text-xs px-2 py-0.5 border rounded ${isComplete && !isSaved ? '' : 'opacity-50 cursor-not-allowed'}`}
+                        onClick={onSave}
+                        type="button"
+                        title={
+                            isSaved
+                                ? 'Rule is saved'
+                                : isComplete
+                                ? 'Save rule'
+                                : 'Connect Trigger, Conditions, and Actions to enable saving'
+                        }
+                        disabled={!isComplete || isSaved}
+                    >
+                        {isSaved ? 'Saved' : 'Save'}
+                    </button>
+                    <button className="text-xs px-2 py-0.5 border rounded" onClick={onDelete} type="button" aria-label="Delete rule">
+                        <Trash2 size={16} />
+                    </button>
+                </div>
             </div>
             <div className="p-3">
                 <input
