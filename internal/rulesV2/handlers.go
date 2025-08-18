@@ -1,0 +1,246 @@
+package rulesv2
+
+import (
+	"context"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
+)
+
+// RegisterRulesRoutes registers all rules engine HTTP endpoints
+func RegisterRulesRoutes(router *gin.Engine, service *RuleBackEndService) {
+	rulesGroup := router.Group("/api/rules")
+	{
+		rulesGroup.POST("/trigger/job-matrix", func(c *gin.Context) {
+			TriggerJobMatrixUpdate(c, service)
+		})
+		rulesGroup.POST("/trigger/new-hire", func(c *gin.Context) {
+			TriggerNewHire(c, service)
+		})
+		rulesGroup.POST("/trigger/scheduled-check", func(c *gin.Context) {
+			TriggerScheduledCheck(c, service)
+		})
+		rulesGroup.GET("/status", func(c *gin.Context) {
+			GetRulesStatus(c, service)
+		})
+		rulesGroup.GET("/rules", func(c *gin.Context) {
+			ListRules(c, service)
+		})
+		rulesGroup.POST("/rules", func(c *gin.Context) {
+			CreateRule(c, service)
+		})
+		rulesGroup.GET("/rules/:id", func(c *gin.Context) {
+			GetRule(c, service)
+		})
+		rulesGroup.PUT("/rules/:id", func(c *gin.Context) {
+			UpdateRule(c, service)
+		})
+		rulesGroup.DELETE("/rules/:id", func(c *gin.Context) {
+			DeleteRule(c, service)
+		})
+		rulesGroup.POST("/rules/:id/enable", func(c *gin.Context) {
+			EnableRule(c, service)
+		})
+		rulesGroup.POST("/rules/:id/disable", func(c *gin.Context) {
+			DisableRule(c, service)
+		})
+	}
+}
+
+// TriggerJobMatrixUpdate triggers rules when job matrix is updated
+func TriggerJobMatrixUpdate(c *gin.Context, service *RuleBackEndService) {
+	var request struct {
+		EmployeeNumber string `json:"employeeNumber" binding:"required"`
+		CompetencyID   int32  `json:"competencyID" binding:"required"`
+		Action         string `json:"action" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := service.OnJobMatrixUpdate(ctx, request.EmployeeNumber, request.CompetencyID, request.Action); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Job matrix update processed"})
+}
+
+// TriggerNewHire triggers rules for new employee
+func TriggerNewHire(c *gin.Context, service *RuleBackEndService) {
+	var request struct {
+		EmployeeNumber string `json:"employeeNumber" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := service.OnNewHire(ctx, request.EmployeeNumber); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "New hire processing completed"})
+}
+
+// TriggerScheduledCheck runs scheduled competency checks
+func TriggerScheduledCheck(c *gin.Context, service *RuleBackEndService) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	if err := service.RunScheduledChecks(ctx); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Scheduled checks completed"})
+}
+
+// GetRulesStatus returns system status and statistics
+func GetRulesStatus(c *gin.Context, service *RuleBackEndService) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	stats, err := service.Store.GetRuleStats(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "online",
+		"timestamp": time.Now().UTC(),
+		"stats":     stats,
+	})
+}
+
+// ListRules returns all rules in the system
+func ListRules(c *gin.Context, service *RuleBackEndService) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	rules, err := service.Store.ListAllRules(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"rules": rules})
+}
+
+// CreateRule creates a new rule
+func CreateRule(c *gin.Context, service *RuleBackEndService) {
+	var rule Rulev2
+
+	if err := c.ShouldBindJSON(&rule); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Generate rule ID
+	ruleID := "rule_" + strconv.FormatInt(time.Now().Unix(), 10)
+
+	if err := service.Store.CreateRule(ctx, rule, ruleID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"id": ruleID, "message": "Rule created successfully"})
+}
+
+// GetRule returns a specific rule by ID
+func GetRule(c *gin.Context, service *RuleBackEndService) {
+	ruleID := c.Param("id")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	rule, err := service.Store.GetRuleByID(ctx, ruleID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Rule not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"rule": rule})
+}
+
+// UpdateRule updates an existing rule
+func UpdateRule(c *gin.Context, service *RuleBackEndService) {
+	ruleID := c.Param("id")
+	var rule Rulev2
+
+	if err := c.ShouldBindJSON(&rule); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := service.Store.UpdateRule(ctx, ruleID, rule); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Rule updated successfully"})
+}
+
+// DeleteRule removes a rule
+func DeleteRule(c *gin.Context, service *RuleBackEndService) {
+	ruleID := c.Param("id")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := service.Store.DeleteRule(ctx, ruleID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Rule deleted successfully"})
+}
+
+// EnableRule enables a rule
+func EnableRule(c *gin.Context, service *RuleBackEndService) {
+	ruleID := c.Param("id")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := service.Store.EnableRule(ctx, ruleID, true); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Rule enabled successfully"})
+}
+
+// DisableRule disables a rule
+func DisableRule(c *gin.Context, service *RuleBackEndService) {
+	ruleID := c.Param("id")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := service.Store.EnableRule(ctx, ruleID, false); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Rule disabled successfully"})
+}
