@@ -1,10 +1,19 @@
 import React from 'react';
 import LandingLayout from '../layouts/LandingLayout';
 import FeatureBlock from '../components/ui/FeatureBlock';
-import { Calendar, Users, ShieldCheck, BookOpen } from 'lucide-react';
+import { Calendar, Users, ShieldCheck, BookOpen, CalendarClock, FileText, Shield, Edit, Layers, Briefcase, ListChecks, GraduationCap } from 'lucide-react';
 
 import calendarImage from '../assets/images/calendarPage.png';
 import userImage from '../assets/images/usersPage.png';
+import addEventDefinitionImage from '../assets/images/AddEventDefinitionPage.png';
+import rolesListImage from '../assets/images/Roles.png';
+import editRoleImage from '../assets/images/RoleAssignments.png';
+import competencyPrereqImage from '../assets/images/prerequistesForcompetencies.png';
+import competencyTypesImage from '../assets/images/manageCompetencyTypes.png';
+import jobPositionsImage from '../assets/images/manageJobPositions.png';
+import allCompanyEventsImage from '../assets/images/EvnetsPage.png';
+import eventDefinitionsPageImage from '../assets/images/EventDefinitionsPage.png';
+import competencyManagementImage from '../assets/images/Competencies.png';
 
 const LandingPage: React.FC = () => {
     return (
@@ -39,7 +48,7 @@ const LandingPage: React.FC = () => {
                     <div className="grid md:grid-cols-2 gap-12 items-center">
                         <div className="text-left">
                             <div className="inline-flex items-center gap-3 mb-4">
-                                <Calendar className="text-custom-secondary dark:text-light-accent" size={28} />
+                                <Calendar className="text-custom-secondary dark:text-dark-secondary" size={28} />
                                 <h3 className="text-2xl font-bold text-custom-primary dark:text-dark-primary">Dynamic Calendar</h3>
                             </div>
                             <p className="text-lg text-custom-text dark:text-dark-secondary">
@@ -54,7 +63,7 @@ const LandingPage: React.FC = () => {
                     <div className="grid md:grid-cols-2 gap-12 items-center">
                         <div className="md:order-last text-left">
                             <div className="inline-flex items-center gap-3 mb-4">
-                                <Users className="text-custom-secondary dark:text-light-accent" size={28} />
+                                <Users className="text-custom-secondary dark:text-dark-secondary" size={28} />
                                 <h3 className="text-2xl font-bold text-custom-primary dark:text-dark-primary">Comprehensive User Management</h3>
                             </div>
                             <p className="text-lg text-custom-text dark:text-dark-secondary">
@@ -63,6 +72,142 @@ const LandingPage: React.FC = () => {
                         </div>
                         <div className="md:order-first">
                             <img src={userImage} alt="User Management" className="rounded-lg shadow-xl ring-1 ring-black/5" />
+                        </div>
+                    </div>
+
+                    {/* New: Screenshots gallery with explanations */}
+                    <div className="grid md:grid-cols-2 gap-12 items-center">
+                        <div className="text-left">
+                            <div className="inline-flex items-center gap-3 mb-4">
+                                <FileText className="text-custom-secondary dark:text-dark-secondary" size={28} />
+                                <h3 className="text-2xl font-bold text-custom-primary dark:text-dark-primary">Create Event Definitions</h3>
+                            </div>
+                            <p className="text-lg text-custom-text dark:text-dark-secondary">
+                                Define reusable event templates with names, descriptions, standard duration, facilitator, and an optional granted certificate. These templates speed up scheduling and keep data consistent.
+                            </p>
+                        </div>
+                        <div>
+                            <img src={addEventDefinitionImage} alt="Add New Event Definition modal" className="rounded-lg shadow-xl ring-1 ring-black/5" />
+                        </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-12 items-center">
+                        <div className="md:order-last text-left">
+                            <div className="inline-flex items-center gap-3 mb-4">
+                                <Shield className="text-custom-secondary dark:text-dark-secondary" size={28} />
+                                <h3 className="text-2xl font-bold text-custom-primary dark:text-dark-primary">Roles Overview</h3>
+                            </div>
+                            <p className="text-lg text-custom-text dark:text-dark-secondary">
+                                Browse and search roles with a clear view of their permissions. Quickly add new roles and see permission chips at a glance.
+                            </p>
+                        </div>
+                        <div className="md:order-first">
+                            <img src={rolesListImage} alt="Roles list with permissions" className="rounded-lg shadow-xl ring-1 ring-black/5" />
+                        </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-12 items-center">
+                        <div className="text-left">
+                            <div className="inline-flex items-center gap-3 mb-4">
+                                <Edit className="text-custom-secondary dark:text-dark-secondary" size={28} />
+                                <h3 className="text-2xl font-bold text-custom-primary dark:text-dark-primary">Edit Role Permissions</h3>
+                            </div>
+                            <p className="text-lg text-custom-text dark:text-dark-secondary">
+                                Fine-tune access by toggling page-level permissions. Built-in system roles are clearly indicated for safety.
+                            </p>
+                        </div>
+                        <div>
+                            <img src={editRoleImage} alt="Edit Role modal with permission toggles" className="rounded-lg shadow-xl ring-1 ring-black/5" />
+                        </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-12 items-center">
+                        <div className="md:order-last text-left">
+                            <div className="inline-flex items-center gap-3 mb-4">
+                                <ListChecks className="text-custom-secondary dark:text-dark-secondary" size={28} />
+                                <h3 className="text-2xl font-bold text-custom-primary dark:text-dark-primary">Manage Competency Prerequisites</h3>
+                            </div>
+                            <p className="text-lg text-custom-text dark:text-dark-secondary">
+                                Add, remove, and review prerequisites for any competency to keep training paths clear and enforced.
+                            </p>
+                        </div>
+                        <div className="md:order-first">
+                            <img src={competencyPrereqImage} alt="Prerequisites modal for competencies" className="rounded-lg shadow-xl ring-1 ring-black/5" />
+                        </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-12 items-center">
+                        <div className="text-left">
+                            <div className="inline-flex items-center gap-3 mb-4">
+                                <Layers className="text-custom-secondary dark:text-dark-secondary" size={28} />
+                                <h3 className="text-2xl font-bold text-custom-primary dark:text-dark-primary">Competency Types</h3>
+                            </div>
+                            <p className="text-lg text-custom-text dark:text-dark-secondary">
+                                Maintain your taxonomy by creating and organizing competency types such as Certifications, Skills, Licenses, and Training.
+                            </p>
+                        </div>
+                        <div>
+                            <img src={competencyTypesImage} alt="Manage Competency Types modal" className="rounded-lg shadow-xl ring-1 ring-black/5" />
+                        </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-12 items-center">
+                        <div className="md:order-last text-left">
+                            <div className="inline-flex items-center gap-3 mb-4">
+                                <Briefcase className="text-custom-secondary dark:text-dark-secondary" size={28} />
+                                <h3 className="text-2xl font-bold text-custom-primary dark:text-dark-primary">Job Positions</h3>
+                            </div>
+                            <p className="text-lg text-custom-text dark:text-dark-secondary">
+                                Manage job positions alongside matrix codes and descriptions, and connect them to required competencies.
+                            </p>
+                        </div>
+                        <div className="md:order-first">
+                            <img src={jobPositionsImage} alt="Manage Job Positions modal" className="rounded-lg shadow-xl ring-1 ring-black/5" />
+                        </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-12 items-center">
+                        <div className="text-left">
+                            <div className="inline-flex items-center gap-3 mb-4">
+                                <CalendarClock className="text-custom-secondary dark:text-dark-secondary" size={28} />
+                                <h3 className="text-2xl font-bold text-custom-primary dark:text-dark-primary">All Company Events</h3>
+                            </div>
+                            <p className="text-lg text-custom-text dark:text-dark-secondary">
+                                Get a card-based overview of scheduled events with quick actions to edit or delete. Designed for fast scanning and management.
+                            </p>
+                        </div>
+                        <div>
+                            <img src={allCompanyEventsImage} alt="All Company Events cards" className="rounded-lg shadow-xl ring-1 ring-black/5" />
+                        </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-12 items-center">
+                        <div className="md:order-last text-left">
+                            <div className="inline-flex items-center gap-3 mb-4">
+                                <FileText className="text-custom-secondary dark:text-dark-secondary" size={28} />
+                                <h3 className="text-2xl font-bold text-custom-primary dark:text-dark-primary">Event Definitions List</h3>
+                            </div>
+                            <p className="text-lg text-custom-text dark:text-dark-secondary">
+                                Search and filter by facilitator, and manage definitions inline with edit and delete actions.
+                            </p>
+                        </div>
+                        <div className="md:order-first">
+                            <img src={eventDefinitionsPageImage} alt="Event Definitions page with table" className="rounded-lg shadow-xl ring-1 ring-black/5" />
+                        </div>
+                    </div>
+
+                    <div className="grid md:grid-cols-2 gap-12 items-center">
+                        <div className="text-left">
+                            <div className="inline-flex items-center gap-3 mb-4">
+                                <GraduationCap className="text-custom-secondary dark:text-dark-secondary" size={28} />
+                                <h3 className="text-2xl font-bold text-custom-primary dark:text-dark-primary">Competency Management</h3>
+                            </div>
+                            <p className="text-lg text-custom-text dark:text-dark-secondary">
+                                Define competencies, link prerequisites, and map them to job roles. Filter by type and status for quick navigation.
+                            </p>
+                        </div>
+                        <div>
+                            <img src={competencyManagementImage} alt="Competency Management page" className="rounded-lg shadow-xl ring-1 ring-black/5" />
                         </div>
                     </div>
 
