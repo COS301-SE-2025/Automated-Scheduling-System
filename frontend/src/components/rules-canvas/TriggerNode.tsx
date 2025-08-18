@@ -138,6 +138,7 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
             );
         }
         if (type === 'number') {
+            // Fallback to text input to avoid auto-increment issues
             return (
                 <input
                     className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
