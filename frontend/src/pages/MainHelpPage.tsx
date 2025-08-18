@@ -59,6 +59,15 @@ const MainHelpPage: React.FC = () => {
                     >
                         <p>
                             Learn how to make the most of the system. Find guides on using the dynamic calendar, managing users, and other key features.
+                            <br />
+                            <a
+                                href="https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/User-Manual"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-semibold text-blue-600 hover:underline dark:text-blue-400"
+                            >
+                                Open the User Manual
+                            </a>
                         </p>
                     </FeatureBlock>
 
