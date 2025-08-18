@@ -6,6 +6,7 @@ import { AuthProvider } from './contexts/AuthContext.tsx';
 import { ThemeProvider } from './contexts/ThemeContext.tsx';
 import './styles/index.css';
 import "primereact/resources/themes/lara-light-cyan/theme.css";
+import "primereact/resources/primereact.min.css";
 import "primeicons/primeicons.css";
 
 createRoot(document.getElementById('root')!).render(

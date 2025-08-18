@@ -40,6 +40,9 @@ func setupTestDB(t *testing.T) *gorm.DB {
         &gen_models.User{},
         &models.CustomEventDefinition{},
         &models.CustomEventSchedule{},
+        &models.EventScheduleEmployee{},
+        &models.EventSchedulePositionTarget{},
+        &models.EventAttendance{},
     )
     require.NoError(t, err)
 
@@ -114,13 +117,13 @@ func setupRouter() *gin.Engine {
         // Event Definition Routes
         api.POST("/event-definitions", CreateEventDefinitionHandler)
         api.GET("/event-definitions", GetEventDefinitionsHandler)
-        api.PATCH("/event-definitions/:definitionID", UpdateEventDefinitionHandler)
+    api.PATCH("/event-definitions/:definitionID", UpdateEventDefinitionHandler)
         api.DELETE("/event-definitions/:definitionID", DeleteEventDefinitionHandler)
 
         // Event Schedule Routes
         api.POST("/event-schedules", CreateEventScheduleHandler)
         api.GET("/event-schedules", GetEventSchedulesHandler)
-        api.PATCH("/event-schedules/:scheduleID", UpdateEventScheduleHandler)
+    api.PATCH("/event-schedules/:scheduleID", UpdateEventScheduleHandler)
         api.DELETE("/event-schedules/:scheduleID", DeleteEventScheduleHandler)
     }
     return r
@@ -258,7 +261,7 @@ func TestCreateEventScheduleHandler(t *testing.T) {
         }
         body, _ := json.Marshal(req)
 
-        w := performRequest(r, "POST", "/api/event-schedules", body, nil)
+    w := performRequest(r, "POST", "/api/event-schedules", body, nil)
         require.Equal(t, http.StatusCreated, w.Code)
 
         var createdSchedules []models.CustomEventSchedule
@@ -270,8 +273,8 @@ func TestCreateEventScheduleHandler(t *testing.T) {
     t.Run("Failure - Definition not found", func(t *testing.T) {
         req := models.CreateEventScheduleRequest{CustomEventID: 99999, Title: "Bad Schedule"}
         body, _ := json.Marshal(req)
-        w := performRequest(r, "POST", "/api/event-schedules", body, nil)
-        require.Equal(t, http.StatusBadRequest, w.Code)
+    w := performRequest(r, "POST", "/api/event-schedules", body, nil)
+    require.Equal(t, http.StatusNotFound, w.Code)
     })
 }
 

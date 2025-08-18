@@ -99,3 +99,15 @@ type EventSchedulePositionTarget struct {
 }
 
 func (EventSchedulePositionTarget) TableName() string { return "event_schedule_position_targets" }
+
+type EventAttendance struct {
+	ID                    int       `gorm:"primaryKey;autoIncrement" json:"id"`
+	CustomEventScheduleID int       `gorm:"column:custom_event_schedule_id;index" json:"customEventScheduleId"`
+	EmployeeNumber        string    `gorm:"column:employee_number;index" json:"employeeNumber"`
+	Attended              bool      `gorm:"column:attended;default:true" json:"attended"`
+	CheckInTime           *time.Time `gorm:"column:check_in_time" json:"checkInTime"`
+	CheckOutTime          *time.Time `gorm:"column:check_out_time" json:"checkOutTime"`
+	CreatedAt             time.Time `gorm:"autoCreateTime" json:"createdAt"`
+}
+
+func (EventAttendance) TableName() string { return "event_attendance" }

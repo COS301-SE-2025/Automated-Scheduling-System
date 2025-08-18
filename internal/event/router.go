@@ -26,6 +26,10 @@ func RegisterEventRoutes(r *gin.Engine) {
 				schedules.POST("/event-schedules", CreateEventScheduleHandler)
 				schedules.PUT("/event-schedules/:scheduleID", UpdateEventScheduleHandler)
 				schedules.DELETE("/event-schedules/:scheduleID", DeleteEventScheduleHandler)
+				schedules.GET("/event-schedules/:scheduleID/attendance", GetAttendanceHandler)
+				schedules.POST("/event-schedules/:scheduleID/attendance", SetAttendanceHandler)
+				schedules.GET("/employees-by-positions", GetEmployeesByPositions)
+				schedules.POST("/competency-check", CheckEmployeesHaveCompetency)
 			}
 
 			defs := protected.Group("/")

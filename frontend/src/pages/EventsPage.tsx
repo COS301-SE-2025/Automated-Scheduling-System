@@ -106,6 +106,10 @@ const EventsPage: React.FC = () => {
                 maxAttendees: eventData.maximumAttendees ?? undefined,
                 minAttendees: eventData.minimumAttendees ?? undefined,
                 statusName: eventData.statusName,
+                color: eventData.color,
+                // Persist linked employees and job positions selected in the modal
+                employeeNumbers: (eventData as any).employeeNumbers,
+                positionCodes: (eventData as any).positionCodes,
             };
 
             if (eventData.id) {
@@ -145,6 +149,9 @@ const EventsPage: React.FC = () => {
             minimumAttendees: eventToEdit.extendedProps.minAttendees,
             statusName: eventToEdit.extendedProps.statusName,
             color: eventToEdit.extendedProps.color,
+            // Provide current links so the modal shows selected values while editing
+            employeeNumbers: eventToEdit.extendedProps.employees || [],
+            positionCodes: eventToEdit.extendedProps.positions || [],
         };
     };
 
@@ -181,7 +188,7 @@ const EventsPage: React.FC = () => {
                     <div className="flex space-x-2">
                         <Button type="button" variant="outline" onClick={handleOpenDefinitionModal}>
                             <Settings size={20} className="inline-block mr-2" />
-                            Manage Event Types
+                            Create New Event Types
                         </Button>
                         <Button type="button" variant="primary" onClick={handleAddEventClick}>
                             <PlusCircle size={20} className="inline-block mr-2" />
