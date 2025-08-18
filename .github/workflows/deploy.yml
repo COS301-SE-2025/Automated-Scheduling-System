@@ -1,0 +1,36 @@
+name: Deploy to DISCON server
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install sshpass
+        run: sudo apt-get update && sudo apt-get install -y sshpass
+
+      - name: Deploy to DISCON Server
+        env:
+          SSH_PASSWORD: ${{ secrets.SSH_PASSWORD || env.SSH_PASSWORD }}
+        run: |
+          # prevent indefinite hang if remote never closes
+          timeout 10m sshpass -p "$SSH_PASSWORD" ssh -t \
+            -o StrictHostKeyChecking=no \
+            -o PreferredAuthentications=password \
+            -o PubkeyAuthentication=no \
+            betatesters@102.33.35.100 <<'REMOTE'
+            echo "🚀 Starting deployment..."
+            echo "📥 Fetching latest changes..."
+            git -C Automated-Scheduling-System/ fetch origin main
+            echo "🔄 Resetting to origin/main..."
+            git -C Automated-Scheduling-System/ reset --hard origin/main
+            echo "🛑 Stopping existing containers..."
+            docker compose -f Automated-Scheduling-System/docker-compose.yml down || true
+            echo "🐳 Starting new containers..."
+            docker compose -f Automated-Scheduling-System/docker-compose.yml up --build -d
+            echo "✅ Deployment completed successfully!"
+            exit 0
+            REMOTE
