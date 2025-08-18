@@ -22,6 +22,7 @@ const MainHelpPage: React.FC = () => {
                     <FeatureBlock
                         title="Visit DISCON Specialists"
                         icon={<Globe size={24} />}
+                        className="dark:from-dark-accent-hover dark:to-dark-accent"
                     >
                         <p>
                             For more information about our company, services, and career opportunities, please visit our corporate website.
@@ -40,6 +41,7 @@ const MainHelpPage: React.FC = () => {
                     <FeatureBlock
                         title="Technical Support"
                         icon={<LifeBuoy size={24} />}
+                        className="dark:from-dark-accent-hover dark:to-dark-accent"
                     >
                         <p>
                             If you're experiencing a bug or technical glitch, please contact our support team. Provide as much detail as possible, including screenshots.
@@ -56,6 +58,7 @@ const MainHelpPage: React.FC = () => {
                     <FeatureBlock
                         title="Feature Guides"
                         icon={<BookOpen size={24} />}
+                        className="dark:from-dark-accent-hover dark:to-dark-accent"
                     >
                         <p>
                             Learn how to make the most of the system. Find guides on using the dynamic calendar, managing users, and other key features.
@@ -74,6 +77,7 @@ const MainHelpPage: React.FC = () => {
                     <FeatureBlock
                         title="Feedback & Suggestions"
                         icon={<Lightbulb size={24} />}
+                        className="dark:from-dark-accent-hover dark:to-dark-accent"
                     >
                         <p>
                             Have an idea for a new feature or an improvement? We'd love to hear it. Your feedback helps us build a better tool for everyone.

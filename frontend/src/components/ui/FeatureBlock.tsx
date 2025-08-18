@@ -15,11 +15,11 @@ const FeatureBlock: React.FC<FeatureBlockProps> = ({ title, icon, children, clas
             p-[2px] shadow-lg transition-all duration-300 hover:shadow-2xl hover:scale-[1.02]
       ${className}
     `}>
-            <div className="flex h-full w-full flex-col rounded-[10px] bg-white dark:bg-dark-div p-4 sm:p-6">
+            <div className="flex h-full w-full flex-col rounded-[10px] bg-white dark:bg-dark-div p-4 sm:p-6 ring-1 ring-black/5 dark:ring-white/10">
 
                 <div className="mb-4 flex items-center space-x-3">
                     {icon && (
-                        <div className="flex-shrink-0 text-custom-secondary dark:text-light-accent">
+                        <div className="flex-shrink-0 text-custom-secondary dark:text-dark-secondary">
                             {icon}
                         </div>
                     )}
@@ -28,7 +28,7 @@ const FeatureBlock: React.FC<FeatureBlockProps> = ({ title, icon, children, clas
                     </h3>
                 </div>
 
-                <div className={`text-sm text-custom-text dark:text-dark-secondary ${minSubtext ? 'min-h-[2.5rem]' : ''}`}>            
+                <div className={`text-sm text-custom-text dark:text-dark-text ${minSubtext ? 'min-h-[2.5rem]' : ''}`}>            
                     {children}
                 </div>
 
