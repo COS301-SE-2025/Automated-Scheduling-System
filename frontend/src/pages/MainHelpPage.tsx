@@ -2,7 +2,7 @@ import React from 'react';
 import MainLayout from '../layouts/MainLayout';
 import FeatureBlock from '../components/ui/FeatureBlock';
 import FeatureGrid from '../components/ui/FeatureGrid';
-import { LifeBuoy, BookOpen, Lightbulb, Gavel, Globe } from 'lucide-react';
+import { LifeBuoy, BookOpen, Lightbulb, Globe } from 'lucide-react';
 
 const MainHelpPage: React.FC = () => {
     return (
@@ -68,15 +68,6 @@ const MainHelpPage: React.FC = () => {
                             >
                                 Open the User Manual
                             </a>
-                        </p>
-                    </FeatureBlock>
-
-                    <FeatureBlock
-                        title="View Company Rules"
-                        icon={<Gavel size={24} />}
-                    >
-                        <p>
-                            Need to review company policies, scheduling procedures, or other internal rules? Access the centralized rulebook here.
                         </p>
                     </FeatureBlock>
 
