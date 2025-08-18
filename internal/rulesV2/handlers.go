@@ -9,6 +9,75 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// GetRulesMetadataHandler returns metadata about all available triggers, actions, facts, and operators
+func GetRulesMetadataHandler(c *gin.Context) {
+	metadata := GetRulesMetadata()
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   metadata,
+	})
+}
+
+// GetTriggersMetadataHandler returns metadata about available triggers
+func GetTriggersMetadataHandler(c *gin.Context) {
+	triggers := getTriggerMetadata()
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   triggers,
+	})
+}
+
+// GetActionsMetadataHandler returns metadata about available actions
+func GetActionsMetadataHandler(c *gin.Context) {
+	actions := getActionMetadata()
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   actions,
+	})
+}
+
+// GetFactsMetadataHandler returns metadata about available facts for conditions
+func GetFactsMetadataHandler(c *gin.Context) {
+	facts := getFactMetadata()
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   facts,
+	})
+}
+
+// GetOperatorsMetadataHandler returns metadata about available operators
+func GetOperatorsMetadataHandler(c *gin.Context) {
+	operators := getOperatorMetadata()
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   operators,
+	})
+}
+
+// ValidateRuleHandler validates a rule without saving it
+func ValidateRuleHandler(c *gin.Context) {
+	var rule Rulev2
+	if err := c.ShouldBindJSON(&rule); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status": "error",
+			"error":  err.Error(),
+		})
+		return
+	}
+
+	result := ValidateRuleParameters(rule)
+
+	status := http.StatusOK
+	if !result.Valid {
+		status = http.StatusBadRequest
+	}
+
+	c.JSON(status, gin.H{
+		"status": "success",
+		"data":   result,
+	})
+}
+
 // TriggerJobMatrixUpdate triggers rules when job matrix is updated
 func TriggerJobMatrixUpdate(c *gin.Context, service *RuleBackEndService) {
 	var request struct {
