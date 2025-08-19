@@ -10,6 +10,7 @@ type DomainFacts struct{}
 
 func (DomainFacts) Resolve(evCtx EvalContext, path string) (any, bool, error) {
     prefixes := []string{
+        "competency.",
         "jobPosition.",
         "competencyType.",
         "role.",

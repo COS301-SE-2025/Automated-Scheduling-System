@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"    // added
 	"reflect"
 	"strings"
 	"text/template"
@@ -19,6 +20,15 @@ type Engine struct {
 	// Policy toggles (optional; adjust to taste)
 	ContinueActionsOnError  bool // if true, runs all actions and aggregates errors
 	StopOnFirstConditionErr bool // if true, aborts rule on first condition error
+
+	Debug bool // added
+}
+
+func (e *Engine) debugf(format string, args ...any) { // added
+	if !e.Debug {
+		return
+	}
+	log.Printf("[rules] "+format, args...)
 }
 
 // ValidateRule checks that a Rulev2 is internally consistent and
@@ -104,47 +114,22 @@ func (e *Engine) RunRule(ctx context.Context, r Rulev2) error {
 
 /* --------------------------- Condition Evaluation ------------------------ */
 
-func (e *Engine) evalConditions(evCtx EvalContext, conds []Condition) (bool, error) {
-	for _, c := range conds {
-		val, ok, err := e.resolveFact(evCtx, c)
-		if err != nil {
-			return false, fmt.Errorf("resolve fact %q: %w", c.Fact, err)
-		}
-		if !ok {
-			// Unknown/missing fact → treat as false
-			return false, nil
-		}
-		op, ok := e.R.Operators[c.Operator]
-		if !ok || op == nil {
-			return false, fmt.Errorf("unknown operator %q", c.Operator)
-		}
-
-		// Pass the "Value" by default. If you have operator-specific extras,
-		// wire them here (e.g., forCompetency) by reading from c.Extras.
-		rhs := c.Value
-
-		pass, err := op(val, rhs)
-		if err != nil {
-			return false, fmt.Errorf("operator %q: %w", c.Operator, err)
-		}
-		if !pass {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
 func (e *Engine) EvaluateOnce(evCtx EvalContext, r Rulev2) error {
 	if evCtx.Now.IsZero() {
 		evCtx.Now = time.Now().UTC()
 	}
 
 	// Debug: show incoming trigger map, rule params, and match result
-	matched := matchTriggerParams(evCtx, r.Trigger.Parameters)
+	if e.Debug {
+		keys := make([]string, 0, len(evCtx.Data))
+		for k := range evCtx.Data { keys = append(keys, k) }
+		e.debugf("Evaluate rule=%q trigger=%v dataKeys=%v", r.Name, evCtx.Data["trigger"], keys)
+	}
 
-	// Enforce trigger parameter guards (e.g., operation must match)
+	matched := matchTriggerParams(evCtx, r.Trigger.Parameters)
+	e.debugf("Trigger params match=%v expected=%v actual=%v", matched, r.Trigger.Parameters, evCtx.Data["trigger"])
+
 	if !matched {
-		// parameters don't match the incoming event -> skip this rule
 		return nil
 	}
 
@@ -156,15 +141,52 @@ func (e *Engine) EvaluateOnce(evCtx EvalContext, r Rulev2) error {
 	return e.execActions(evCtx, r.Actions)
 }
 
+func (e *Engine) evalConditions(evCtx EvalContext, conds []Condition) (bool, error) {
+	for _, c := range conds {
+		e.debugf("Cond: fact=%q op=%s rhs=%#v", c.Fact, c.Operator, c.Value)
+
+		val, ok, err := e.resolveFact(evCtx, c)
+		if err != nil {
+			e.debugf(" -> resolve error: %v", err)
+			return false, fmt.Errorf("resolve fact %q: %w", c.Fact, err)
+		}
+		if !ok {
+			e.debugf(" -> fact not found")
+			return false, nil
+		}
+		e.debugf(" -> fact value: (%T) %#v", val, val)
+
+		op, ok := e.R.Operators[c.Operator]
+		if !ok || op == nil {
+			return false, fmt.Errorf("unknown operator %q", c.Operator)
+		}
+
+		pass, err := op(val, c.Value)
+		if err != nil {
+			e.debugf(" -> operator error: %v", err)
+			return false, fmt.Errorf("operator %q: %w", c.Operator, err)
+		}
+		e.debugf(" -> result: %v", pass)
+		if !pass {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 func (e *Engine) resolveFact(evCtx EvalContext, c Condition) (any, bool, error) {
 	for _, fr := range e.R.Facts {
+		name := fmt.Sprintf("%T", fr)
 		v, handled, err := fr.Resolve(evCtx, c.Fact)
 		if err != nil {
+			e.debugf("Resolver %s error on %q: %v", name, c.Fact, err)
 			return nil, handled, err
 		}
 		if handled {
+			e.debugf("Resolver %s handled %q -> (%T) %#v", name, c.Fact, v, v)
 			return v, true, nil
 		}
+		e.debugf("Resolver %s skipped %q", name, c.Fact)
 	}
 	return nil, false, nil
 }

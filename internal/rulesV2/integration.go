@@ -50,6 +50,7 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 		R:                       registry,
 		ContinueActionsOnError:  true,
 		StopOnFirstConditionErr: false,
+		Debug:					 false,
 	}
 
 	// ensure rules table exists

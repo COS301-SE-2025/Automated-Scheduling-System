@@ -514,7 +514,7 @@ func getFactMetadata() []FactMetadata {
 			Type:        "string",
 			Description: "Competency type name",
 			Operators:   []string{"equals", "notEquals", "in", "notIn"},
-			Triggers:    []string{trCompType, trCompetency},
+			Triggers:    []string{trCompType},
 		},
 		{
 			Name:        "competencyType.IsActive",
