@@ -9,7 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	// Import these AFTER loading .env
-	"Automated-Scheduling-Project/internal/email"
+
 	rulesv2 "Automated-Scheduling-Project/internal/rulesV2"
 )
 
@@ -27,13 +27,6 @@ func main() {
 	log.Printf("MAIL_PASSWORD: %s", os.Getenv("MAIL_PASSWORD"))
 
 	// Test direct email function
-	log.Println("Testing direct email...")
-	err := email.SendEmail("mullerdannhauser1@gmail.com", "Test Subject", "This is a test message from the rules engine!")
-	if err != nil {
-		log.Printf("Direct email failed: %v", err)
-	} else {
-		log.Println("Direct email sent successfully!")
-	}
 
 	// Test through NotificationAction
 	log.Println("Testing notification action...")
@@ -49,7 +42,7 @@ func main() {
 		"type":      "email",
 	}
 
-	err = action.Execute(ctx, params)
+	err := action.Execute(ctx, params)
 	if err != nil {
 		log.Printf("Notification action failed: %v", err)
 	} else {

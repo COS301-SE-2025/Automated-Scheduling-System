@@ -36,7 +36,8 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 		UseAction("competency_assignment", &CompetencyAssignmentAction{DB: db}).
 		UseAction("job_matrix_update", &JobMatrixUpdateAction{DB: db}).
 		UseAction("webhook", &WebhookAction{}).
-		UseAction("audit_log", &AuditLogAction{DB: db})
+		UseAction("audit_log", &AuditLogAction{DB: db}).
+		UseAction("create_event", &CreateEventAction{DB: db})
 
 	engine := &Engine{
 		R:                       registry,

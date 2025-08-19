@@ -7,6 +7,9 @@ import (
 	gomail "gopkg.in/mail.v2"
 )
 
+var fromAddress string
+var mailPassword string
+
 // MockDialer is a mock implementation of gomail.Dialer
 type MockDialer struct {
 	ShouldFail bool
@@ -29,7 +32,7 @@ func TestSendEmailWithDialer_Success(t *testing.T) {
 	mockDialer := &MockDialer{ShouldFail: false}
 
 	// Call the helper function
-	err := SendEmailWithDialer(mockDialer, "recipient@example.com", "Test Subject", "Test Body")
+	err := SendEmailWithDialer(mockDialer, "recipient@example.com", "Test Subject", "Test Body", fromAddress)
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
@@ -44,7 +47,7 @@ func TestSendEmailWithDialer_Failure(t *testing.T) {
 	mockDialer := &MockDialer{ShouldFail: true}
 
 	// Call the helper function
-	err := SendEmailWithDialer(mockDialer, "recipient@example.com", "Test Subject", "Test Body")
+	err := SendEmailWithDialer(mockDialer, "recipient@example.com", "Test Subject", "Test Body", fromAddress)
 	if err == nil {
 		t.Errorf("expected error, got nil")
 	}
