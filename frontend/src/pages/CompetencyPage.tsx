@@ -62,7 +62,7 @@ const CompetencyPage: React.FC = () => {
     const [confirmTitle, setConfirmTitle] = useState('');
     const [confirmMessage, setConfirmMessage] = useState<React.ReactNode>(null);
     const [confirmVariant, setConfirmVariant] = useState<'primary' | 'danger' | 'outline'>('danger');
-    const confirmActionRef = React.useRef<() => Promise<void> | void>(() => {});
+    const confirmActionRef = React.useRef<() => Promise<void> | void>(() => { });
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -158,7 +158,7 @@ const CompetencyPage: React.FC = () => {
             <span>Are you sure you want to deactivate "<strong>{competency.competencyName}</strong>"? This is a soft delete.</span>
         );
         setConfirmError(null);
-    setConfirmVariant('danger');
+        setConfirmVariant('danger');
         confirmActionRef.current = async () => {
             try {
                 setConfirmBusy(true);
@@ -181,7 +181,7 @@ const CompetencyPage: React.FC = () => {
             <span>Are you sure you want to reactivate "<strong>{competency.competencyName}</strong>"?</span>
         );
         setConfirmError(null);
-    setConfirmVariant('primary');
+        setConfirmVariant('primary');
         confirmActionRef.current = async () => {
             try {
                 setConfirmBusy(true);
@@ -299,7 +299,7 @@ const CompetencyPage: React.FC = () => {
         setExpandedCompetencyId(prevId => (prevId === competencyId ? null : competencyId));
     };
 
-        const handleAddJobLink = async (competencyId: number, positionCode: string, status: string) => {
+    const handleAddJobLink = async (competencyId: number, positionCode: string, status: string) => {
         try {
             const newLink = await jobRequirementService.addJobRequirement({
                 competencyID: competencyId,
@@ -310,7 +310,7 @@ const CompetencyPage: React.FC = () => {
             const fullJobPosition = jobPositions.find(jp => jp.positionMatrixCode === positionCode);
             const newLinkWithDetails: JobRequirement = {
                 ...newLink,
-                jobPosition: fullJobPosition!, 
+                jobPosition: fullJobPosition!,
             };
 
             setJobRequirements(prev => [...prev, newLinkWithDetails]);
@@ -337,107 +337,108 @@ const CompetencyPage: React.FC = () => {
     }
 
     return (
-        <MainLayout pageTitle="Competency Management" helpText="Create and maintain competencies, manage types, link prerequisites, and map job position requirements.">
-            <div className="px-4 sm:px-6 lg:px-8 py-8">
-                <div className="sm:flex sm:items-center">
-                    <div className="sm:flex-auto">
-                        <h1 className="text-2xl font-semibold text-custom-primary dark:text-dark-primary">Competency Management</h1>
-                        <p className="mt-2 text-sm text-custom-third dark:text-dark-secondary">
-                            Define and manage competencies, skills, and certifications for your organization.
-                        </p>
+        <>
+            <MainLayout pageTitle="Competency Management" helpText="Create and maintain competencies, manage types, link prerequisites, and map job position requirements.">
+                <div className="px-4 sm:px-6 lg:px-8 py-8">
+                    <div className="sm:flex sm:items-center">
+                        <div className="sm:flex-auto">
+                            <h1 className="text-2xl font-semibold text-custom-primary dark:text-dark-primary">Competency Management</h1>
+                            <p className="mt-2 text-sm text-custom-third dark:text-dark-secondary">
+                                Define and manage competencies, skills, and certifications for your organization.
+                            </p>
+                        </div>
+                        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex items-center gap-3">
+                            <button type="button" onClick={() => setIsJobPositionModalOpen(true)} className="block rounded-md bg-white dark:bg-dark-input px-3 py-2 text-center text-sm font-semibold text-custom-primary dark:text-dark-primary shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-dark-div">
+                                <Briefcase size={20} className="inline-block mr-2" />
+                                Manage Job Positions
+                            </button>
+                            <button type="button" onClick={() => setIsTypeModalOpen(true)} className="block rounded-md bg-white dark:bg-dark-input px-3 py-2 text-center text-sm font-semibold text-custom-primary dark:text-dark-primary shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-dark-div">
+                                <Settings size={20} className="inline-block mr-2" />
+                                Manage Competency Types
+                            </button>
+                            <button type="button" onClick={handleOpenAddModal} className="block rounded-md bg-custom-secondary px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-custom-third focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-custom-secondary">
+                                <PlusCircle size={20} className="inline-block mr-2" />
+                                Add Competency
+                            </button>
+                        </div>
                     </div>
-                    <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none flex items-center gap-3">
-                        <button type="button" onClick={() => setIsJobPositionModalOpen(true)} className="block rounded-md bg-white dark:bg-dark-input px-3 py-2 text-center text-sm font-semibold text-custom-primary dark:text-dark-primary shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-dark-div">
-                            <Briefcase size={20} className="inline-block mr-2" />
-                            Manage Job Positions
-                        </button>
-                        <button type="button" onClick={() => setIsTypeModalOpen(true)} className="block rounded-md bg-white dark:bg-dark-input px-3 py-2 text-center text-sm font-semibold text-custom-primary dark:text-dark-primary shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-dark-div">
-                            <Settings size={20} className="inline-block mr-2" />
-                            Manage Competency Types
-                        </button>
-                        <button type="button" onClick={handleOpenAddModal} className="block rounded-md bg-custom-secondary px-3 py-2 text-center text-sm font-semibold text-white shadow-sm hover:bg-custom-third focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-custom-secondary">
-                            <PlusCircle size={20} className="inline-block mr-2" />
-                            Add Competency
-                        </button>
-                    </div>
+
+                    <CompetencyFilters
+                        onSearch={setSearchTerm}
+                        onFilterChange={(name, value) => setFilters(prev => ({ ...prev, [name]: value }))}
+                        filters={filters}
+                        availableTypes={competencyTypes.filter(t => t.isActive)}
+                    />
+
+                    <CompetencyTable
+                        competencies={filteredCompetencies}
+                        isLoading={isLoading}
+                        onEdit={handleOpenEditModal}
+                        onDelete={handleDeleteRequest}
+                        onReactivate={handleReactivate}
+                        onViewPrerequisites={handleOpenPrereqModal}
+                        expandedCompetencyId={expandedCompetencyId}
+                        onToggleExpand={handleToggleExpand}
+                        allJobPositions={jobPositions}
+                        jobRequirements={jobRequirements}
+                        onAddJobLink={handleAddJobLink}
+                        onRemoveJobLink={handleRemoveJobLink}
+                    />
                 </div>
 
-                <CompetencyFilters
-                    onSearch={setSearchTerm}
-                    onFilterChange={(name, value) => setFilters(prev => ({ ...prev, [name]: value }))}
-                    filters={filters}
-                    availableTypes={competencyTypes.filter(t => t.isActive)}
+                <CompetencyModal
+                    isOpen={isModalOpen}
+                    onClose={handleCloseModal}
+                    onSave={handleSaveCompetency}
+                    mode={modalMode}
+                    competency={editingCompetency}
+                    apiError={modalApiError}
+                    competencyTypes={competencyTypes.filter(t => t.isActive)}
                 />
 
-                <CompetencyTable
-                competencies={filteredCompetencies}
-                isLoading={isLoading}
-                onEdit={handleOpenEditModal}
-                onDelete={handleDeleteRequest}
-                onReactivate={handleReactivate}
-                onViewPrerequisites={handleOpenPrereqModal}
-                // drop down 
-                expandedCompetencyId={expandedCompetencyId}
-                onToggleExpand={handleToggleExpand}
-                allJobPositions={jobPositions}
-                jobRequirements={jobRequirements}
-                onAddJobLink={handleAddJobLink}
-                onRemoveJobLink={handleRemoveJobLink}
-            />
-            </div>
+                <PrerequisiteModal
+                    isOpen={isPrereqModalOpen}
+                    onClose={handleClosePrereqModal}
+                    onAddPrerequisite={handleAddPrerequisite}
+                    onRemovePrerequisite={handleRemovePrerequisite}
+                    competency={managingPrereqsFor}
+                    allCompetencies={competencies}
+                    apiError={prereqApiError}
+                    isLoading={isPrereqLoading}
+                />
 
-            <CompetencyModal
-                isOpen={isModalOpen}
-                onClose={handleCloseModal}
-                onSave={handleSaveCompetency}
-                mode={modalMode}
-                competency={editingCompetency}
-                apiError={modalApiError}
-                competencyTypes={competencyTypes.filter(t => t.isActive)}
-            />
-            
-            <PrerequisiteModal
-                isOpen={isPrereqModalOpen}
-                onClose={handleClosePrereqModal}
-                onAddPrerequisite={handleAddPrerequisite}
-                onRemovePrerequisite={handleRemovePrerequisite}
-                competency={managingPrereqsFor}
-                allCompetencies={competencies}
-                apiError={prereqApiError}
-                isLoading={isPrereqLoading}
-            />
+                <TypeManagementModal
+                    isOpen={isTypeModalOpen}
+                    onClose={() => setIsTypeModalOpen(false)}
+                    types={competencyTypes}
+                    onAdd={handleAddType}
+                    onUpdate={handleUpdateType}
+                    onToggleStatus={handleToggleTypeStatus}
+                />
 
-            <TypeManagementModal
-                isOpen={isTypeModalOpen}
-                onClose={() => setIsTypeModalOpen(false)}
-                types={competencyTypes}
-                onAdd={handleAddType}
-                onUpdate={handleUpdateType}
-                onToggleStatus={handleToggleTypeStatus}
-            />
+                <JobPositionManagementModal
+                    isOpen={isJobPositionModalOpen}
+                    onClose={() => setIsJobPositionModalOpen(false)}
+                    positions={jobPositions}
+                    onAdd={handleAddJobPosition}
+                    onUpdate={handleUpdateJobPosition}
+                    onToggleStatus={handleToggleJobPositionStatus}
+                />
+            </MainLayout>
 
-            <JobPositionManagementModal
-                isOpen={isJobPositionModalOpen}
-                onClose={() => setIsJobPositionModalOpen(false)}
-                positions={jobPositions}
-                onAdd={handleAddJobPosition}
-                onUpdate={handleUpdateJobPosition}
-                onToggleStatus={handleToggleJobPositionStatus}
+            <ConfirmModal
+                isOpen={confirmOpen}
+                title={confirmTitle}
+                message={confirmMessage}
+                confirmLabel="Confirm"
+                cancelLabel="Cancel"
+                confirmVariant={confirmVariant}
+                isBusy={confirmBusy}
+                error={confirmError}
+                onCancel={() => !confirmBusy && setConfirmOpen(false)}
+                onConfirm={() => confirmActionRef.current?.()}
             />
-    </MainLayout>
-        <ConfirmModal
-            isOpen={confirmOpen}
-            title={confirmTitle}
-            message={confirmMessage}
-            confirmLabel="Confirm"
-            cancelLabel="Cancel"
-            confirmVariant={confirmVariant}
-            isBusy={confirmBusy}
-            error={confirmError}
-            onCancel={() => !confirmBusy && setConfirmOpen(false)}
-            onConfirm={() => confirmActionRef.current?.()}
-        />
-    </>
+        </>
     );
 };
 
