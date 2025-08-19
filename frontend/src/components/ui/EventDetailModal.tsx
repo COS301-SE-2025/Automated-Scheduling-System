@@ -27,7 +27,9 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
         });
     };
     const auth = useAuth();
-    const canManage = !!(auth.permissions?.includes('events') && (auth.user?.role === 'Admin' || auth.user?.role === 'HR'));
+    const canManage = !!(
+        auth.user && (auth.user.role === 'Admin' || auth.user.role === 'HR')
+    ) || !!auth.permissions?.includes('events');
 
     // local UI state for chip overflow toggles
     const [showAllEmployees, setShowAllEmployees] = React.useState(false);
