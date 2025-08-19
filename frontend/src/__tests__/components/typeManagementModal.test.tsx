@@ -123,32 +123,37 @@ describe('TypeManagementModal', () => {
     });
 
     it('deactivates an active type after confirm', async () => {
-        vi.spyOn(window, 'confirm').mockReturnValue(true);
         onToggleStatus.mockResolvedValueOnce({});
 
         renderModal();
 
         fireEvent.click(screen.getByTitle('Deactivate'));
-        expect(onToggleStatus).toHaveBeenCalledWith('Core', false);
+        const confirmBtn = await screen.findByRole('button', { name: /Confirm/i });
+        fireEvent.click(confirmBtn);
+
+        await waitFor(() => expect(onToggleStatus).toHaveBeenCalledWith('Core', false));
     });
 
     it('reactivates an inactive type after confirm', async () => {
-        vi.spyOn(window, 'confirm').mockReturnValue(true);
         onToggleStatus.mockResolvedValueOnce({});
 
         renderModal();
 
         fireEvent.click(screen.getByTitle('Reactivate'));
-        expect(onToggleStatus).toHaveBeenCalledWith('Legacy', true);
+        const confirmBtn = await screen.findByRole('button', { name: /Confirm/i });
+        fireEvent.click(confirmBtn);
+
+        await waitFor(() => expect(onToggleStatus).toHaveBeenCalledWith('Legacy', true));
     });
 
-    it('does not toggle status when confirm is cancelled', () => {
-        vi.spyOn(window, 'confirm').mockReturnValue(false);
-
+    it('does not toggle status when confirm is cancelled', async () => {
         renderModal();
 
         fireEvent.click(screen.getByTitle('Deactivate'));
-        expect(onToggleStatus).not.toHaveBeenCalled();
+        const cancelBtn = await screen.findByRole('button', { name: /Cancel/i });
+        fireEvent.click(cancelBtn);
+
+        await waitFor(() => expect(onToggleStatus).not.toHaveBeenCalled());
     });
 
     it('shows API error message when add fails', async () => {
