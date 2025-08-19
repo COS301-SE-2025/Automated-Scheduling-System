@@ -14,7 +14,7 @@ import (
 
 	This seeds two rulesv2 examples:
 	- EVENT_STATUS_CHANGED → logs when a schedule becomes Completed
-	- DAILY_COMPETENCY_EXPIRY_CHECK → logs when a required competency expires in ≤ 7 days
+	- DAILY_COMPETENCY_EXPIRY_CHECK → logs when a required competency expires in <= 7 days
 */
 
 func main() {
@@ -36,6 +36,8 @@ func main() {
 
 	// Register a simple console action so we can see results without email/webhooks
 	reg.UseAction("CONSOLE", consoleAction{})
+	reg.UseAction("create_event", &rules.CreateEventAction{DB: DB})
+	reg.UseAction("notification", &rules.NotificationAction{DB: DB})
 
 	// 4) Create the store
 	// store := rules.DBRuleStore{DB: DB}
@@ -101,4 +103,3 @@ func (consoleAction) Execute(ctx rules.EvalContext, params map[string]any) error
 	log.Printf("[CONSOLE] now=%s msg=%q params=%v", ctx.Now.Format(time.RFC3339), msg, params)
 	return nil
 }
-

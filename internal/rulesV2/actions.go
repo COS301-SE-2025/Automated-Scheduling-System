@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"Automated-Scheduling-Project/internal/database/gen_models"
+	"Automated-Scheduling-Project/internal/email"
+	"Automated-Scheduling-Project/internal/sms"
 
 	"gorm.io/gorm"
 )
@@ -22,23 +24,148 @@ func (a *NotificationAction) Execute(ctx EvalContext, params map[string]any) err
 	recipient, _ := params["recipient"].(string)
 	subject, _ := params["subject"].(string)
 	message, _ := params["message"].(string)
+	notificationType, _ := params["type"].(string) // "email", "sms", "push", or "system"
 
 	if recipient == "" || subject == "" || message == "" {
 		return fmt.Errorf("notification requires recipient, subject, and message")
 	}
 
-	// In a real implementation, this would send actual notifications
-	// For now, we'll log the notification
-	log.Printf("NOTIFICATION: To=%s, Subject=%s, Message=%s", recipient, subject, message)
+	if notificationType == "" {
+		notificationType = "system" // Default to system notification
+	}
 
-	// You could also store notifications in the database
-	// notification := gen_models.Notification{
-	//     Recipient: recipient,
-	//     Subject:   subject,
-	//     Message:   message,
-	//     SentAt:    time.Now(),
-	// }
-	// return a.DB.Create(&notification).Error
+	switch notificationType {
+	case "email":
+		// Call the sendEmail method
+		return a.sendEmail(recipient, subject, message)
+	case "sms":
+		a.sendSMS(recipient, message)
+		return nil
+	case "push":
+		// Implement push notification logic here
+		log.Printf("PUSH NOTIFICATION SENT: To=%s, Subject=%s, Message=%s", recipient, subject, message)
+		return nil
+	case "system":
+		// Implement system notification logic here
+		a.sendSystem(recipient, subject, message, params)
+		return nil
+	default:
+		return fmt.Errorf("unknown notification type: %s", notificationType)
+	}
+}
+
+// System notification function (default behaviour if no notification service is passed in)
+func (a *NotificationAction) sendSystem(recipient, subject, message string, params map[string]any) error {
+	// TODO add notifications to the database models.
+	notificationData := map[string]any{
+		"type":      "system_notification",
+		"recipient": recipient,
+		"subject":   subject,
+		"message":   message,
+		"timestamp": time.Now().Format(time.RFC3339),
+		"priority":  params["priority"],
+	}
+
+	logData, _ := json.Marshal(notificationData)
+	log.Printf("SYSTEM NOTIFICATION: %s", string(logData))
+	log.Printf("SYSTEM NOTIFICATION: [%s] %s - %s", recipient, subject, message)
+	return nil
+}
+
+// Email function linked to the internal/email
+func (a *NotificationAction) sendEmail(recipient, subject, message string) error {
+	err := email.SendEmail(recipient, subject, message)
+	if err != nil {
+		return fmt.Errorf("failed to send email: %w", err)
+	}
+	log.Printf("EMAIL SENT: To=%s, Subject=%s", recipient, subject)
+	return nil
+}
+
+// SMS sender for notification if notification type is SMS
+// Takes in the recipient and the message string
+func (a *NotificationAction) sendSMS(recipient, message string) error {
+	// Implement SMS sending logic here
+	sms.SendSMS([]string{recipient}, message)
+	log.Printf("SMS SENT: To=%s, Message=%s", recipient, message)
+	return nil
+}
+
+type CreateEventAction struct {
+	DB *gorm.DB
+}
+
+func (a *CreateEventAction) Execute(ctx EvalContext, params map[string]any) error {
+	title, _ := params["title"].(string)
+	eventType, _ := params["eventType"].(string)
+	startTime, _ := params["startTime"].(string)
+	endTime, _ := params["endTime"].(string)
+	relevantParties, _ := params["relevantParties"].(string)
+	color, _ := params["color"].(string)
+	allDay, _ := params["allDay"].(bool)
+
+	if title == "" || eventType == "" || startTime == "" || relevantParties == "" {
+		return fmt.Errorf("create_event requires title, eventType, startTime, and relevantParties")
+	}
+	if color == "" {
+		color = "#007bff" // Default color if not provided
+	}
+
+	// Parse start time
+	var startDateTime time.Time
+	if startTime != "" {
+		var err error
+		startDateTime, err = time.Parse("2006-01-02 15:04", startTime)
+		if err != nil {
+			return fmt.Errorf("invalid startTime format: %w", err)
+		}
+	} else {
+		startDateTime = time.Now() // Default to now if not provided
+	}
+
+	// Parse end time
+	var endDateTime time.Time
+	if endTime != "" {
+		var err error
+		endDateTime, err = time.Parse("2006-01-02 15:04", endTime)
+		if err != nil {
+			return fmt.Errorf("invalid endTime format: %w", err)
+		}
+	} else {
+		endDateTime = startDateTime.Add(2 * time.Hour) // Default to 2 hours later
+	}
+
+	if eventType == "" {
+		eventType = "general"
+	}
+
+	if color == "" {
+		color = "#007bff"
+	}
+
+	if relevantParties == "" {
+		if employee, ok := ctx.Data["employee"].(gen_models.Employee); ok {
+			relevantParties = employee.Employeenumber
+		} else {
+			return fmt.Errorf("relevantParties is required")
+		}
+	}
+
+	event := gen_models.Event{
+		Title:           title,
+		EventType:       eventType,
+		RelevantParties: relevantParties,
+		StartTime:       startDateTime,
+		EndTime:         endDateTime,
+		AllDay:          allDay,
+		Color:           color,
+	}
+
+	if err := a.DB.Create(&event).Error; err != nil {
+		return fmt.Errorf("failed to create event: %w", err)
+	}
+	log.Printf("EVENT CREATED: ID=%d, Title=%s, Type=%s, Start=%s, Parties=%s",
+		event.ID, title, eventType, startDateTime.Format("2006-01-02 15:04"), relevantParties)
 
 	return nil
 }
