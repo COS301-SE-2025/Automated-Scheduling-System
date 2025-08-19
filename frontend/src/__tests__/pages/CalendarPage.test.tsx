@@ -125,8 +125,8 @@ describe("CalendarPage", () => {
       (h) => h.className && String(h.className).includes("text-2xl")
     );
     expect(pageHeader).toBeTruthy();
-    expect(screen.getByText("Manage Event Types")).toBeInTheDocument();
-    expect(screen.getByText("Schedule Event")).toBeInTheDocument();
+  expect(await screen.findByText("Create New Event Types")).toBeInTheDocument();
+  expect(await screen.findByText("Schedule Event")).toBeInTheDocument();
 
     await waitFor(() => expect(mockGetScheduledEvents).toHaveBeenCalled());
 
@@ -139,7 +139,7 @@ describe("CalendarPage", () => {
         <CalendarPage />
       </MemoryRouter>
     );
-    await user.click(screen.getByText("Manage Event Types"));
+  await user.click(await screen.findByText("Create New Event Types"));
     const modal = await screen.findByTestId("event-definition-modal");
     expect(modal).toBeInTheDocument();
     await user.click(screen.getByText("save-def"));
