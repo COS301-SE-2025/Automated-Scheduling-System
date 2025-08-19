@@ -23,8 +23,6 @@ func (DomainFacts) Resolve(evCtx EvalContext, path string) (any, bool, error) {
 
 	for _, p := range prefixes {
 		if strings.HasPrefix(lp, p) {
-			// Use the canonical top key with correct casing expected in context
-			// Map lower-case prefix to top-level key
 			var top string
 			switch p {
 			case "competency.":

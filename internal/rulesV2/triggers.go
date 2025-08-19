@@ -7,8 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// Removed legacy ScheduledCompetencyCheckTrigger and NewHireTrigger
-
 // Declare trigger types used by the registry and Fire methods
 type JobPositionTrigger struct {
 	DB *gorm.DB
@@ -134,7 +132,7 @@ type LinkJobToCompetencyTrigger struct {
 }
 
 func (t *LinkJobToCompetencyTrigger) Fire(ctx context.Context, params map[string]any, emit func(EvalContext) error) error {
-	op, _ := params["operation"].(string) // add|deactivate|reactivate
+	op, _ := params["operation"].(string) // add|remove
 	evalCtx := EvalContext{
 		Now: time.Now(),
 		Data: map[string]any{

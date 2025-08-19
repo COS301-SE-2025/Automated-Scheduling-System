@@ -71,11 +71,6 @@ func main() {
 	matrix.SetRulesService(rulesService)
 	role.SetRulesService(rulesService)
 
-	// Create sample rules for demonstration (optional - currently no-ops)
-	ctx := context.Background()
-	if err := rulesService.CreateSampleRules(ctx); err != nil {
-		log.Printf("Warning: Failed to create sample rules: %v", err)
-	}
 
 	server := server.NewServer(rulesService)
 
