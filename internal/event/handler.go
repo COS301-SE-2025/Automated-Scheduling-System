@@ -15,6 +15,8 @@ import (
 )
 
 var DB *gorm.DB
+// Allow tests to stub the current user/role resolution logic.
+var currentUserContextFn = currentUserContext
 
 // ================================================================
 // Event Definition Handlers (for HR to manage course templates)
@@ -29,7 +31,7 @@ func CreateEventDefinitionHandler(c *gin.Context) {
 	}
 
 	// Resolve current user and roles so we can enforce restrictions
-	_, _, isAdmin, isHR, err := currentUserContext(c)
+	_, _, isAdmin, isHR, err := currentUserContextFn(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -71,7 +73,7 @@ func GetEventDefinitionsHandler(c *gin.Context) {
 	var definitions []models.CustomEventDefinition
 
 	// Determine caller role; non-admin/HR users should only see their own definitions
-	_, _, isAdmin, isHR, err := currentUserContext(c)
+	_, _, isAdmin, isHR, err := currentUserContextFn(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -119,7 +121,7 @@ func UpdateEventDefinitionHandler(c *gin.Context) {
 	}
 
 	// Ensure permissions: non-admin/HR can only update their own definitions and cannot set GrantsCertificateID
-	_, _, isAdmin, isHR, err := currentUserContext(c)
+	_, _, isAdmin, isHR, err := currentUserContextFn(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -174,7 +176,7 @@ func DeleteEventDefinitionHandler(c *gin.Context) {
 	}
 
 	// Check permissions
-	_, _, isAdmin, isHR, err := currentUserContext(c)
+	_, _, isAdmin, isHR, err := currentUserContextFn(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -215,7 +217,7 @@ func CreateEventScheduleHandler(c *gin.Context) {
 	}
 
 	// Resolve current user and role
-	currentUser, currentEmployee, isAdmin, isHR, err := currentUserContext(c)
+	currentUser, currentEmployee, isAdmin, isHR, err := currentUserContextFn(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -302,7 +304,7 @@ func CreateEventScheduleHandler(c *gin.Context) {
 func GetEventSchedulesHandler(c *gin.Context) {
 	var schedules []models.CustomEventSchedule
 	// Determine current user and role to filter results
-	currentUser, currentEmployee, isAdmin, isHR, err := currentUserContext(c)
+	currentUser, currentEmployee, isAdmin, isHR, err := currentUserContextFn(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -355,7 +357,7 @@ func UpdateEventScheduleHandler(c *gin.Context) {
 	}
 
 	// Permissions: Generic user can only update their own schedule and cannot add others
-	_, currentEmployee, isAdmin, isHR, err := currentUserContext(c)
+	_, currentEmployee, isAdmin, isHR, err := currentUserContextFn(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -494,7 +496,7 @@ func SetAttendanceHandler(c *gin.Context) {
 	scheduleID, err := strconv.Atoi(scheduleIDStr)
 	if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID"}); return }
 
-	_, _, isAdmin, isHR, err := currentUserContext(c)
+	_, _, isAdmin, isHR, err := currentUserContextFn(c)
 	if err != nil { c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()}); return }
 	if !isAdmin && !isHR { c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"}); return }
 

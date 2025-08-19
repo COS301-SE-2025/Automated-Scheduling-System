@@ -5,8 +5,10 @@ package event
 import (
     "Automated-Scheduling-Project/internal/database/gen_models"
     "Automated-Scheduling-Project/internal/database/models"
+    rolepkg "Automated-Scheduling-Project/internal/role"
     "bytes"
     "encoding/json"
+    "fmt"
     "net/http"
     "net/http/httptest"
     "testing"
@@ -21,9 +23,16 @@ import (
 func setupAttendanceDB(t *testing.T) *gorm.DB {
     db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{})
     require.NoError(t, err)
-    err = db.AutoMigrate(&gen_models.Employee{}, &gen_models.User{}, &models.CustomEventDefinition{}, &models.CustomEventSchedule{}, &models.EventAttendance{}, &models.EventScheduleEmployee{}, &models.EmployeeCompetency{})
+    err = db.AutoMigrate(
+        &gen_models.Employee{}, &gen_models.User{},
+        &models.Role{}, &models.RolePermission{}, &models.UserHasRole{},
+        &models.CustomEventDefinition{}, &models.CustomEventSchedule{},
+        &models.EventAttendance{}, &models.EventScheduleEmployee{}, &models.EventSchedulePositionTarget{},
+        &models.EmployeeCompetency{},
+    )
     require.NoError(t, err)
     DB = db
+    rolepkg.DB = db
     return db
 }
 
@@ -47,6 +56,10 @@ func TestGrantCompetencyForCompletedSchedule_Helper(t *testing.T) {
     require.NoError(t, db.Create(&emp).Error)
     u := gen_models.User{EmployeeNumber: emp.Employeenumber, Username: "admin", Password: "x", Role: "Admin"}
     require.NoError(t, db.Create(&u).Error)
+    // map admin role too
+    adminRole := models.Role{RoleName: "Admin"}
+    require.NoError(t, db.Create(&adminRole).Error)
+    _ = db.Create(&models.UserHasRole{UserID: u.ID, RoleID: adminRole.RoleID}).Error
 
     // Definition that grants
     cid := 7
@@ -71,8 +84,20 @@ func TestGrantCompetencyForCompletedSchedule_Helper(t *testing.T) {
 }
 
 func TestAttendanceHandlers(t *testing.T) {
-    _ = setupAttendanceDB(t)
+    db := setupAttendanceDB(t)
     gin.SetMode(gin.TestMode)
+
+    // Create a real schedule to avoid record-not-found during status check
+    def := models.CustomEventDefinition{EventName: "Attendance Test"}
+    require.NoError(t, db.Create(&def).Error)
+    sch := models.CustomEventSchedule{
+        CustomEventID:  def.CustomEventID,
+        Title:          "Attendance Sched",
+        EventStartDate: time.Now(),
+        EventEndDate:   time.Now().Add(time.Hour),
+        StatusName:     "Scheduled",
+    }
+    require.NoError(t, db.Create(&sch).Error)
 
     // minimal call to SetAttendanceHandler with context
     b, _ := json.Marshal(AttendancePayload{EmployeeNumbers: []string{"EA1"}, Attendance: map[string]bool{"EA1": true}})
@@ -81,9 +106,15 @@ func TestAttendanceHandlers(t *testing.T) {
     w := httptest.NewRecorder()
     c, _ := gin.CreateTestContext(w)
     c.Request = req
-    c.Params = gin.Params{gin.Param{Key: "scheduleID", Value: "1"}}
+    c.Params = gin.Params{gin.Param{Key: "scheduleID", Value: fmt.Sprintf("%d", sch.CustomEventScheduleID)}}
     c.Set("email", "admin@example.com")
 
+    // Stub current user context to appear as Admin
+    original := currentUserContextFn
+    currentUserContextFn = func(c *gin.Context) (*gen_models.User, *gen_models.Employee, bool, bool, error) {
+        return &gen_models.User{ID: 1, Username: "admin", Role: "Admin", EmployeeNumber: "EA1"}, &gen_models.Employee{Employeenumber: "EA1"}, true, true, nil
+    }
+    defer func(){ currentUserContextFn = original }()
     SetAttendanceHandler(c)
     require.Equal(t, http.StatusOK, w.Code)
 }
