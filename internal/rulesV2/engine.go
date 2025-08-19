@@ -44,11 +44,6 @@ func ValidateRule(r *Registry, rule Rulev2) error {
 	if rule.Trigger.Type == "" {
 		return fmt.Errorf("rule %q: trigger type is empty", rule.Name)
 	}
-	// if _, ok := r.Triggers[rule.Trigger.Type]; !ok {
-	// Trigger not required to be present (maybe only stored), but we can warn.
-	// Comment out if you want to allow unknown triggers until wired.
-	// return fmt.Errorf("rule %q: unknown trigger %q", rule.Name, rule.Trigger.Type)
-	// }
 
 	for i, c := range rule.Conditions {
 		if c.Operator == "" {
@@ -57,7 +52,6 @@ func ValidateRule(r *Registry, rule Rulev2) error {
 		if _, ok := r.Operators[c.Operator]; !ok {
 			return fmt.Errorf("rule %q: condition %d unknown operator %q", rule.Name, i, c.Operator)
 		}
-		// Fact string can be left unchecked: unknown facts just resolve false at runtime
 	}
 
 	for i, a := range rule.Actions {
@@ -86,7 +80,6 @@ func (e *Engine) RunRule(ctx context.Context, r Rulev2) error {
 	// Wrap the trigger's emit to evaluate conditions & actions for each context.
 	var agg MultiError
 	err := th.Fire(ctx, r.Trigger.Parameters, func(evCtx EvalContext) error {
-		// Default Now if unset (helps tests & callers that don't fill it)
 		if evCtx.Now.IsZero() {
 			evCtx.Now = time.Now().UTC()
 		}
@@ -96,10 +89,10 @@ func (e *Engine) RunRule(ctx context.Context, r Rulev2) error {
 				return err
 			}
 			agg.Append(err)
-			return nil // skip actions for this context
+			return nil
 		}
 		if !ok {
-			return nil // conditions false → no actions
+			return nil
 		}
 		if err := e.execActions(evCtx, r.Actions); err != nil {
 			agg.Append(err)
@@ -365,16 +358,15 @@ func isBlankParam(v any) bool {
 
 // readTriggerValue tries exact, snake_case <-> camelCase variants
 func readTriggerValue(trig map[string]any, key string) (any, bool) {
-	// exact
 	if v, ok := trig[key]; ok {
 		return v, true
 	}
-	// snake_case -> camelCase
+
 	cc := snakeToCamel(key)
 	if v, ok := trig[cc]; ok {
 		return v, true
 	}
-	// camelCase -> snake_case
+
 	sc := camelToSnake(key)
 	if v, ok := trig[sc]; ok {
 		return v, true
@@ -383,7 +375,6 @@ func readTriggerValue(trig map[string]any, key string) (any, bool) {
 }
 
 func paramEquals(a, b any) bool {
-	// normalize basic scalar comparisons
 	as := fmt.Sprint(a)
 	bs := fmt.Sprint(b)
 	// case-insensitive for strings

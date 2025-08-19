@@ -480,13 +480,6 @@ func DeleteEventScheduleHandler(c *gin.Context) {
 		return
 	}
 
-	// Load the schedule first so we can include fields (e.g., Title) in the trigger context
-	var schedule models.CustomEventSchedule
-	if err := DB.First(&schedule, scheduleID).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Event schedule not found"})
-		return
-	}
-
 	result := DB.Delete(&models.CustomEventSchedule{}, scheduleID)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete event schedule"})

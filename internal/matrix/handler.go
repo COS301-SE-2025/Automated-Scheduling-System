@@ -155,8 +155,8 @@ func DeleteJobMatrixEntryHandler(c *gin.Context) {
     _ = DB.First(&jp, "position_matrix_code = ?", entry.PositionMatrixCode).Error
     var cd models.CompetencyDefinition
     _ = DB.First(&cd, "competency_id = ?", entry.CompetencyID).Error
-    // fire trigger: link_job_to_competency deactivate
-    fireLinkJobToCompetency(c, "deactivate", map[string]any{"State": "inactive"}, jp, cd)
+    // fire trigger: link_job_to_competency remove
+    fireLinkJobToCompetency(c, "remove", map[string]any{"State": "inactive"}, jp, cd)
 
     result := DB.Delete(&models.CustomJobMatrix{}, idStr)
     if result.Error != nil {

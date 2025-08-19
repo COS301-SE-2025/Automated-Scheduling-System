@@ -68,7 +68,6 @@ func GetRulesMetadata() RulesMetadata {
 // getTriggerMetadata returns metadata for all available triggers
 func getTriggerMetadata() []TriggerMetadata {
 	return []TriggerMetadata{
-	// Removed legacy triggers new_hire and scheduled_competency_check
 		{
 			Type:        "job_position",
 			Name:        "Job Position",
@@ -188,14 +187,14 @@ func getTriggerMetadata() []TriggerMetadata {
 		{
 			Type:        "link_job_to_competency",
 			Name:        "Link Job to Competency",
-			Description: "Link state between a job position and a competency",
+			Description: "Add or remove a link between a job position and a competency",
 			Parameters: []Parameter{
 				{
 					Name:        "operation",
 					Type:        "string",
 					Required:    true,
-					Description: "Change to link state",
-					Options:     []any{"add", "deactivate", "reactivate"},
+					Description: "Link operation",
+					Options:     []any{"add", "remove"},
 					Example:     "add",
 				},
 			},
@@ -377,32 +376,28 @@ func getFactMetadata() []FactMetadata {
 		trCompPrereq  = "competency_prerequisite"
 	)
 
-	strOps := []string{"equals", "notEquals", "contains", "startsWith", "endsWith", "in", "notIn"}
+	strOps := []string{"equals", "notEquals", "contains"}
 	numOps := []string{"equals", "notEquals", "greaterThan", "lessThan", "greaterThanEqual", "lessThanEqual"}
 	boolOps := []string{"isTrue", "isFalse"}
 	dateOps := []string{"before", "after", "equals"}
 
 	return []FactMetadata{
-		// Common event-scoped helpers (map trigger parameter "operation" into a fact for conditions)
-		{
-			Name:        "event.Operation",
-			Type:        "string",
-			Description: "Operation specified by the triggering event",
-			Operators:   strOps,
-			Triggers:    []string{trJobPos, trCompType, trCompetency, trEventDef, trSchedEvent, trRoles, trLinkJobComp, trCompPrereq},
-		},
-		{
-			Name:        "event.UpdateKind",
-			Type:        "string",
-			Description: "Specific update kind if provided by the event (e.g., permissions changed)",
-			Operators:   strOps,
-			Triggers:    []string{trRoles},
-		},
+		// {
+		// 	Name:        "event.Operation",
+		// 	Type:        "string",
+		// 	Description: "Operation specified by the triggering event",
+		// 	Operators:   strOps,
+		// 	Triggers:    []string{trJobPos, trCompType, trCompetency, trEventDef, trSchedEvent, trRoles, trLinkJobComp, trCompPrereq},
+		// },
+		// {
+		// 	Name:        "event.UpdateKind",
+		// 	Type:        "string",
+		// 	Description: "Specific update kind if provided by the event (e.g., permissions changed)",
+		// 	Operators:   strOps,
+		// 	Triggers:    []string{trRoles},
+		// },
 
-		// Employee facts (match seeder casing/fields)
-	// Removed employee-centric facts tied to deleted triggers
-
-		// Competency facts
+		//competency facts
 		{
 			Name:        "competency.CompetencyID",
 			Type:        "number",
@@ -671,30 +666,6 @@ func getOperatorMetadata() []OperatorMetadata {
 			Symbol:      "contains",
 			Description: "String contains substring",
 			Types:       []string{"string"},
-		},
-		{
-			Name:        "startsWith",
-			Symbol:      "startsWith",
-			Description: "String starts with substring",
-			Types:       []string{"string"},
-		},
-		{
-			Name:        "endsWith",
-			Symbol:      "endsWith",
-			Description: "String ends with substring",
-			Types:       []string{"string"},
-		},
-		{
-			Name:        "in",
-			Symbol:      "in",
-			Description: "Value is in the provided array",
-			Types:       []string{"string", "number"},
-		},
-		{
-			Name:        "notIn",
-			Symbol:      "notIn",
-			Description: "Value is not in the provided array",
-			Types:       []string{"string", "number"},
 		},
 		{
 			Name:        "isTrue",

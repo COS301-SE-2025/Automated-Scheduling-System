@@ -65,55 +65,7 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 	}
 }
 
-// CreateSampleRules creates some example rules for demonstration
-func (s *RuleBackEndService) CreateSampleRules(ctx context.Context) error {
-	// sampleRules := []Rulev2{
-	// 	{
-	// 		Name: "Notify Manager on Critical Competency Gap",
-	// 		Trigger: TriggerSpec{
-	// 			Type: "job_matrix_update",
-	// 		},
-	// 		Conditions: []Condition{
-	// 			{
-	// 				Fact:     "employee.Employeestatus",
-	// 				Operator: "equals",
-	// 				Value:    "Active",
-	// 			},
-	// 		},
-	// 		Actions: []ActionSpec{
-	// 			{
-	// 				Type: "notification",
-	// 				Parameters: map[string]any{
-	// 					"recipient": "manager@company.com",
-	// 					"subject":   "Critical Competency Gap Identified",
-	// 					"message":   "Employee needs training",
-	// 				},
-	// 			},
-	// 		},
-	// 	},
-	// }
 
-	// // Save into rules table (models.Rule)
-	// for _, rule := range sampleRules {
-	// 	body, err := json.Marshal(rule)
-	// 	if err != nil {
-	// 		return fmt.Errorf("failed to marshal rule %s: %w", rule.Name, err)
-	// 	}
-	// 	row := models.Rule{
-	// 		Name:        rule.Name,
-	// 		TriggerType: rule.Trigger.Type,
-	// 		Spec:        datatypes.JSON(body),
-	// 		Enabled:     true,
-	// 	}
-	// 	if err := s.DB.Create(&row).Error; err != nil {
-	// 		log.Printf("Failed to create rule %s: %v", rule.Name, err)
-	// 	} else {
-	// 		log.Printf("Created sample rule: %s (id=%d)", rule.Name, row.ID)
-	// 	}
-	// }
-
-	return nil
-}
 
 // DbRuleStore implements RuleStore interface for database persistence (uses models.Rule -> table "rules")
 type DbRuleStore struct {
@@ -271,7 +223,6 @@ func (s *DbRuleStore) GetRuleStats(ctx context.Context) (map[string]interface{},
 
 // New trigger entrypoints for DispatchEvent
 
-// Keep simple version (no domain object), but include trigger map so event.Operation works
 func (s *RuleBackEndService) OnJobPosition(ctx context.Context, operation string, jobPosition any) error {
     data := map[string]any{
         "trigger": map[string]any{
@@ -382,7 +333,7 @@ func (s *RuleBackEndService) OnCompetencyPrerequisite(ctx context.Context, opera
         data["prerequisite"] = prerequisite
     }
     if competency != nil {
-        data["competency"] = competency // parent competency context for rules that use competency.*
+        data["competency"] = competency
     }
     return DispatchEvent(ctx, s.Engine, s.Store, "competency_prerequisite", data)
 }
