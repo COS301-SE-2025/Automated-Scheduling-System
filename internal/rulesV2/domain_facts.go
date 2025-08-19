@@ -9,21 +9,41 @@ import "strings"
 type DomainFacts struct{}
 
 func (DomainFacts) Resolve(evCtx EvalContext, path string) (any, bool, error) {
-    prefixes := []string{
-        "competency.",
-        "jobPosition.",
-        "competencyType.",
-        "role.",
-        "link.",
-        "prerequisite.",
-        "jobMatrix.",
-    }
+	// Accept case-insensitive prefixes
+	lp := strings.ToLower(path)
+	prefixes := []string{
+		"competency.",
+		"jobposition.",
+		"competencytype.",
+		"role.",
+		"link.",
+		"prerequisite.",
+		"jobmatrix.",
+	}
 
-    for _, p := range prefixes {
-        if strings.HasPrefix(path, p) {
-            top := strings.TrimSuffix(p, ".")
-            return resolveUnder(evCtx, top, path)
-        }
-    }
-    return nil, false, nil
+	for _, p := range prefixes {
+		if strings.HasPrefix(lp, p) {
+			// Use the canonical top key with correct casing expected in context
+			// Map lower-case prefix to top-level key
+			var top string
+			switch p {
+			case "competency.":
+				top = "competency"
+			case "jobposition.":
+				top = "jobPosition"
+			case "competencytype.":
+				top = "competencyType"
+			case "role.":
+				top = "role"
+			case "link.":
+				top = "link"
+			case "prerequisite.":
+				top = "prerequisite"
+			case "jobmatrix.":
+				top = "jobMatrix"
+			}
+			return resolveUnder(evCtx, top, path)
+		}
+	}
+	return nil, false, nil
 }

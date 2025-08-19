@@ -8,6 +8,11 @@ import (
 	"time"
 )
 
+// test action adapter to allow inline funcs as actions
+type testActionFunc func(EvalContext, map[string]any) error
+
+func (f testActionFunc) Execute(ctx EvalContext, p map[string]any) error { return f(ctx, p) }
+
 /* -------------------------------------------------------------------------- */
 /* Test helpers                                                               */
 /* -------------------------------------------------------------------------- */
@@ -169,6 +174,43 @@ func TestCompetencyFacts_DaysUntilExpiry(t *testing.T) {
 	days, ok := v.(int)
 	if !ok || days != 10 {
 		t.Fatalf("DaysUntilExpiry expected 10, got %v (%T)", v, v)
+	}
+}
+
+func TestCompetencyFacts_DaysUntilExpiry_MissingExpiryHandledFalse(t *testing.T) {
+	now := fixedNow()
+	ev := EvalContext{
+		Now: now,
+		Data: map[string]any{
+			"competency": map[string]any{
+				"ID": "COMP_NOEXP",
+				// No ExpiryDate provided
+			},
+		},
+	}
+	fr := CompetencyFacts{}
+	v, handled, err := fr.Resolve(ev, "competency.DaysUntilExpiry")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if handled {
+		t.Fatalf("expected handled=false when ExpiryDate missing, got true with value=%v", v)
+	}
+
+	// Also ensure the engine treats condition as not matched rather than erroring
+	r := Rulev2{
+		Name:       "test-missing-expiry",
+		Trigger:    TriggerSpec{Type: "competency"},
+		Conditions: []Condition{{Fact: "competency.DaysUntilExpiry", Operator: "lessThan", Value: 30}},
+		Actions:    []ActionSpec{{Type: "nop", Parameters: map[string]any{"x": 1}}},
+	}
+	reg := NewRegistryWithDefaults()
+	reg.UseFactResolver(CompetencyFacts{})
+		reg.UseAction("nop", testActionFunc(func(EvalContext, map[string]any) error { return nil }))
+	eng := &Engine{R: reg}
+	// Should not error; should simply skip actions
+	if err := eng.EvaluateOnce(ev, r); err != nil {
+		t.Fatalf("engine should not error when fact unhandled: %v", err)
 	}
 }
 

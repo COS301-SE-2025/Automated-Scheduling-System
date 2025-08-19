@@ -9,32 +9,33 @@ import (
 	"time"
 )
 
-type TriggerHandler interface{
-    Fire(ctx context.Context, params map[string]any, emit func(EvalContext)error) error
+type TriggerHandler interface {
+	Fire(ctx context.Context, params map[string]any, emit func(EvalContext) error) error
 }
 
 type FactResolver interface {
-    Resolve(ctx EvalContext, path string)(any, bool, error)
+	Resolve(ctx EvalContext, path string) (any, bool, error)
 }
 
 type ActionHandler interface {
-    Execute(ctx EvalContext, params map[string]any) error
+	Execute(ctx EvalContext, params map[string]any) error
 }
 
 type OperatorFunc func(lhs any, rhs any) (bool, error)
 
 type EvalContext struct {
-    Now     time.Time
-    Data    map[string]any //merged data like employee, competency, evenschedule, etc
-    // Can extend here if needed 
+	Now  time.Time
+	Data map[string]any //merged data like employee, competency, evenschedule, etc
+	// Can extend here if needed
 }
 
 type Registry struct {
-    Triggers map[string]TriggerHandler
-    Facts []FactResolver
-    Operators map[string]OperatorFunc
-    Actions map[string]ActionHandler
+	Triggers  map[string]TriggerHandler
+	Facts     []FactResolver
+	Operators map[string]OperatorFunc
+	Actions   map[string]ActionHandler
 }
+
 // NewRegistry returns an empty registry you can populate manually.
 func NewRegistry() *Registry {
 	return &Registry{
@@ -114,19 +115,40 @@ func opIsFalse(lhs, _ any) (bool, error) {
 func opIsNull(lhs, _ any) (bool, error)    { return lhs == nil, nil }
 func opIsNotNull(lhs, _ any) (bool, error) { return lhs != nil, nil }
 
+// helper: detect nil or typed-nil pointers
+func isNilish(v any) bool {
+	if v == nil {
+		return true
+	}
+	rv := reflect.ValueOf(v)
+	return rv.Kind() == reflect.Pointer && rv.IsNil()
+}
+
 func opGreaterThan(lhs, rhs any) (bool, error) {
+	if isNilish(lhs) || isNilish(rhs) {
+		return false, nil
+	}
 	c, err := mustCompare(lhs, rhs)
 	return c > 0, err
 }
 func opGreaterThanOrEqual(lhs, rhs any) (bool, error) {
+	if isNilish(lhs) || isNilish(rhs) {
+		return false, nil
+	}
 	c, err := mustCompare(lhs, rhs)
 	return c >= 0, err
 }
 func opLessThan(lhs, rhs any) (bool, error) {
+	if isNilish(lhs) || isNilish(rhs) {
+		return false, nil
+	}
 	c, err := mustCompare(lhs, rhs)
 	return c < 0, err
 }
 func opLessThanOrEqual(lhs, rhs any) (bool, error) {
+	if isNilish(lhs) || isNilish(rhs) {
+		return false, nil
+	}
 	c, err := mustCompare(lhs, rhs)
 	return c <= 0, err
 }
@@ -180,53 +202,61 @@ func mustCompare(lhs, rhs any) (int, error) {
 // tryCompare attempts to compare common types: time, numeric, string, bool.
 // Returns (cmp, true) when comparable; otherwise (0, false).
 func tryCompare(lhs, rhs any) (int, bool) {
-    // time.Time
-    if lt, ok := lhs.(time.Time); ok {
-        switch rt := rhs.(type) {
-        case time.Time:
-            if lt.Before(rt) { return -1, true }
-            if lt.After(rt) { return 1, true }
-            return 0, true
-        }
-    }
+	// time.Time
+	if lt, ok := lhs.(time.Time); ok {
+		switch rt := rhs.(type) {
+		case time.Time:
+			if lt.Before(rt) {
+				return -1, true
+			}
+			if lt.After(rt) {
+				return 1, true
+			}
+			return 0, true
+		}
+	}
 
-    // numeric (coerce pointers and strings)
-    if lf, lok := asFloat(lhs); lok {
-        if rf, rok := asFloat(rhs); rok {
-            switch {
-            case lf < rf:
-                return -1, true
-            case lf > rf:
-                return 1, true
-            default:
-                return 0, true
-            }
-        }
-    }
+	// numeric (coerce pointers and strings)
+	if lf, lok := asFloat(lhs); lok {
+		if rf, rok := asFloat(rhs); rok {
+			switch {
+			case lf < rf:
+				return -1, true
+			case lf > rf:
+				return 1, true
+			default:
+				return 0, true
+			}
+		}
+	}
 
-    // strings
-    if ls, ok := lhs.(string); ok {
-        if rs, ok := rhs.(string); ok {
-            switch {
-            case ls < rs:
-                return -1, true
-            case ls > rs:
-                return 1, true
-            default:
-                return 0, true
-            }
-        }
-    }
+	// strings
+	if ls, ok := lhs.(string); ok {
+		if rs, ok := rhs.(string); ok {
+			switch {
+			case ls < rs:
+				return -1, true
+			case ls > rs:
+				return 1, true
+			default:
+				return 0, true
+			}
+		}
+	}
 
-    // bool: only equality meaningful
-    if lb, ok := lhs.(bool); ok {
-        if rb, ok := rhs.(bool); ok {
-            if lb == rb { return 0, true }
-            if !lb && rb { return -1, true }
-            return 1, true
-        }
-    }
-    return 0, false
+	// bool: only equality meaningful
+	if lb, ok := lhs.(bool); ok {
+		if rb, ok := rhs.(bool); ok {
+			if lb == rb {
+				return 0, true
+			}
+			if !lb && rb {
+				return -1, true
+			}
+			return 1, true
+		}
+	}
+	return 0, false
 }
 
 func toFloat(v any) (float64, bool) {
