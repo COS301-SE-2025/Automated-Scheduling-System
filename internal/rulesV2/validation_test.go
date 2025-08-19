@@ -11,7 +11,7 @@ func TestValidateRuleParameters(t *testing.T) {
 		rule := Rulev2{
 			Name: "Valid Rule",
 			Trigger: TriggerSpec{
-				Type: "job_matrix_update",
+				Type: "scheduled_event",
 			},
 			Actions: []ActionSpec{
 				{
@@ -49,7 +49,7 @@ func TestValidateRuleParameters(t *testing.T) {
 		rule := Rulev2{
 			Name: "Invalid Rule",
 			Trigger: TriggerSpec{
-				Type: "job_matrix_update",
+				Type: "scheduled_event",
 			},
 			Actions: []ActionSpec{
 				{
@@ -68,7 +68,7 @@ func TestValidateRuleParameters(t *testing.T) {
 		rule := Rulev2{
 			Name: "Invalid Rule",
 			Trigger: TriggerSpec{
-				Type: "job_matrix_update",
+				Type: "scheduled_event",
 			},
 			Actions: []ActionSpec{
 				{
@@ -90,7 +90,7 @@ func TestValidateRuleParameters(t *testing.T) {
 		rule := Rulev2{
 			Name: "Invalid Rule",
 			Trigger: TriggerSpec{
-				Type: "job_matrix_update",
+				Type: "scheduled_event",
 			},
 			Actions: []ActionSpec{
 				{
@@ -112,10 +112,10 @@ func TestValidateRuleParameters(t *testing.T) {
 
 func TestFindTriggerMetadata(t *testing.T) {
 	t.Run("ValidTrigger", func(t *testing.T) {
-		meta := findTriggerMetadata("job_matrix_update")
+	meta := findTriggerMetadata("scheduled_event")
 		assert.NotNil(t, meta)
-		assert.Equal(t, "job_matrix_update", meta.Type)
-		assert.Equal(t, "Job Matrix Update", meta.Name)
+	assert.Equal(t, "scheduled_event", meta.Type)
+	assert.Equal(t, "Scheduled Event", meta.Name)
 	})
 
 	t.Run("InvalidTrigger", func(t *testing.T) {

@@ -14,16 +14,18 @@ func TestGetRulesMetadata(t *testing.T) {
 	assert.NotEmpty(t, metadata.Facts)
 	assert.NotEmpty(t, metadata.Operators)
 
-	// Check that we have expected triggers
+	// Check expected triggers
 	triggerTypes := make(map[string]bool)
 	for _, trigger := range metadata.Triggers {
 		triggerTypes[trigger.Type] = true
 	}
-	assert.True(t, triggerTypes["job_matrix_update"])
-	assert.True(t, triggerTypes["new_hire"])
-	assert.True(t, triggerTypes["scheduled_competency_check"])
+	assert.True(t, triggerTypes["event_definition"])
+	assert.True(t, triggerTypes["scheduled_event"])
+	assert.True(t, triggerTypes["link_job_to_competency"])
+	assert.True(t, triggerTypes["roles"])
+	assert.True(t, triggerTypes["competency_prerequisite"])
 
-	// Check that we have expected actions
+	// Check expected actions
 	actionTypes := make(map[string]bool)
 	for _, action := range metadata.Actions {
 		actionTypes[action.Type] = true
@@ -37,226 +39,259 @@ func TestGetRulesMetadata(t *testing.T) {
 
 func TestGetTriggerMetadata(t *testing.T) {
 	triggers := getTriggerMetadata()
-
 	assert.NotEmpty(t, triggers)
 
-	// Find and test job_matrix_update trigger
-	var jobMatrixTrigger *TriggerMetadata
+	// Find and test scheduled_event trigger
+	var scheduledEventTrigger *TriggerMetadata
 	for _, trigger := range triggers {
-		if trigger.Type == "job_matrix_update" {
-			jobMatrixTrigger = &trigger
+		if trigger.Type == "scheduled_event" {
+			tr := trigger
+			scheduledEventTrigger = &tr
 			break
 		}
 	}
+	assert.NotNil(t, scheduledEventTrigger)
+	assert.Equal(t, "Scheduled Event", scheduledEventTrigger.Name)
+	assert.Contains(t, scheduledEventTrigger.Description, "scheduled event")
+	assert.GreaterOrEqual(t, len(scheduledEventTrigger.Parameters), 1)
 
-	assert.NotNil(t, jobMatrixTrigger)
-	assert.Equal(t, "Job Matrix Update", jobMatrixTrigger.Name)
-	assert.Contains(t, jobMatrixTrigger.Description, "job matrix entries")
-	assert.Len(t, jobMatrixTrigger.Parameters, 3) // employee_id, competency_id, action
-
-	// Test parameter structure
-	employeeParam := jobMatrixTrigger.Parameters[0]
-	assert.Equal(t, "employee_id", employeeParam.Name)
-	assert.Equal(t, "string", employeeParam.Type)
-	assert.True(t, employeeParam.Required)
-	assert.NotEmpty(t, employeeParam.Description)
-	assert.NotNil(t, employeeParam.Example)
+	// Validate presence of operation and update_field params
+	var opParam *Parameter
+	var updateFieldParam *Parameter
+	for i := range scheduledEventTrigger.Parameters {
+		p := scheduledEventTrigger.Parameters[i]
+		if p.Name == "operation" {
+			opParam = &p
+		}
+		if p.Name == "update_field" {
+			updateFieldParam = &p
+		}
+	}
+	if assert.NotNil(t, opParam) {
+		assert.Equal(t, "string", opParam.Type)
+		assert.True(t, opParam.Required)
+		if assert.NotEmpty(t, opParam.Options) {
+			opts := map[any]bool{}
+			for _, o := range opParam.Options {
+				opts[o] = true
+			}
+			assert.True(t, opts["create"])
+			assert.True(t, opts["update"])
+			assert.True(t, opts["delete"])
+		}
+	}
+	if assert.NotNil(t, updateFieldParam) {
+		assert.Equal(t, "string", updateFieldParam.Type)
+		assert.False(t, updateFieldParam.Required)
+	}
 }
 
 func TestGetActionMetadata(t *testing.T) {
 	actions := getActionMetadata()
-
 	assert.NotEmpty(t, actions)
 
-	// Find and test notification action
+	// notification
 	var notificationAction *ActionMetadata
 	for _, action := range actions {
 		if action.Type == "notification" {
-			notificationAction = &action
+			a := action
+			notificationAction = &a
 			break
 		}
 	}
+	if assert.NotNil(t, notificationAction) {
+		assert.Equal(t, "Send Notification", notificationAction.Name)
+		assert.Contains(t, notificationAction.Description, "notification")
+		assert.Len(t, notificationAction.Parameters, 3)
 
-	assert.NotNil(t, notificationAction)
-	assert.Equal(t, "Send Notification", notificationAction.Name)
-	assert.Contains(t, notificationAction.Description, "notification")
-	assert.Len(t, notificationAction.Parameters, 3) // recipient, subject, message
+		recipientParam := notificationAction.Parameters[0]
+		assert.Equal(t, "recipient", recipientParam.Name)
+		assert.Equal(t, "string", recipientParam.Type)
+		assert.True(t, recipientParam.Required)
+		assert.NotEmpty(t, recipientParam.Description)
+		assert.NotNil(t, recipientParam.Example)
+	}
 
-	// Test parameter structure
-	recipientParam := notificationAction.Parameters[0]
-	assert.Equal(t, "recipient", recipientParam.Name)
-	assert.Equal(t, "string", recipientParam.Type)
-	assert.True(t, recipientParam.Required)
-	assert.NotEmpty(t, recipientParam.Description)
-	assert.NotNil(t, recipientParam.Example)
-
-	// Find and test webhook action
+	// webhook
 	var webhookAction *ActionMetadata
 	for _, action := range actions {
 		if action.Type == "webhook" {
-			webhookAction = &action
+			a := action
+			webhookAction = &a
 			break
 		}
 	}
-
-	assert.NotNil(t, webhookAction)
-	assert.Equal(t, "HTTP Webhook", webhookAction.Name)
-	assert.Len(t, webhookAction.Parameters, 3) // url, method, payload
-
-	// Test optional parameters
-	methodParam := webhookAction.Parameters[1]
-	assert.Equal(t, "method", methodParam.Name)
-	assert.False(t, methodParam.Required)
+	if assert.NotNil(t, webhookAction) {
+		assert.Equal(t, "HTTP Webhook", webhookAction.Name)
+		assert.Len(t, webhookAction.Parameters, 3)
+		methodParam := webhookAction.Parameters[1]
+		assert.Equal(t, "method", methodParam.Name)
+		assert.False(t, methodParam.Required)
+	}
 }
 
 func TestGetFactMetadata(t *testing.T) {
 	facts := getFactMetadata()
-
 	assert.NotEmpty(t, facts)
 
-	// Find and test employee fact
-	var employeeStatusFact *FactMetadata
+	// Representative string fact
+	var compNameFact *FactMetadata
 	for _, fact := range facts {
-		if fact.Name == "employee.Employeestatus" {
-			employeeStatusFact = &fact
+		if fact.Name == "competency.CompetencyName" {
+			f := fact
+			compNameFact = &f
 			break
 		}
 	}
+	if assert.NotNil(t, compNameFact) {
+		assert.Equal(t, "string", compNameFact.Type)
+		assert.Contains(t, compNameFact.Operators, "equals")
+		assert.Contains(t, compNameFact.Operators, "notEquals")
+	}
 
-	assert.NotNil(t, employeeStatusFact)
-	assert.Equal(t, "string", employeeStatusFact.Type)
-	assert.Contains(t, employeeStatusFact.Description, "status")
-	assert.Contains(t, employeeStatusFact.Operators, "equals")
-	assert.Contains(t, employeeStatusFact.Operators, "notEquals")
-
-	// Find and test boolean fact
+	// Boolean fact
 	var isActiveFact *FactMetadata
 	for _, fact := range facts {
 		if fact.Name == "competency.IsActive" {
-			isActiveFact = &fact
+			f := fact
+			isActiveFact = &f
 			break
 		}
 	}
+	if assert.NotNil(t, isActiveFact) {
+		assert.Equal(t, "boolean", isActiveFact.Type)
+		assert.Contains(t, isActiveFact.Operators, "isTrue")
+		assert.Contains(t, isActiveFact.Operators, "isFalse")
+	}
 
-	assert.NotNil(t, isActiveFact)
-	assert.Equal(t, "boolean", isActiveFact.Type)
-	assert.Contains(t, isActiveFact.Operators, "isTrue")
-	assert.Contains(t, isActiveFact.Operators, "isFalse")
-
-	// Find and test number fact
-	var requiredLevelFact *FactMetadata
+	// Number fact
+	var maxAttendeesFact *FactMetadata
 	for _, fact := range facts {
-		if fact.Name == "jobMatrix.RequiredLevel" {
-			requiredLevelFact = &fact
+		if fact.Name == "scheduledEvent.MaximumAttendees" {
+			f := fact
+			maxAttendeesFact = &f
 			break
 		}
 	}
+	if assert.NotNil(t, maxAttendeesFact) {
+		assert.Equal(t, "number", maxAttendeesFact.Type)
+		assert.Contains(t, maxAttendeesFact.Operators, "greaterThan")
+		assert.Contains(t, maxAttendeesFact.Operators, "lessThan")
+	}
 
-	assert.NotNil(t, requiredLevelFact)
-	assert.Equal(t, "number", requiredLevelFact.Type)
-	assert.Contains(t, requiredLevelFact.Operators, "greaterThan")
-	assert.Contains(t, requiredLevelFact.Operators, "lessThan")
+	// Roles fact
+	var roleNameFact *FactMetadata
+	for _, fact := range facts {
+		if fact.Name == "role.RoleName" {
+			f := fact
+			roleNameFact = &f
+			break
+		}
+	}
+	assert.NotNil(t, roleNameFact)
 }
 
 func TestGetOperatorMetadata(t *testing.T) {
 	operators := getOperatorMetadata()
-
 	assert.NotEmpty(t, operators)
 
-	// Create a map for easier testing
 	operatorMap := make(map[string]OperatorMetadata)
 	for _, op := range operators {
 		operatorMap[op.Name] = op
 	}
 
-	// Test equals operator
-	equals := operatorMap["equals"]
-	assert.Equal(t, "==", equals.Symbol)
-	assert.Contains(t, equals.Description, "equal")
-	assert.Contains(t, equals.Types, "string")
-	assert.Contains(t, equals.Types, "number")
-	assert.Contains(t, equals.Types, "boolean")
+	// equals
+	if equals, ok := operatorMap["equals"]; assert.True(t, ok) {
+		assert.Equal(t, "==", equals.Symbol)
+		assert.Contains(t, equals.Description, "equal")
+		assert.Contains(t, equals.Types, "string")
+		assert.Contains(t, equals.Types, "number")
+		assert.Contains(t, equals.Types, "boolean")
+	}
 
-	// Test string-specific operators
-	contains := operatorMap["contains"]
-	assert.Equal(t, "contains", contains.Symbol)
-	assert.Contains(t, contains.Description, "contains")
-	assert.Equal(t, []string{"string"}, contains.Types)
+	// contains
+	if contains, ok := operatorMap["contains"]; assert.True(t, ok) {
+		assert.Equal(t, "contains", contains.Symbol)
+		assert.Contains(t, contains.Description, "contains")
+		assert.Equal(t, []string{"string"}, contains.Types)
+	}
 
-	startsWith := operatorMap["startsWith"]
-	assert.Equal(t, "startsWith", startsWith.Symbol)
-	assert.Equal(t, []string{"string"}, startsWith.Types)
+	// boolean operators
+	if isTrue, ok := operatorMap["isTrue"]; assert.True(t, ok) {
+		assert.Equal(t, "isTrue", isTrue.Symbol)
+		assert.Equal(t, []string{"boolean"}, isTrue.Types)
+	}
+	if isFalse, ok := operatorMap["isFalse"]; assert.True(t, ok) {
+		assert.Equal(t, "isFalse", isFalse.Symbol)
+		assert.Equal(t, []string{"boolean"}, isFalse.Types)
+	}
 
-	// Test boolean operators
-	isTrue := operatorMap["isTrue"]
-	assert.Equal(t, "isTrue", isTrue.Symbol)
-	assert.Equal(t, []string{"boolean"}, isTrue.Types)
+	// numeric/date operators
+	if gt, ok := operatorMap["greaterThan"]; assert.True(t, ok) {
+		assert.Equal(t, ">", gt.Symbol)
+		assert.Contains(t, gt.Types, "number")
+		assert.Contains(t, gt.Types, "date")
+	}
+	if gte, ok := operatorMap["greaterThanEqual"]; assert.True(t, ok) {
+		assert.Equal(t, ">=", gte.Symbol)
+		assert.Contains(t, gte.Types, "number")
+		assert.Contains(t, gte.Types, "date")
+	}
+	if lte, ok := operatorMap["lessThanEqual"]; assert.True(t, ok) {
+		assert.Equal(t, "<=", lte.Symbol)
+		assert.Contains(t, lte.Types, "number")
+		assert.Contains(t, lte.Types, "date")
+	}
 
-	isFalse := operatorMap["isFalse"]
-	assert.Equal(t, "isFalse", isFalse.Symbol)
-	assert.Equal(t, []string{"boolean"}, isFalse.Types)
-
-	// Test numeric operators
-	greaterThan := operatorMap["greaterThan"]
-	assert.Equal(t, ">", greaterThan.Symbol)
-	assert.Contains(t, greaterThan.Types, "number")
-	assert.Contains(t, greaterThan.Types, "date")
-
-	// Test array operators
-	in := operatorMap["in"]
-	assert.Equal(t, "in", in.Symbol)
-	assert.Contains(t, in.Types, "string")
-	assert.Contains(t, in.Types, "number")
-
-	// Test date operators
-	before := operatorMap["before"]
-	assert.Equal(t, "before", before.Symbol)
-	assert.Equal(t, []string{"date"}, before.Types)
-
-	after := operatorMap["after"]
-	assert.Equal(t, "after", after.Symbol)
-	assert.Equal(t, []string{"date"}, after.Types)
+	// date-only operators
+	if before, ok := operatorMap["before"]; assert.True(t, ok) {
+		assert.Equal(t, "before", before.Symbol)
+		assert.Equal(t, []string{"date"}, before.Types)
+	}
+	if after, ok := operatorMap["after"]; assert.True(t, ok) {
+		assert.Equal(t, "after", after.Symbol)
+		assert.Equal(t, []string{"date"}, after.Types)
+	}
 }
 
 func TestMetadataCompleteness(t *testing.T) {
 	metadata := GetRulesMetadata()
 
-	// Ensure all metadata has required fields
 	for _, trigger := range metadata.Triggers {
-		assert.NotEmpty(t, trigger.Type, "Trigger type should not be empty")
-		assert.NotEmpty(t, trigger.Name, "Trigger name should not be empty")
-		assert.NotEmpty(t, trigger.Description, "Trigger description should not be empty")
+		assert.NotEmpty(t, trigger.Type)
+		assert.NotEmpty(t, trigger.Name)
+		assert.NotEmpty(t, trigger.Description)
 
 		for _, param := range trigger.Parameters {
-			assert.NotEmpty(t, param.Name, "Parameter name should not be empty")
-			assert.NotEmpty(t, param.Type, "Parameter type should not be empty")
-			assert.NotEmpty(t, param.Description, "Parameter description should not be empty")
+			assert.NotEmpty(t, param.Name)
+			assert.NotEmpty(t, param.Type)
+			assert.NotEmpty(t, param.Description)
 		}
 	}
 
 	for _, action := range metadata.Actions {
-		assert.NotEmpty(t, action.Type, "Action type should not be empty")
-		assert.NotEmpty(t, action.Name, "Action name should not be empty")
-		assert.NotEmpty(t, action.Description, "Action description should not be empty")
+		assert.NotEmpty(t, action.Type)
+		assert.NotEmpty(t, action.Name)
+		assert.NotEmpty(t, action.Description)
 
 		for _, param := range action.Parameters {
-			assert.NotEmpty(t, param.Name, "Parameter name should not be empty")
-			assert.NotEmpty(t, param.Type, "Parameter type should not be empty")
-			assert.NotEmpty(t, param.Description, "Parameter description should not be empty")
+			assert.NotEmpty(t, param.Name)
+			assert.NotEmpty(t, param.Type)
+			assert.NotEmpty(t, param.Description)
 		}
 	}
 
 	for _, fact := range metadata.Facts {
-		assert.NotEmpty(t, fact.Name, "Fact name should not be empty")
-		assert.NotEmpty(t, fact.Type, "Fact type should not be empty")
-		assert.NotEmpty(t, fact.Description, "Fact description should not be empty")
-		assert.NotEmpty(t, fact.Operators, "Fact operators should not be empty")
+		assert.NotEmpty(t, fact.Name)
+		assert.NotEmpty(t, fact.Type)
+		assert.NotEmpty(t, fact.Description)
+		assert.NotEmpty(t, fact.Operators)
 	}
 
 	for _, operator := range metadata.Operators {
-		assert.NotEmpty(t, operator.Name, "Operator name should not be empty")
-		assert.NotEmpty(t, operator.Symbol, "Operator symbol should not be empty")
-		assert.NotEmpty(t, operator.Description, "Operator description should not be empty")
-		assert.NotEmpty(t, operator.Types, "Operator types should not be empty")
+		assert.NotEmpty(t, operator.Name)
+		assert.NotEmpty(t, operator.Symbol)
+		assert.NotEmpty(t, operator.Description)
+		assert.NotEmpty(t, operator.Types)
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"log"
 	"strconv"
 
-	// swap to your models.Rule (rules table)
 	"Automated-Scheduling-Project/internal/database/models"
 
 	"gorm.io/datatypes"
@@ -23,12 +22,11 @@ type RuleBackEndService struct {
 
 // NewRuleBackEndService creates a new integration service with all components wired
 func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
-	// Create registry with all components
 	registry := NewRegistryWithDefaults().
 		UseFactResolver(EmployeeFacts{}).
 		UseFactResolver(CompetencyFacts{}).
 		UseFactResolver(EventFacts{}).
-		UseFactResolver(DomainFacts{}). // add to support jobPosition/competencyType/role/link/prerequisite/jobMatrix
+		UseFactResolver(DomainFacts{}).
 		UseTrigger("job_position", &JobPositionTrigger{DB: db}).
 		UseTrigger("competency_type", &CompetencyTypeTrigger{DB: db}).
 		UseTrigger("competency", &CompetencyTrigger{DB: db}).
@@ -65,15 +63,12 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 	}
 }
 
-
-
 // DbRuleStore implements RuleStore interface for database persistence (uses models.Rule -> table "rules")
 type DbRuleStore struct {
 	DB *gorm.DB
 }
 
 // ListAllRuleRows returns full DB rows (id, name, trigger_type, spec, enabled)
-// for admin/frontend listing.
 func (s *DbRuleStore) ListAllRuleRows(ctx context.Context) ([]models.Rule, error) {
 	var rows []models.Rule
 	if err := s.DB.WithContext(ctx).Order("id ASC").Find(&rows).Error; err != nil {
