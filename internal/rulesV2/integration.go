@@ -28,7 +28,7 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 		UseFactResolver(EmployeeFacts{}).
 		UseFactResolver(CompetencyFacts{}).
 		UseFactResolver(EventFacts{}).
-		UseTrigger("job_matrix_update", &JobMatrixTrigger{DB: db}).
+		UseFactResolver(DomainFacts{}). // add to support jobPosition/competencyType/role/link/prerequisite/jobMatrix
 		UseTrigger("scheduled_competency_check", &ScheduledCompetencyCheckTrigger{DB: db}).
 		UseTrigger("new_hire", &NewHireTrigger{DB: db}).
 		UseTrigger("job_position", &JobPositionTrigger{DB: db}).
@@ -42,7 +42,7 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 		UseAction("notification", &NotificationAction{DB: db}).
 		UseAction("schedule_training", &ScheduleTrainingAction{DB: db}).
 		UseAction("competency_assignment", &CompetencyAssignmentAction{DB: db}).
-		UseAction("job_matrix_update", &JobMatrixUpdateAction{DB: db}).
+		
 		UseAction("webhook", &WebhookAction{}).
 		UseAction("audit_log", &AuditLogAction{DB: db})
 
@@ -64,17 +64,6 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 		Engine: engine,
 		Store:  store,
 	}
-}
-
-// OnJobMatrixUpdate triggers rules when job matrix entries are modified
-func (s *RuleBackEndService) OnJobMatrixUpdate(ctx context.Context, employeeNumber string, competencyID int32, action string) error {
-	data := map[string]any{
-		"employeeNumber": employeeNumber,
-		"competencyID":   competencyID,
-		"action":         action,
-	}
-
-	return DispatchEvent(ctx, s.Engine, s.Store, "job_matrix_update", data)
 }
 
 // OnNewHire triggers rules for new employee
@@ -150,6 +139,16 @@ type DbRuleStore struct {
 	DB *gorm.DB
 }
 
+// ListAllRuleRows returns full DB rows (id, name, trigger_type, spec, enabled)
+// for admin/frontend listing.
+func (s *DbRuleStore) ListAllRuleRows(ctx context.Context) ([]models.Rule, error) {
+	var rows []models.Rule
+	if err := s.DB.WithContext(ctx).Order("id ASC").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 func (s *DbRuleStore) ListByTrigger(ctx context.Context, triggerType string) ([]Rulev2, error) {
 	var rows []models.Rule
 	if err := s.DB.WithContext(ctx).
@@ -186,10 +185,11 @@ func (s *DbRuleStore) GetRuleByID(ctx context.Context, ruleID string) (*Rulev2, 
 	return &spec, nil
 }
 
-func (s *DbRuleStore) CreateRule(ctx context.Context, rule Rulev2, _ string) error {
+// CreateRule inserts and returns the DB id as string (so frontend can store it)
+func (s *DbRuleStore) CreateRule(ctx context.Context, rule Rulev2) (string, error) {
 	body, err := json.Marshal(rule)
 	if err != nil {
-		return fmt.Errorf("failed to marshal rule: %w", err)
+		return "", fmt.Errorf("failed to marshal rule: %w", err)
 	}
 	row := models.Rule{
 		Name:        rule.Name,
@@ -197,7 +197,10 @@ func (s *DbRuleStore) CreateRule(ctx context.Context, rule Rulev2, _ string) err
 		Spec:        datatypes.JSON(body),
 		Enabled:     true,
 	}
-	return s.DB.WithContext(ctx).Create(&row).Error
+	if err := s.DB.WithContext(ctx).Create(&row).Error; err != nil {
+		return "", err
+	}
+	return strconv.FormatUint(uint64(row.ID), 10), nil
 }
 
 func (s *DbRuleStore) UpdateRule(ctx context.Context, ruleID string, rule Rulev2) error {
@@ -287,42 +290,118 @@ func (s *DbRuleStore) GetRuleStats(ctx context.Context) (map[string]interface{},
 
 // New trigger entrypoints for DispatchEvent
 
-func (s *RuleBackEndService) OnJobPosition(ctx context.Context, operation string) error {
-	data := map[string]any{"operation": operation}
-	return DispatchEvent(ctx, s.Engine, s.Store, "job_position", data)
+// Keep simple version (no domain object), but include trigger map so event.Operation works
+func (s *RuleBackEndService) OnJobPosition(ctx context.Context, operation string, jobPosition any) error {
+    data := map[string]any{
+        "trigger": map[string]any{
+            "type":      "job_position",
+            "operation": operation,
+        },
+    }
+    if jobPosition != nil {
+        data["jobPosition"] = jobPosition
+    }
+    return DispatchEvent(ctx, s.Engine, s.Store, "job_position", data)
 }
 
-func (s *RuleBackEndService) OnCompetencyType(ctx context.Context, operation string) error {
-	data := map[string]any{"operation": operation}
-	return DispatchEvent(ctx, s.Engine, s.Store, "competency_type", data)
+func (s *RuleBackEndService) OnCompetencyType(ctx context.Context, operation string, competencyType any) error {
+    data := map[string]any{
+        "trigger": map[string]any{
+            "type":      "competency_type",
+            "operation": operation,
+        },
+    }
+    if competencyType != nil {
+        data["competencyType"] = competencyType
+    }
+    return DispatchEvent(ctx, s.Engine, s.Store, "competency_type", data)
 }
 
-func (s *RuleBackEndService) OnCompetency(ctx context.Context, operation string) error {
-	data := map[string]any{"operation": operation}
-	return DispatchEvent(ctx, s.Engine, s.Store, "competency", data)
+func (s *RuleBackEndService) OnCompetency(ctx context.Context, operation string, competency any) error {
+    data := map[string]any{
+        "trigger": map[string]any{
+            "type":      "competency",
+            "operation": operation,
+        },
+    }
+    if competency != nil {
+        data["competency"] = competency
+    }
+    return DispatchEvent(ctx, s.Engine, s.Store, "competency", data)
 }
 
-func (s *RuleBackEndService) OnEventDefinition(ctx context.Context, operation string) error {
-	data := map[string]any{"operation": operation}
-	return DispatchEvent(ctx, s.Engine, s.Store, "event_definition", data)
+func (s *RuleBackEndService) OnEventDefinition(ctx context.Context, operation string, eventDefinition any) error {
+    data := map[string]any{
+        "trigger": map[string]any{
+            "type":      "event_definition",
+            "operation": operation,
+        },
+    }
+    if eventDefinition != nil {
+        data["eventDefinition"] = eventDefinition
+    }
+    return DispatchEvent(ctx, s.Engine, s.Store, "event_definition", data)
 }
 
-func (s *RuleBackEndService) OnScheduledEvent(ctx context.Context, operation, updateField string) error {
-	data := map[string]any{"operation": operation, "update_field": updateField}
-	return DispatchEvent(ctx, s.Engine, s.Store, "scheduled_event", data)
+func (s *RuleBackEndService) OnScheduledEvent(ctx context.Context, operation, updateField string, scheduledEvent any) error {
+    data := map[string]any{
+        "trigger": map[string]any{
+            "type":        "scheduled_event",
+            "operation":   operation,
+            "updateField": updateField,
+        },
+    }
+    if scheduledEvent != nil {
+        data["scheduledEvent"] = scheduledEvent
+    }
+    return DispatchEvent(ctx, s.Engine, s.Store, "scheduled_event", data)
 }
 
-func (s *RuleBackEndService) OnRoles(ctx context.Context, operation, updateKind string) error {
-	data := map[string]any{"operation": operation, "update_kind": updateKind}
-	return DispatchEvent(ctx, s.Engine, s.Store, "roles", data)
+func (s *RuleBackEndService) OnRoles(ctx context.Context, operation, updateKind string, role any) error {
+    data := map[string]any{
+        "trigger": map[string]any{
+            "type":       "roles",
+            "operation":  operation,
+            "updateKind": updateKind,
+        },
+    }
+    if role != nil {
+        data["role"] = role
+    }
+    return DispatchEvent(ctx, s.Engine, s.Store, "roles", data)
 }
 
-func (s *RuleBackEndService) OnLinkJobToCompetency(ctx context.Context, operation string) error {
-	data := map[string]any{"operation": operation}
-	return DispatchEvent(ctx, s.Engine, s.Store, "link_job_to_competency", data)
+func (s *RuleBackEndService) OnLinkJobToCompetency(ctx context.Context, operation string, link any, jobPosition any, competency any) error {
+    data := map[string]any{
+        "trigger": map[string]any{
+            "type":      "link_job_to_competency",
+            "operation": operation,
+        },
+    }
+    if link != nil {
+        data["link"] = link
+    }
+    if jobPosition != nil {
+        data["jobPosition"] = jobPosition
+    }
+    if competency != nil {
+        data["competency"] = competency
+    }
+    return DispatchEvent(ctx, s.Engine, s.Store, "link_job_to_competency", data)
 }
 
-func (s *RuleBackEndService) OnCompetencyPrerequisite(ctx context.Context, operation string) error {
-	data := map[string]any{"operation": operation}
-	return DispatchEvent(ctx, s.Engine, s.Store, "competency_prerequisite", data)
+func (s *RuleBackEndService) OnCompetencyPrerequisite(ctx context.Context, operation string, prerequisite any, competency any) error {
+    data := map[string]any{
+        "trigger": map[string]any{
+            "type":      "competency_prerequisite",
+            "operation": operation,
+        },
+    }
+    if prerequisite != nil {
+        data["prerequisite"] = prerequisite
+    }
+    if competency != nil {
+        data["competency"] = competency // parent competency context for rules that use competency.*
+    }
+    return DispatchEvent(ctx, s.Engine, s.Store, "competency_prerequisite", data)
 }

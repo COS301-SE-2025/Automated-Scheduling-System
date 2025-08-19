@@ -69,7 +69,7 @@ export async function saveRuleToBackend(
 
     const hasValidId = (id: unknown): id is string | number =>
         (typeof id === 'number' && Number.isFinite(id)) ||
-        (typeof id === 'string' && /^\d+$/.test(id));
+        (typeof id === 'string' && id.trim().length > 0); // accept non-empty strings like "rule_123"
 
     let targetId: string | number | undefined = backendId;
 
@@ -89,18 +89,28 @@ export async function saveRuleToBackend(
 
     if (hasValidId(targetId)) {
         await updateRule(String(targetId), spec);
+        setNodeBackendId(nodes, ruleId, targetId);
         return targetId; // keep the same id type
     }
 
     const created = await createRule(spec);
+    setNodeBackendId(nodes, ruleId, created.id);
     return created.id; // use backend-provided id
+}
+
+function setNodeBackendId(nodes: Node[], ruleId: string, id: string | number) {
+    const n = nodes.find((x) => x.id === ruleId && x.type === 'rule');
+    if (n && n.data) {
+        (n.data as RuleNodeData).backendId = id;
+        (n.data as RuleNodeData).saved = true;
+    }
 }
 
 // Delete a rule in the backend (if persisted)
 export async function deleteRuleInBackend(backendId?: string | number) {
     const hasValidId = (id: unknown): id is string | number =>
         (typeof id === 'number' && Number.isFinite(id)) ||
-        (typeof id === 'string' && /^\d+$/.test(id));
+        (typeof id === 'string' && id.trim().length > 0); // accept "rule_*" ids
 
     if (!hasValidId(backendId)) return;
     await deleteRule(String(backendId));

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Handle, Position, type NodeProps, useReactFlow, type Connection } from 'reactflow';
-import { PlusCircle, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import type { TriggerNodeData, ParamKV } from '../../types/rule.types';
 import { useRulesMetadata } from '../../contexts/RulesMetadataContext';
 
@@ -47,7 +47,6 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
         const next = data.parameters.map((p, i) => (i === idx ? { ...p, ...patch } : p));
         update({ parameters: next });
     };
-    const addParam = () => update({ parameters: [...data.parameters, { key: '', value: '' }] }); // extra param
     const removeParam = (idx: number) => update({ parameters: data.parameters.filter((_, i) => i !== idx) });
     const onDelete = () => rf.deleteElements({ nodes: [{ id }] });
 
@@ -139,7 +138,6 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
             );
         }
         if (type === 'number') {
-            // Fallback to text input to avoid auto-increment issues
             return (
                 <input
                     className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
@@ -213,15 +211,11 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
                 <div className="border-t pt-2">
                     <div className="flex items-center justify-between mb-1">
                         <span className="text-sm font-semibold">Parameters</span>
-                        <button className="text-xs px-2 py-0.5 border rounded" onClick={addParam} type="button" title="Add extra parameter">
-                            <PlusCircle size={16} />
-                        </button>
                     </div>
                     <div className="space-y-1">
                         {data.parameters.map((p, idx) => {
                             const def = metaParamMap.get(p.key);
                             const isMeta = Boolean(def);
-                            const required = def?.required;
                             return (
                                 <div key={`${p.key}-${idx}`} className="flex gap-1 items-center">
                                     <input
@@ -238,8 +232,8 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
                                         onClick={() => removeParam(idx)}
                                         type="button"
                                         aria-label="Remove parameter"
-                                        disabled={!!required}
-                                        title={required ? 'Required by metadata' : 'Remove parameter'}
+                                        disabled={isMeta}
+                                        title={isMeta ? 'Defined by trigger metadata' : 'Remove parameter'}
                                     >
                                         ×
                                     </button>

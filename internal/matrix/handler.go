@@ -18,18 +18,18 @@ var DB *gorm.DB
 var RulesSvc *rulesv2.RuleBackEndService
 func SetRulesService(s *rulesv2.RuleBackEndService) { RulesSvc = s }
 
-func fireLinkJobToCompetency(c *gin.Context, operation string) {
+func fireLinkJobToCompetency(c *gin.Context, operation string, link map[string]any, pos any, comp any) {
     if RulesSvc == nil { return }
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
     defer cancel()
-    _ = RulesSvc.OnLinkJobToCompetency(ctx, operation) // add|deactivate|reactivate
+    _ = RulesSvc.OnLinkJobToCompetency(ctx, operation, link, pos, comp)
 }
 
-func fireCompetencyUpdateTrigger(c *gin.Context) {
+func fireCompetencyUpdateTrigger(c *gin.Context, comp any) {
     if RulesSvc == nil { return }
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
     defer cancel()
-    _ = RulesSvc.OnCompetency(ctx, "update")
+    _ = RulesSvc.OnCompetency(ctx, "update", comp)
 }
 
 // handles adding a new competency requirement to a job position.
@@ -68,8 +68,14 @@ func CreateJobMatrixEntryHandler(c *gin.Context) {
         return
     }
 
+    // prepare domain objects
+    var jp models.JobPosition
+    _ = DB.First(&jp, "position_matrix_code = ?", req.PositionMatrixCode).Error
+    var cd models.CompetencyDefinition
+    _ = DB.First(&cd, "competency_id = ?", req.CompetencyID).Error
+    link := map[string]any{"State": "active"}
     // fire trigger: link_job_to_competency add
-    fireLinkJobToCompetency(c, "add")
+    fireLinkJobToCompetency(c, "add", link, jp, cd)
 
     c.JSON(http.StatusCreated, matrixEntry)
 }
@@ -125,7 +131,7 @@ func UpdateJobMatrixEntryHandler(c *gin.Context) {
     }
 
     // fire trigger: competency update (on job requirement change)
-    fireCompetencyUpdateTrigger(c)
+    fireCompetencyUpdateTrigger(c, updatedEntry.CompetencyDefinition)
 
     c.JSON(http.StatusOK, updatedEntry)
 }
@@ -145,6 +151,13 @@ func DeleteJobMatrixEntryHandler(c *gin.Context) {
         return
     }
 
+    var jp models.JobPosition
+    _ = DB.First(&jp, "position_matrix_code = ?", entry.PositionMatrixCode).Error
+    var cd models.CompetencyDefinition
+    _ = DB.First(&cd, "competency_id = ?", entry.CompetencyID).Error
+    // fire trigger: link_job_to_competency deactivate
+    fireLinkJobToCompetency(c, "deactivate", map[string]any{"State": "inactive"}, jp, cd)
+
     result := DB.Delete(&models.CustomJobMatrix{}, idStr)
     if result.Error != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete job requirement"})
@@ -154,9 +167,6 @@ func DeleteJobMatrixEntryHandler(c *gin.Context) {
         c.JSON(http.StatusNotFound, gin.H{"error": "Job requirement entry not found"})
         return
     }
-
-    // fire trigger: link_job_to_competency deactivate
-    fireLinkJobToCompetency(c, "deactivate")
 
     c.JSON(http.StatusOK, gin.H{"message": "Job requirement entry deleted successfully"})
 }
