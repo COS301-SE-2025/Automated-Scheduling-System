@@ -10,6 +10,7 @@ import (
 
 	"Automated-Scheduling-Project/internal/database/gen_models"
 	"Automated-Scheduling-Project/internal/email"
+	"Automated-Scheduling-Project/internal/sms"
 
 	"gorm.io/gorm"
 )
@@ -85,7 +86,7 @@ func (a *NotificationAction) sendEmail(recipient, subject, message string) error
 // Takes in the recipient and the message string
 func (a *NotificationAction) sendSMS(recipient, message string) error {
 	// Implement SMS sending logic here
-	// Wait for David to sent the information for the SMS service
+	sms.SendSMS(recipient, message)
 	log.Printf("SMS SENT: To=%s, Message=%s", recipient, message)
 	return nil
 }
