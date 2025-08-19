@@ -62,6 +62,8 @@ export type FactMetadata = {
     type: string;
     description: string;
     operators: string[];
+    // Optional list of trigger types that provide this fact
+    triggers?: string[];
 };
 export type OperatorMetadata = {
     name: string;
@@ -150,49 +152,6 @@ export const validateRule = async (rule: RuleV2): Promise<ValidationResult> => {
     } catch (error) {
         if (error instanceof ApiError) throw error;
         throw new ApiError('Failed to validate rule', (error as any)?.status || 0, error);
-    }
-};
-
-/* ---------- Triggers (fire-and-forget) ---------- */
-
-export const triggerJobMatrixUpdate = async (payload: {
-    employeeNumber: string;
-    competencyID: number;
-    action: string;
-}): Promise<{ status: string; message: string }> => {
-    try {
-        return await apiClient<{ status: string; message: string }>(`${BASE}/trigger/job-matrix`, {
-            method: 'POST',
-            data: payload,
-        });
-    } catch (error) {
-        if (error instanceof ApiError) throw error;
-        throw new ApiError('Failed to trigger job matrix update', (error as any)?.status || 0, error);
-    }
-};
-
-export const triggerNewHire = async (payload: {
-    employeeNumber: string;
-}): Promise<{ status: string; message: string }> => {
-    try {
-        return await apiClient<{ status: string; message: string }>(`${BASE}/trigger/new-hire`, {
-            method: 'POST',
-            data: payload,
-        });
-    } catch (error) {
-        if (error instanceof ApiError) throw error;
-        throw new ApiError('Failed to trigger new hire', (error as any)?.status || 0, error);
-    }
-};
-
-export const triggerScheduledCheck = async (): Promise<{ status: string; message: string }> => {
-    try {
-        return await apiClient<{ status: string; message: string }>(`${BASE}/trigger/scheduled-check`, {
-            method: 'POST',
-        });
-    } catch (error) {
-        if (error instanceof ApiError) throw error;
-        throw new ApiError('Failed to trigger scheduled check', (error as any)?.status || 0, error);
     }
 };
 

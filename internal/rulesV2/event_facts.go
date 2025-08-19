@@ -1,8 +1,8 @@
 package rulesv2
 
 import (
+	"reflect"
 	"strings"
-    "reflect"
 )
 
 // EventFacts bundles a few domains frequently used in your rules:
@@ -27,12 +27,67 @@ import (
 type EventFacts struct{}
 
 func (EventFacts) Resolve(evCtx EvalContext, path string) (any, bool, error) {
-	// eventSchedule.*
+	// Map event.* helper facts from trigger payload
+	if strings.EqualFold(path, "event.Operation") {
+		if trig, ok := evCtx.Data["trigger"].(map[string]any); ok {
+			if v, ok2 := trig["operation"]; ok2 {
+				return v, true, nil
+			}
+		}
+		return nil, true, nil
+	}
+	if strings.EqualFold(path, "event.UpdateKind") {
+		if trig, ok := evCtx.Data["trigger"].(map[string]any); ok {
+			if v, ok2 := trig["updateKind"]; ok2 {
+				return v, true, nil
+			}
+			// also accept snake_case just in case
+			if v, ok2 := trig["update_kind"]; ok2 {
+				return v, true, nil
+			}
+		}
+		return nil, true, nil
+	}
+	if strings.EqualFold(path, "event.Action") {
+		if trig, ok := evCtx.Data["trigger"].(map[string]any); ok {
+			if v, ok2 := trig["action"]; ok2 {
+				return v, true, nil
+			}
+		}
+		return nil, true, nil
+	}
+
+	// scheduledEvent.* (fallbacks to eventSchedule.* or event.* if provided)
+	if strings.HasPrefix(path, "scheduledEvent.") {
+		if v, ok, err := resolveUnder(evCtx, "scheduledEvent", path); ok || err != nil {
+			return v, ok, err
+		}
+		if v, ok, err := resolveUnder(evCtx, "eventSchedule", path); ok || err != nil {
+			return v, ok, err
+		}
+		if v, ok, err := resolveUnder(evCtx, "event", path); ok || err != nil {
+			return v, ok, err
+		}
+		return nil, false, nil
+	}
+
+	// eventDef.* (fallback to eventDefinition.*)
+	if strings.HasPrefix(path, "eventDef.") {
+		if v, ok, err := resolveUnder(evCtx, "eventDef", path); ok || err != nil {
+			return v, ok, err
+		}
+		if v, ok, err := resolveUnder(evCtx, "eventDefinition", path); ok || err != nil {
+			return v, ok, err
+		}
+		return nil, false, nil
+	}
+
+	// eventSchedule.* (legacy prefix support)
 	if strings.HasPrefix(path, "eventSchedule.") {
 		return resolveUnder(evCtx, "eventSchedule", path)
 	}
 
-	// eventDefinition.*
+	// eventDefinition.* (legacy prefix support)
 	if strings.HasPrefix(path, "eventDefinition.") {
 		return resolveUnder(evCtx, "eventDefinition", path)
 	}

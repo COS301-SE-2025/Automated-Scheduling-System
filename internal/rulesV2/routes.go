@@ -31,9 +31,6 @@ func RegisterRulesRoutes(router *gin.Engine, service *RuleBackEndService) {
 		})
 
 		// Trigger endpoints for external systems to notify the rules engine
-		rulesGroup.POST("/trigger/job-matrix", func(c *gin.Context) {
-			TriggerJobMatrixUpdate(c, service)
-		})
 		rulesGroup.POST("/trigger/new-hire", func(c *gin.Context) {
 			TriggerNewHire(c, service)
 		})

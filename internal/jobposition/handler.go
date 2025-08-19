@@ -17,11 +17,11 @@ var DB *gorm.DB
 var RulesSvc *rulesv2.RuleBackEndService
 func SetRulesService(s *rulesv2.RuleBackEndService) { RulesSvc = s }
 
-func fireJobPositionTrigger(c *gin.Context, operation string) {
+func fireJobPositionTrigger(c *gin.Context, operation string, pos models.JobPosition) {
     if RulesSvc == nil { return }
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
     defer cancel()
-    _ = RulesSvc.OnJobPosition(ctx, operation)
+    _ = RulesSvc.OnJobPosition(ctx, operation, pos)
 }
 
 type CreateJobPositionRequest struct {
@@ -67,8 +67,8 @@ func CreateJobPositionHandler(c *gin.Context) {
 		return
 	}
 
-    // fire trigger: job_position create
-    fireJobPositionTrigger(c, "create")
+    // fire trigger: job_position create (with object)
+    fireJobPositionTrigger(c, "create", newPosition)
 
 	c.JSON(http.StatusCreated, newPosition)
 }
@@ -92,8 +92,8 @@ func UpdateJobPositionHandler(c *gin.Context) {
 	var updatedPos models.JobPosition
 	DB.First(&updatedPos, "position_matrix_code = ?", code)
 
-    // fire trigger: job_position update
-    fireJobPositionTrigger(c, "update")
+    // fire trigger: job_position update (with object)
+    fireJobPositionTrigger(c, "update", updatedPos)
 
 	c.JSON(http.StatusOK, updatedPos)
 }
@@ -116,11 +116,11 @@ func UpdateJobPositionStatusHandler(c *gin.Context) {
 	var updatedPos models.JobPosition
 	DB.First(&updatedPos, "position_matrix_code = ?", code)
 
-    // fire trigger: job_position deactivate/reactivate
+    // fire trigger: job_position deactivate/reactivate (with object)
     if req.IsActive != nil && *req.IsActive {
-        fireJobPositionTrigger(c, "reactivate")
+        fireJobPositionTrigger(c, "reactivate", updatedPos)
     } else {
-        fireJobPositionTrigger(c, "deactivate")
+        fireJobPositionTrigger(c, "deactivate", updatedPos)
     }
 
 	c.JSON(http.StatusOK, updatedPos)

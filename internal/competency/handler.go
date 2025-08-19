@@ -22,17 +22,25 @@ var RulesSvc *rulesv2.RuleBackEndService
 func SetRulesService(s *rulesv2.RuleBackEndService) { RulesSvc = s }
 
 // fireCompetencyTrigger is a non-blocking helper to dispatch the trigger
-func fireCompetencyTrigger(c *gin.Context, operation string) {
+func fireCompetencyTrigger(c *gin.Context, operation string, comp models.CompetencyDefinition) {
     if RulesSvc == nil { return }
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
     defer cancel()
-    _ = RulesSvc.OnCompetency(ctx, operation)
+    _ = RulesSvc.OnCompetency(ctx, operation, comp)
 }
-func fireCompetencyPrereq(c *gin.Context, operation string) {
+func fireCompetencyPrereq(c *gin.Context, operation string, parentID, requiredID int) {
     if RulesSvc == nil { return }
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
     defer cancel()
-    _ = RulesSvc.OnCompetencyPrerequisite(ctx, operation) // add|remove
+    // Match metadata field names for facts: ParentCompetencyID, RequiredCompetencyID
+    prereq := map[string]any{
+        "ParentCompetencyID":   parentID,
+        "RequiredCompetencyID": requiredID,
+    }
+    // Also include parent competency under "competency" so competency.* facts can be used with this trigger
+    var parent models.CompetencyDefinition
+    _ = DB.First(&parent, parentID).Error
+    _ = RulesSvc.OnCompetencyPrerequisite(ctx, operation, prereq, parent)
 }
 
 // Handles creating a new competency.
@@ -62,7 +70,7 @@ func CreateCompetencyDefinitionHandler(c *gin.Context) {
 	}
 
 	// Trigger: competency create
-	fireCompetencyTrigger(c, "create")
+	fireCompetencyTrigger(c, "create", competency)
 
 	c.JSON(http.StatusCreated, competency)
 }
@@ -140,7 +148,7 @@ func UpdateCompetencyDefinitionHandler(c *gin.Context) {
 	}
 
 	// Trigger: competency update
-	fireCompetencyTrigger(c, "update")
+	fireCompetencyTrigger(c, "update", competency)
 
 	c.JSON(http.StatusOK, competency)
 }
@@ -167,7 +175,9 @@ func DeleteCompetencyDefinitionHandler(c *gin.Context) {
 	}
 
 	// Trigger: competency deactivate
-	fireCompetencyTrigger(c, "deactivate")
+	var comp models.CompetencyDefinition
+	_ = DB.First(&comp, "competency_id = ?", id).Error
+	fireCompetencyTrigger(c, "deactivate", comp)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Competency deactivated successfully"})
 }
@@ -199,7 +209,7 @@ func AddPrerequisiteHandler(c *gin.Context) {
 	}
 
 	// Trigger: competency_prerequisite add
-	fireCompetencyPrereq(c, "add")
+	fireCompetencyPrereq(c, "add", competencyID, req.PrerequisiteCompetencyID)
 
 	c.JSON(http.StatusCreated, prereq)
 }
@@ -221,7 +231,10 @@ func RemovePrerequisiteHandler(c *gin.Context) {
 	}
 
 	// Trigger: competency_prerequisite remove
-	fireCompetencyPrereq(c, "remove")
+	// competencyIDStr/prereqID are strings; convert to ints for payload
+	cid, _ := strconv.Atoi(competencyIDStr)
+	rid, _ := strconv.Atoi(prerequisiteIDStr)
+	fireCompetencyPrereq(c, "remove", cid, rid)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Prerequisite removed successfully"})
 }

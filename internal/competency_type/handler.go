@@ -18,11 +18,11 @@ var DB *gorm.DB
 var RulesSvc *rulesv2.RuleBackEndService
 func SetRulesService(s *rulesv2.RuleBackEndService) { RulesSvc = s }
 
-func fireCompetencyTypeTrigger(c *gin.Context, operation string) {
+func fireCompetencyTypeTrigger(c *gin.Context, operation string, ct models.CompetencyType) {
     if RulesSvc == nil { return }
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
     defer cancel()
-    _ = RulesSvc.OnCompetencyType(ctx, operation)
+    _ = RulesSvc.OnCompetencyType(ctx, operation, ct)
 }
 
 // struct for creating/updating a type
@@ -65,7 +65,7 @@ func CreateCompetencyTypeHandler(c *gin.Context) {
 	}
 
 	// fire trigger: competency_type create
-	fireCompetencyTypeTrigger(c, "create")
+	fireCompetencyTypeTrigger(c, "create", newType)
 
 	c.JSON(http.StatusCreated, newType)
 }
@@ -94,7 +94,7 @@ func UpdateCompetencyTypeHandler(c *gin.Context) {
 	DB.First(&updatedType, "type_name = ?", typeName)
 
 	// fire trigger: competency_type update
-	fireCompetencyTypeTrigger(c, "update")
+	fireCompetencyTypeTrigger(c, "update", updatedType)
 
 	c.JSON(http.StatusOK, updatedType)
 }
@@ -123,9 +123,9 @@ func UpdateTypeStatusHandler(c *gin.Context) {
 
 	// fire trigger: competency_type deactivate/reactivate
 	if req.IsActive != nil && *req.IsActive {
-		fireCompetencyTypeTrigger(c, "reactivate")
+		fireCompetencyTypeTrigger(c, "reactivate", updatedType)
 	} else {
-		fireCompetencyTypeTrigger(c, "deactivate")
+		fireCompetencyTypeTrigger(c, "deactivate", updatedType)
 	}
 
 	c.JSON(http.StatusOK, updatedType)

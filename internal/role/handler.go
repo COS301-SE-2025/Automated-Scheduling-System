@@ -19,11 +19,11 @@ var DB *gorm.DB
 var RulesSvc *rulesv2.RuleBackEndService
 func SetRulesService(s *rulesv2.RuleBackEndService) { RulesSvc = s }
 
-func fireRolesTrigger(c *gin.Context, operation, updateKind string) {
+func fireRolesTrigger(c *gin.Context, operation, updateKind string, roleObj models.Role) {
     if RulesSvc == nil { return }
     ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
     defer cancel()
-    _ = RulesSvc.OnRoles(ctx, operation, updateKind)
+    _ = RulesSvc.OnRoles(ctx, operation, updateKind, roleObj)
 }
 
 // Helpers
@@ -81,7 +81,7 @@ func CreateRoleHandler(c *gin.Context) {
 	}
 
 	// fire trigger: roles create
-	fireRolesTrigger(c, "create", "general")
+	fireRolesTrigger(c, "create", "general", role)
 
 	var perms []models.RolePermission
 	_ = DB.Where("role_id = ?", role.RoleID).Find(&perms).Error
@@ -155,14 +155,14 @@ func UpdateRoleHandler(c *gin.Context) {
 	// emit specific kinds if we detected permission changes; otherwise general
 	switch {
     case added && removed:
-        fireRolesTrigger(c, "update", "permission_added")
-        fireRolesTrigger(c, "update", "permission_removed")
+        fireRolesTrigger(c, "update", "permission_added", role)
+        fireRolesTrigger(c, "update", "permission_removed", role)
     case added:
-        fireRolesTrigger(c, "update", "permission_added")
+        fireRolesTrigger(c, "update", "permission_added", role)
     case removed:
-        fireRolesTrigger(c, "update", "permission_removed")
+        fireRolesTrigger(c, "update", "permission_removed", role)
     default:
-        fireRolesTrigger(c, "update", "general")
+        fireRolesTrigger(c, "update", "general", role)
 	}
 
 	var perms []models.RolePermission

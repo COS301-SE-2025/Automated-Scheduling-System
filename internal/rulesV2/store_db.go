@@ -3,6 +3,7 @@ package rulesv2
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"Automated-Scheduling-Project/internal/database/models"
@@ -154,8 +155,6 @@ func (s DBRuleStore) ListAll(ctx context.Context, onlyEnabled bool) ([]models.Ru
 	return rows, nil
 }
 
-/* ------------------------------ Dev seeding ------------------------------- */
-
 // Seed upserts by name (useful for fixtures/dev). Validates before write.
 func (s DBRuleStore) Seed(ctx context.Context, reg *Registry, spec Rulev2, enabled bool) (models.Rule, error) {
 	if err := ValidateRule(reg, spec); err != nil {
@@ -177,7 +176,7 @@ func (s DBRuleStore) Seed(ctx context.Context, reg *Registry, spec Rulev2, enabl
 		}
 		return row, nil
 	}
-	if tx.Error != nil && tx.Error != gorm.ErrRecordNotFound {
+	if !errors.Is(tx.Error, gorm.ErrRecordNotFound) {
 		return models.Rule{}, tx.Error
 	}
 

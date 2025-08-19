@@ -34,6 +34,9 @@ type FactMetadata struct {
 	Type        string   `json:"type"`
 	Description string   `json:"description"`
 	Operators   []string `json:"operators"`
+	// Triggers indicates which triggers supply this fact in their context.
+	// A fact may be available for multiple triggers.
+	Triggers []string `json:"triggers,omitempty"`
 }
 
 // OperatorMetadata represents metadata about available operators
@@ -65,35 +68,6 @@ func GetRulesMetadata() RulesMetadata {
 // getTriggerMetadata returns metadata for all available triggers
 func getTriggerMetadata() []TriggerMetadata {
 	return []TriggerMetadata{
-		{
-			Type:        "job_matrix_update",
-			Name:        "Job Matrix Update",
-			Description: "Triggered when job matrix entries are created, updated, or deleted",
-			Parameters: []Parameter{
-				{
-					Name:        "employee_id",
-					Type:        "string",
-					Required:    true,
-					Description: "Employee number/ID",
-					Example:     "EMP001",
-				},
-				{
-					Name:        "competency_id",
-					Type:        "number",
-					Required:    true,
-					Description: "Competency definition ID",
-					Example:     123,
-				},
-				{
-					Name:        "action",
-					Type:        "string",
-					Required:    false,
-					Description: "Action performed (created, updated, deleted)",
-					Example:     "created",
-					Options:     []any{"created", "updated", "deleted"},
-				},
-			},
-		},
 		{
 			Type:        "new_hire",
 			Name:        "New Hire",
@@ -192,7 +166,18 @@ func getTriggerMetadata() []TriggerMetadata {
 					Type:        "string",
 					Required:    false,
 					Description: "When operation=update, specify which field changed",
-					Options:     []any{"start_time", "end_time", "facilitator", "min_attendees", "max_attendees", "event_type", "status", "other"},
+					Options:     []any{
+						"title",
+						"event_start_date",
+						"event_end_date",
+						"room_name",
+						"maximum_attendees",
+						"minimum_attendees",
+						"status_name",
+						"facilitator",
+						"color",
+						"other",
+					},
 				},
 			},
 		},
@@ -400,72 +385,313 @@ func getActionMetadata() []ActionMetadata {
 
 // getFactMetadata returns metadata for all available facts in conditions
 func getFactMetadata() []FactMetadata {
+	const (
+		trNewHire     = "new_hire"
+		trSchedCheck  = "scheduled_competency_check"
+		trJobPos      = "job_position"
+		trCompType    = "competency_type"
+		trCompetency  = "competency"
+		trEventDef    = "event_definition"
+		trSchedEvent  = "scheduled_event"
+		trRoles       = "roles"
+		trLinkJobComp = "link_job_to_competency"
+		trCompPrereq  = "competency_prerequisite"
+	)
+
+	strOps := []string{"equals", "notEquals", "contains", "startsWith", "endsWith", "in", "notIn"}
+	numOps := []string{"equals", "notEquals", "greaterThan", "lessThan", "greaterThanEqual", "lessThanEqual"}
+	boolOps := []string{"isTrue", "isFalse"}
+	dateOps := []string{"before", "after", "equals"}
+
 	return []FactMetadata{
+		// Common event-scoped helpers (map trigger parameter "operation" into a fact for conditions)
 		{
-			Name:        "employee.Employeestatus",
+			Name:        "event.Operation",
+			Type:        "string",
+			Description: "Operation specified by the triggering event",
+			Operators:   strOps,
+			Triggers:    []string{trJobPos, trCompType, trCompetency, trEventDef, trSchedEvent, trRoles, trLinkJobComp, trCompPrereq},
+		},
+		{
+			Name:        "event.UpdateKind",
+			Type:        "string",
+			Description: "Specific update kind if provided by the event (e.g., permissions changed)",
+			Operators:   strOps,
+			Triggers:    []string{trRoles},
+		},
+
+		// Employee facts (match seeder casing/fields)
+		{
+			Name:        "employee.EmployeeNumber",
+			Type:        "string",
+			Description: "Employee number/ID",
+			Operators:   strOps,
+			Triggers:    []string{trNewHire, trSchedCheck},
+		},
+		{
+			Name:        "employee.EmployeeStatus",
 			Type:        "string",
 			Description: "Current status of the employee",
 			Operators:   []string{"equals", "notEquals", "in", "notIn"},
+			Triggers:    []string{trNewHire, trSchedCheck},
 		},
 		{
-			Name:        "employee.Firstname",
+			Name:        "employee.FirstName",
 			Type:        "string",
 			Description: "Employee's first name",
 			Operators:   []string{"equals", "notEquals", "contains", "startsWith", "endsWith"},
+			Triggers:    []string{trNewHire},
 		},
 		{
-			Name:        "employee.Lastname",
+			Name:        "employee.LastName",
 			Type:        "string",
 			Description: "Employee's last name",
 			Operators:   []string{"equals", "notEquals", "contains", "startsWith", "endsWith"},
+			Triggers:    []string{trNewHire},
 		},
 		{
-			Name:        "employee.Useraccountemail",
+			Name:        "employee.UserAccountEmail",
 			Type:        "string",
 			Description: "Employee's email address",
 			Operators:   []string{"equals", "notEquals", "contains", "endsWith"},
+			Triggers:    []string{trNewHire},
+		},
+		{
+			Name:        "employee.TerminationDate",
+			Type:        "date",
+			Description: "Employee termination date",
+			Operators:   dateOps,
+			Triggers:    []string{trNewHire, trSchedCheck},
+		},
+
+		// Competency facts
+		{
+			Name:        "competency.CompetencyID",
+			Type:        "number",
+			Description: "Competency definition ID",
+			Operators:   append([]string{"equals", "notEquals"}, []string{"in", "notIn"}...),
+			Triggers:    []string{trCompetency, trLinkJobComp, trCompPrereq, trSchedCheck},
 		},
 		{
 			Name:        "competency.CompetencyName",
 			Type:        "string",
 			Description: "Name of the competency",
 			Operators:   []string{"equals", "notEquals", "contains", "in", "notIn"},
+			Triggers:    []string{trCompetency, trLinkJobComp, trCompPrereq, trSchedCheck},
+		},
+		{
+			Name:        "competency.CompetencyTypeName",
+			Type:        "string",
+			Description: "Type/category of the competency",
+			Operators:   []string{"equals", "notEquals", "in", "notIn"},
+			Triggers:    []string{trCompetency, trLinkJobComp, trCompPrereq, trSchedCheck},
 		},
 		{
 			Name:        "competency.IsActive",
 			Type:        "boolean",
 			Description: "Whether the competency is currently active",
-			Operators:   []string{"isTrue", "isFalse"},
+			Operators:   boolOps,
+			Triggers:    []string{trCompetency, trLinkJobComp, trSchedCheck},
 		},
 		{
 			Name:        "competency.Source",
 			Type:        "string",
 			Description: "Source of the competency (Internal, External, etc.)",
 			Operators:   []string{"equals", "notEquals", "in", "notIn"},
+			Triggers:    []string{trCompetency, trSchedCheck},
 		},
 		{
-			Name:        "jobMatrix.RequiredLevel",
+			Name:        "competency.ExpiryPeriodMonths",
 			Type:        "number",
-			Description: "Required competency level for the job",
-			Operators:   []string{"equals", "notEquals", "greaterThan", "lessThan", "greaterThanEqual", "lessThanEqual"},
+			Description: "Expiry period in months for the competency",
+			Operators:   numOps,
+			Triggers:    []string{trCompetency, trSchedCheck},
 		},
+
+		// Competency type facts
+		{
+			Name:        "competencyType.TypeName",
+			Type:        "string",
+			Description: "Competency type name",
+			Operators:   []string{"equals", "notEquals", "in", "notIn"},
+			Triggers:    []string{trCompType, trCompetency},
+		},
+		{
+			Name:        "competencyType.IsActive",
+			Type:        "boolean",
+			Description: "Whether the competency type is active",
+			Operators:   boolOps,
+			Triggers:    []string{trCompType},
+		},
+
+		// Job position facts
+		{
+			Name:        "jobPosition.PositionMatrixCode",
+			Type:        "string",
+			Description: "Position matrix code",
+			Operators:   strOps,
+			Triggers:    []string{trJobPos, trLinkJobComp},
+		},
+		{
+			Name:        "jobPosition.JobTitle",
+			Type:        "string",
+			Description: "Job title for the position",
+			Operators:   strOps,
+			Triggers:    []string{trJobPos, trLinkJobComp},
+		},
+		{
+			Name:        "jobPosition.IsActive",
+			Type:        "boolean",
+			Description: "Whether the job position is active",
+			Operators:   boolOps,
+			Triggers:    []string{trJobPos, trLinkJobComp},
+		},
+
+		// Job matrix facts
 		{
 			Name:        "jobMatrix.CurrentLevel",
 			Type:        "number",
 			Description: "Employee's current competency level",
-			Operators:   []string{"equals", "notEquals", "greaterThan", "lessThan", "greaterThanEqual", "lessThanEqual"},
+			Operators:   numOps,
+			Triggers:    []string{trSchedCheck}, // removed trJobMatrix
 		},
+
+		// Link job to competency facts
+		{
+			Name:        "link.State",
+			Type:        "string",
+			Description: "Link state between job position and competency (e.g., active/inactive)",
+			Operators:   strOps,
+			Triggers:    []string{trLinkJobComp},
+		},
+
+		// Competency prerequisite facts
+		{
+			Name:        "prerequisite.ParentCompetencyID",
+			Type:        "number",
+			Description: "Competency that has a prerequisite",
+			Operators:   append([]string{"equals", "notEquals"}, []string{"in", "notIn"}...),
+			Triggers:    []string{trCompPrereq},
+		},
+		{
+			Name:        "prerequisite.RequiredCompetencyID",
+			Type:        "number",
+			Description: "Competency required as a prerequisite",
+			Operators:   append([]string{"equals", "notEquals"}, []string{"in", "notIn"}...),
+			Triggers:    []string{trCompPrereq},
+		},
+
+		// Event definition facts
+		{
+			Name:        "eventDef.EventName",
+			Type:        "string",
+			Description: "Event definition name",
+			Operators:   strOps,
+			Triggers:    []string{trEventDef},
+		},
+		{
+			Name:        "eventDef.Facilitator",
+			Type:        "string",
+			Description: "Default facilitator for the event definition",
+			Operators:   strOps,
+			Triggers:    []string{trEventDef},
+		},
+		{
+			Name:        "eventDef.GrantsCertificateID",
+			Type:        "number",
+			Description: "Certificate ID granted on completion (if applicable)",
+			Operators:   numOps,
+			Triggers:    []string{trEventDef},
+		},
+
+		// Scheduled event facts
+		{
+			Name:        "scheduledEvent.Title",
+			Type:        "string",
+			Description: "Scheduled event title",
+			Operators:   strOps,
+			Triggers:    []string{trSchedEvent},
+		},
+		{
+			Name:        "scheduledEvent.StatusName",
+			Type:        "string",
+			Description: "Status of the scheduled event",
+			Operators:   strOps,
+			Triggers:    []string{trSchedEvent},
+		},
+		{
+			Name:        "scheduledEvent.RoomName",
+			Type:        "string",
+			Description: "Room or location name",
+			Operators:   strOps,
+			Triggers:    []string{trSchedEvent},
+		},
+		{
+			Name:        "scheduledEvent.EventStartDate",
+			Type:        "date",
+			Description: "Scheduled start time",
+			Operators:   dateOps,
+			Triggers:    []string{trSchedEvent},
+		},
+		{
+			Name:        "scheduledEvent.EventEndDate",
+			Type:        "date",
+			Description: "Scheduled end time",
+			Operators:   dateOps,
+			Triggers:    []string{trSchedEvent},
+		},
+		{
+			Name:        "scheduledEvent.MaximumAttendees",
+			Type:        "number",
+			Description: "Maximum attendees",
+			Operators:   numOps,
+			Triggers:    []string{trSchedEvent},
+		},
+		{
+			Name:        "scheduledEvent.MinimumAttendees",
+			Type:        "number",
+			Description: "Minimum attendees",
+			Operators:   numOps,
+			Triggers:    []string{trSchedEvent},
+		},
+		{
+			Name:        "scheduledEvent.Color",
+			Type:        "string",
+			Description: "Event color",
+			Operators:   strOps,
+			Triggers:    []string{trSchedEvent},
+		},
+
+		// Roles facts
+		{
+			Name:        "role.RoleName", // was: role.Name
+			Type:        "string",
+			Description: "Role name",
+			Operators:   strOps,
+			Triggers:    []string{trRoles},
+		},
+		{
+			Name:        "role.Description",
+			Type:        "string",
+			Description: "Role description",
+			Operators:   strOps,
+			Triggers:    []string{trRoles},
+		},
+
+		// Temporal/global facts
 		{
 			Name:        "days_since_training",
 			Type:        "number",
 			Description: "Number of days since last training",
 			Operators:   []string{"greaterThan", "lessThan", "greaterThanEqual", "lessThanEqual", "equals"},
+			Triggers:    []string{trSchedCheck},
 		},
 		{
 			Name:        "current_time",
 			Type:        "date",
 			Description: "Current date and time",
 			Operators:   []string{"before", "after", "equals"},
+			Triggers:    []string{trSchedCheck, trSchedEvent},
 		},
 	}
 }
