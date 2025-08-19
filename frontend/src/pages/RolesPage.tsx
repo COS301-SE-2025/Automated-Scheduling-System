@@ -29,6 +29,7 @@ const RolesPage: React.FC = () => {
   const [modalMode, setModalMode] = useState<'add' | 'edit' | 'view'>('add');
   const [activeRole, setActiveRole] = useState<RoleRecord | null>(null);
   const [modalApiError, setModalApiError] = useState<string | null>(null);
+  const [modalApiErrorTitle, setModalApiErrorTitle] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -60,13 +61,21 @@ const RolesPage: React.FC = () => {
     );
   }, [roles, search]);
 
-  const openAdd = () => { setModalMode('add'); setActiveRole(null); setModalApiError(null); setModalOpen(true); };
-  const openEdit = (role: RoleRecord) => { setModalMode('edit'); setActiveRole(role); setModalApiError(null); setModalOpen(true); };
+  const openAdd = () => { setModalMode('add'); setActiveRole(null); setModalApiError(null); setModalApiErrorTitle(null); setModalOpen(true); };
+  const openEdit = (role: RoleRecord) => { setModalMode('edit'); setActiveRole(role); setModalApiError(null); setModalApiErrorTitle(null); setModalOpen(true); };
   const closeModal = () => setModalOpen(false);
 
   const handleSave = async (data: AddRoleData) => {
     setModalApiError(null);
+    setModalApiErrorTitle(null);
     try {
+      // Client-side duplicate name guard for better UX
+      const nameExists = roles.some(r => r.name.trim().toLowerCase() === data.name.trim().toLowerCase() && (modalMode !== 'edit' ? true : r.id !== activeRole?.id));
+      if (nameExists) {
+        setModalApiError('Role name cannot be the same as an existing role. Please choose a different name.');
+        setModalApiErrorTitle('Duplicate role name');
+        return;
+      }
       if (modalMode === 'add') {
         const created = await roleService.createRole(data);
         setRoles(prev => [created, ...prev]);
@@ -76,7 +85,17 @@ const RolesPage: React.FC = () => {
       }
       setModalOpen(false);
     } catch (err) {
-      if (err instanceof ApiError) setModalApiError(err.data?.error || err.message);
+      if (err instanceof ApiError) {
+        const msg = err.data?.error || err.message;
+        // If backend returns conflict or similar, map to friendly message
+        if (err.status === 409 || /duplicate|exists|already/i.test(msg)) {
+          setModalApiError('Role name cannot be the same as an existing role. Please choose a different name.');
+          setModalApiErrorTitle('Duplicate role name');
+        } else {
+          setModalApiError(msg);
+          setModalApiErrorTitle('Operation Failed');
+        }
+      }
       else if (err instanceof Error) setModalApiError(err.message);
       else setModalApiError('An unknown error occurred.');
     }
@@ -120,6 +139,7 @@ const RolesPage: React.FC = () => {
         onSave={handleSave}
         role={activeRole}
         apiError={modalApiError}
+  apiErrorTitle={modalApiErrorTitle}
         allPages={ALL_PAGES}
       />
     </MainLayout>

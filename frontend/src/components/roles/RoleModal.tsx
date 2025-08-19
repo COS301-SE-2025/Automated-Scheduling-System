@@ -18,10 +18,11 @@ interface RoleModalProps {
   onSave: (data: AddRoleData) => Promise<void>;
   role?: RoleRecord | null;
   apiError?: string | null;
+  apiErrorTitle?: string | null;
   allPages: { value: AllowedPage; label: string }[];
 }
 
-const RoleModal: React.FC<RoleModalProps> = ({ isOpen, mode, onClose, onSave, role, apiError, allPages }) => {
+const RoleModal: React.FC<RoleModalProps> = ({ isOpen, mode, onClose, onSave, role, apiError, apiErrorTitle, allPages }) => {
   const isView = mode === 'view';
   const isEdit = mode === 'edit';
 
@@ -69,7 +70,7 @@ const RoleModal: React.FC<RoleModalProps> = ({ isOpen, mode, onClose, onSave, ro
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-6">
-          {apiError && <MessageBox type="error" title="Operation Failed">{apiError}</MessageBox>}
+          {apiError && <MessageBox type="error" title={apiErrorTitle || 'Operation Failed'}>{apiError}</MessageBox>}
 
           <FormInput id="name" label="Role Name" disabled={isView} {...register('name', { required: 'Name is required' })} error={errors.name?.message} />
           <FormInput id="description" label="Description" disabled={isView} {...register('description')} />
