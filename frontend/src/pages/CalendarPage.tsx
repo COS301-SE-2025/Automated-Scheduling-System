@@ -15,12 +15,15 @@ import * as eventService from '../services/eventService';
 import type { CalendarEvent, CreateEventDefinitionPayload } from '../services/eventService';
 import { useAuth } from '../hooks/useAuth';
 import Button from '../components/ui/Button';
+import { getAllCompetencies } from '../services/competencyService';
+import type { Competency } from '../types/competency';
 
 type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
 type SelectedInfoType = DateSelectArg | DateClickArg | (EventClickArg['event'] & { eventType?: string; relevantParties?: string });
 
 const CalendarPage: React.FC = () => {
-    const { permissions } = useAuth();
+    const { permissions, user } = useAuth();
+    const isElevated = !!(permissions?.includes('events') && (user?.role === 'Admin' || user?.role === 'HR'));
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDefinitionModalOpen, setIsDefinitionModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -34,6 +37,7 @@ const CalendarPage: React.FC = () => {
     const [eventDefinitions, setEventDefinitions] = useState<eventService.EventDefinition[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [competencies, setCompetencies] = useState<Competency[]>([]);
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -41,7 +45,7 @@ const CalendarPage: React.FC = () => {
                 setIsLoading(true);
                 const [schedules, definitions] = await Promise.all([
                     eventService.getScheduledEvents(),
-                    permissions?.includes('event-definitions') ? eventService.getEventDefinitions() : Promise.resolve([])
+                    eventService.getEventDefinitions()
                 ]);
                 setEvents(schedules);
                 setEventDefinitions(definitions);
@@ -57,6 +61,20 @@ const CalendarPage: React.FC = () => {
         fetchInitialData();
     }, [permissions]);
 
+    // Load competencies only for Admin/HR so the modal can show the grant field
+    useEffect(() => {
+        if (!user) return;
+        if (user.role !== 'Admin' && user.role !== 'HR') { setCompetencies([]); return; }
+        (async () => {
+            try {
+                const list = await getAllCompetencies();
+                setCompetencies(list.filter(c => c.isActive));
+            } catch {
+                setCompetencies([]);
+            }
+        })();
+    }, [user]);
+
     const handleAddEventClick = () => {
         setSelectedDateInfo(null);
         setEventToEdit(null);
@@ -64,16 +82,22 @@ const CalendarPage: React.FC = () => {
     };
 
     const handleOpenDefinitionModal = () => {
-        setIsModalOpen(false); // Close schedule modal if open
+        setIsModalOpen(false); 
         setIsDefinitionModalOpen(true);
     };
 
     const fetchAndSetData = useCallback(async () => {
+        // Preserve the current view and date before refreshing data
+    const api = calendarRef.current?.getApi();
+    const currentView = api?.view?.type;
+    const currentDate = api?.getDate ? api.getDate() : undefined;
+    const scroller: HTMLElement | null = (api as any)?.el?.querySelector?.('.fc-timegrid .fc-scroller') || (api as any)?.el?.querySelector?.('.fc-scroller');
+    const previousScrollTop = scroller ? scroller.scrollTop : undefined;
         try {
             setIsLoading(true);
             const [schedules, definitions] = await Promise.all([
                 eventService.getScheduledEvents(),
-                permissions?.includes('event-definitions') ? eventService.getEventDefinitions() : Promise.resolve([])
+                eventService.getEventDefinitions()
             ]);
 
             const processedSchedules = schedules.map(event => {
@@ -82,19 +106,17 @@ const CalendarPage: React.FC = () => {
                 const startDate = new Date(event.start as string);
                 const endDate = new Date(event.end as string);
 
-                // Check if the event spans across midnight into another day
                 if (startDate.toDateString() !== endDate.toDateString()) {
-                    // Make it appear as a 2-hour event on the start day for rendering
                     const displayEndDate = new Date(startDate);
                     displayEndDate.setHours(startDate.getHours() + 2);
 
                     return {
                         ...event,
-                        end: displayEndDate.toISOString(), // Visually shorten the event
+                        end: displayEndDate.toISOString(), 
                         extendedProps: {
                             ...event.extendedProps,
-                            isMultiDay: true, // Add a flag
-                            originalEnd: event.end, // Store the real end date
+                            isMultiDay: true,
+                            originalEnd: event.end, 
                         }
                     };
                 }
@@ -104,6 +126,18 @@ const CalendarPage: React.FC = () => {
             setEvents(processedSchedules);
             setEventDefinitions(definitions);
             setError(null);
+            // Restore the preserved view and date so the user stays where they were
+            if (api && currentView && currentDate) {
+                // Use a microtask to ensure FC has applied state updates before changing view
+                setTimeout(() => {
+                    api.changeView(currentView, currentDate);
+                    // Restore scroll position in time-grid views
+                    const newScroller: HTMLElement | null = (api as any)?.el?.querySelector?.('.fc-timegrid .fc-scroller') || (api as any)?.el?.querySelector?.('.fc-scroller');
+                    if (previousScrollTop != null && newScroller) {
+                        newScroller.scrollTop = previousScrollTop;
+                    }
+                }, 0);
+            }
         } catch (err) {
             console.error("Failed to fetch calendar data:", err);
             setError("Could not load calendar data.");
@@ -186,19 +220,17 @@ const CalendarPage: React.FC = () => {
 
             await eventService.updateScheduledEvent(Number(event.id), scheduleData);
             
-            // Optional: refetch all data to ensure consistency, though FullCalendar updates the UI optimistically.
             await fetchAndSetData();
 
         } catch (err) {
             console.error('Failed to update event after drop:', err);
-            // If the API call fails, revert the event to its original position
             dropInfo.revert(); 
         }
     };
 
     const handleSaveEvent = async (eventData: EventSaveData) => {
         try {
-            const scheduleData: eventService.CreateSchedulePayload = {
+            const baseData: eventService.CreateSchedulePayload = {
                 title: eventData.title,
                 customEventId: eventData.customEventId,
                 start: new Date(eventData.start).toISOString(),
@@ -209,6 +241,14 @@ const CalendarPage: React.FC = () => {
                 statusName: eventData.statusName,
                 color: eventData.color,
             };
+
+            const scheduleData: eventService.CreateSchedulePayload = isElevated
+                ? {
+                    ...baseData,
+                    employeeNumbers: (eventData as any).employeeNumbers,
+                    positionCodes: (eventData as any).positionCodes,
+                }
+                : baseData;
 
             if (eventData.id) {
                 await eventService.updateScheduledEvent(Number(eventData.id), scheduleData);
@@ -249,6 +289,8 @@ const CalendarPage: React.FC = () => {
                 minimumAttendees: eventToEdit.extendedProps.minAttendees,
                 statusName: eventToEdit.extendedProps.statusName,
                 color: eventToEdit.extendedProps.color,
+                employeeNumbers: eventToEdit.extendedProps.employees || [],
+                positionCodes: eventToEdit.extendedProps.positions || [],
             };
         }
         
@@ -281,7 +323,7 @@ const CalendarPage: React.FC = () => {
                     <div className="flex space-x-2">
                         <Button type="button" variant="outline" onClick={handleOpenDefinitionModal}>
                             <Settings size={20} className="inline-block mr-2" />
-                            Manage Event Types
+                            Create New Event Types
                         </Button>
                         <Button type="button" variant="primary" onClick={handleAddEventClick}>
                             <PlusCircle size={20} className="inline-block mr-2" />
@@ -303,8 +345,14 @@ const CalendarPage: React.FC = () => {
                     </div>
                 )}
 
-                {!isLoading && !error && (
-                    <div className="bg-white dark:bg-dark-div p-4 rounded-lg shadow calendar-container">
+                {!error && (
+                    <div className="bg-white dark:bg-dark-div p-4 rounded-lg shadow calendar-container relative">
+                        {/* Non-blocking loading veil to avoid unmounting the calendar */}
+                        {isLoading && (
+                            <div className="absolute inset-0 flex items-start justify-end p-2 pointer-events-none">
+                                <span className="text-xs bg-white/80 dark:bg-black/40 text-gray-600 dark:text-gray-200 rounded px-2 py-1 shadow">Refreshing…</span>
+                            </div>
+                        )}
                         <FullCalendar
                             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                             initialView="dayGridMonth"
@@ -313,10 +361,10 @@ const CalendarPage: React.FC = () => {
                                 center: 'title',
                                 right: 'dayGridMonth,timeGridWeek,timeGridDay'
                             }}
-                            height="100%"            
-                            expandRows={true}        
+                            height="100%"
+                            expandRows={true}
                             handleWindowResize={true}
-                            scrollTime="00:00:00"    
+                            scrollTime="00:00:00"
                             editable={true}
                             selectable={true}
                             selectMirror={true}
@@ -327,7 +375,7 @@ const CalendarPage: React.FC = () => {
                             eventClick={handleEventClick}
                             dateClick={handleDateClick}
                             select={handleSelect}
-                            eventDrop={handleEventDrop} 
+                            eventDrop={handleEventDrop}
                         />
                     </div>
                 )}
@@ -353,6 +401,8 @@ const CalendarPage: React.FC = () => {
                     isOpen={isDefinitionModalOpen}
                     onClose={() => setIsDefinitionModalOpen(false)}
                     onSave={handleSaveDefinition}
+                    competencies={competencies}
+                    showGrantField={user?.role === 'Admin' || user?.role === 'HR'}
                 />
             )}
             <EventDetailModal

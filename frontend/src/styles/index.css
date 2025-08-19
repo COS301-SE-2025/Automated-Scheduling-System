@@ -230,6 +230,28 @@ html, body {
   height: 100% !important;
 }
 
+/* Ensure the timegrid slats (hour lines) span full height and allow selection across the grid */
+.calendar-container .fc-timegrid-slots,
+.calendar-container .fc-timegrid-body,
+.calendar-container .fc-timegrid-slot-minor,
+.calendar-container .fc-timegrid-slot {
+  height: auto !important;
+}
+
+/* Make the time grid content stretch and be clickable across the full column */
+.calendar-container .fc-timegrid-cols,
+.calendar-container .fc-timegrid-content,
+.calendar-container .fc-timegrid-body table {
+  height: 100% !important;
+}
+
+/* Avoid clipping selection mirrors */
+.calendar-container .fc-scroller-harness,
+.calendar-container .fc-scroller-liquid-absolute,
+.calendar-container .fc-scroller {
+  overflow: auto !important;
+}
+
 /* Default event border color variables */
 :root {
   --fc-event-border-color: #cbd5e1; 

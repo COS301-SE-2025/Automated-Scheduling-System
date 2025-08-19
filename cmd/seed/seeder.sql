@@ -122,7 +122,37 @@ CREATE TABLE custom_event_schedules (
     minimum_attendees INT,
     status_name VARCHAR(50) DEFAULT 'Scheduled', -- e.g., 'Scheduled', 'Cancelled', 'Full'
     color VARCHAR(7) DEFAULT '#3788d8',
-    creation_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    creation_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    created_by_user_id BIGINT NOT NULL REFERENCES users(id)
+);
+
+-- Link scheduled events to employees and job positions
+CREATE TABLE IF NOT EXISTS event_schedule_employees (
+    schedule_employee_id BIGSERIAL PRIMARY KEY,
+    custom_event_schedule_id INT NOT NULL REFERENCES custom_event_schedules(custom_event_schedule_id) ON DELETE CASCADE,
+    employee_number VARCHAR(200) NOT NULL REFERENCES employee(EmployeeNumber) ON DELETE CASCADE,
+    role VARCHAR(50) DEFAULT 'Attendee',
+    UNIQUE(custom_event_schedule_id, employee_number)
+);
+
+CREATE TABLE IF NOT EXISTS event_schedule_position_targets (
+    schedule_position_id BIGSERIAL PRIMARY KEY,
+    custom_event_schedule_id INT NOT NULL REFERENCES custom_event_schedules(custom_event_schedule_id) ON DELETE CASCADE,
+    position_matrix_code VARCHAR(100) NOT NULL REFERENCES job_positions(position_matrix_code) ON DELETE CASCADE,
+    UNIQUE(custom_event_schedule_id, position_matrix_code)
+);
+
+-- Track attendance per employee per scheduled event
+CREATE TABLE IF NOT EXISTS event_attendance (
+    id BIGSERIAL PRIMARY KEY,
+    custom_event_schedule_id INT NOT NULL REFERENCES custom_event_schedules(custom_event_schedule_id) ON DELETE CASCADE,
+    employee_number VARCHAR(200) NOT NULL REFERENCES employee(EmployeeNumber) ON DELETE CASCADE,
+    -- Default to false; UI/handler will explicitly set true for attendees.
+    attended BOOLEAN NOT NULL DEFAULT FALSE,
+    check_in_time TIMESTAMPTZ NULL,
+    check_out_time TIMESTAMPTZ NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(custom_event_schedule_id, employee_number)
 );
 
 -- This table tracks which employee has which certification.
@@ -141,6 +171,8 @@ CREATE TABLE employee_competencies (
 CREATE INDEX idx_customeventdefinition_grants_cert_id ON custom_event_definitions(grants_certificate_id);
 CREATE INDEX idx_customjobmatrix_competency_id ON custom_job_matrix(competency_id);
 CREATE INDEX idx_customeventschedule_custom_event_id ON custom_event_schedules(custom_event_id);
+CREATE INDEX IF NOT EXISTS idx_event_attendance_schedule ON event_attendance(custom_event_schedule_id);
+CREATE INDEX IF NOT EXISTS idx_event_attendance_employee ON event_attendance(employee_number);
 
 -- Insert dummy data
 -- Insert data into the employee table
@@ -149,7 +181,8 @@ VALUES
 ('E001', 'John', 'Doe', 'john.doe@example.com', 'Active', NULL),
 ('E002', 'Jane', 'Smith', 'jane.smith@example.com', 'Active', NULL),
 ('E003', 'Alice', 'Johnson', 'alice.johnson@example.com', 'Terminated', '2025-06-01'),
-('E004', 'Bob', 'Brown', 'bob.brown@example.com', 'Active', NULL);
+('E004', 'Bob', 'Brown', 'bob.brown@example.com', 'Active', NULL)
+ON CONFLICT (EmployeeNumber) DO NOTHING;
 
 -- Insert data into the users table
 -- Password is set to: Pa$$w0rd!
@@ -157,7 +190,8 @@ INSERT INTO users (username, password, forgot_password_link, role, employee_numb
 VALUES
 ('johndoe', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'Admin', 'E001'),
 ('janesmith', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E002'),
-('alicejohnson', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E003');
+('alicejohnson', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E003')
+ON CONFLICT (username) DO NOTHING;
 
 -- ROLES and permissions
 CREATE TABLE roles (
@@ -180,8 +214,9 @@ CREATE TABLE user_has_role (
 
 -- Seed default roles mirroring legacy roles
 INSERT INTO roles (role_name, description) VALUES
-('Admin', 'Built-in admin with full access'),
-('User', 'Default user');
+('Admin', 'Built-in admin with full access') ON CONFLICT DO NOTHING;
+INSERT INTO roles (role_name, description) VALUES ('User', 'Default user') ON CONFLICT DO NOTHING;
+INSERT INTO roles (role_name, description) VALUES ('HR', 'Human Resources role with scheduling privileges') ON CONFLICT DO NOTHING;
 
 -- Admin gets all pages
 INSERT INTO role_permissions (role_id, page)
@@ -197,6 +232,209 @@ SELECT r.role_id, p.page FROM roles r, (VALUES
 ) AS p(page)
 WHERE r.role_name = 'User';
 
+-- HR role permissions
+INSERT INTO role_permissions (role_id, page)
+SELECT r.role_id, p.page FROM roles r, (VALUES
+ ('dashboard'), ('calendar'), ('events'), ('event-definitions'), ('competencies'), ('main-help')
+) AS p(page)
+WHERE r.role_name = 'HR';
+
 -- Link seeded users to roles
 INSERT INTO user_has_role (user_id, role_id)
 SELECT u.id, r.role_id FROM users u JOIN roles r ON ((u.role = 'Admin' AND r.role_name = 'Admin') OR (u.role = 'User' AND r.role_name = 'User'));
+
+-- =============================================================================
+-- MOCK DATA INSERTION SCRIPT (CORRECTED ORDER)
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- Stage 1: Core Reference Data (No Dependencies)
+
+-- Insert all job positions FIRST, as other tables depend on them.
+INSERT INTO job_positions (position_matrix_code, job_title, description, is_active) VALUES
+('P001', 'Technician', 'Field technician', TRUE),
+('P002', 'Supervisor', 'Team supervisor', TRUE),
+('P003', 'Senior Technician', 'Leads technical projects and mentors junior technicians.', TRUE),
+('P004', 'Field Trainee', 'Entry-level position, learning on the job.', TRUE),
+('P005', 'Operations Manager', 'Manages day-to-day operations and staff.', TRUE),
+('P006', 'Safety Officer', 'Ensures compliance with safety regulations.', TRUE),
+('P007', 'Lead Engineer', 'Designs and oversees engineering projects.', FALSE) -- Inactive position example
+ON CONFLICT (position_matrix_code) DO NOTHING;
+
+-- Insert competency types
+INSERT INTO competency_types (type_name, description) VALUES
+('Certification', 'Official certification from an accredited body.'),
+('License', 'A legal license required to perform certain tasks.'),
+('Skill', 'A demonstrated ability or skill.'),
+('Internal Training', 'A competency granted after completing internal training.')
+ON CONFLICT (type_name) DO NOTHING;
+
+-- Seed default roles
+INSERT INTO roles (role_name, description) VALUES
+('Admin', 'Built-in admin with full access'),
+('User', 'Default user with basic access'),
+('HR', 'Human Resources role with scheduling privileges')
+ON CONFLICT (role_name) DO NOTHING;
+
+-- -----------------------------------------------------------------------------
+-- Stage 2: Core Entity Data & Dependent Reference Data
+-- -----------------------------------------------------------------------------
+
+-- Insert all employees
+INSERT INTO employee (EmployeeNumber, FirstName, LastName, UserAccountEmail, EmployeeStatus, TerminationDate) VALUES
+('E005', 'Sarah', 'Lee', 'sarah.lee@example.com', 'Active', NULL),
+('E006', 'Mike', 'Chen', 'mike.chen@example.com', 'Active', NULL),
+('E007', 'David', 'Garcia', 'david.garcia@example.com', 'Active', NULL),
+('E008', 'Emily', 'Carter', 'emily.carter@example.com', 'On Leave', NULL),
+('E009', 'Chris', 'Wright', 'chris.wright@example.com', 'Active', NULL),
+('E010', 'Olivia', 'Martinez', 'olivia.martinez@example.com', 'Terminated', '2023-11-20')
+ON CONFLICT (EmployeeNumber) DO NOTHING;
+
+-- Insert all users (depends on employees)
+-- All passwords are 'Pa$$w0rd!'
+INSERT INTO users (username, password, role, employee_number) VALUES
+('sarahlee', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', 'User', 'E005'),
+('mikechen', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', 'User', 'E006'),
+('davidgarcia', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', 'User', 'E007'),
+('emilycarter', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', 'User', 'E008')
+ON CONFLICT (username) DO NOTHING;
+-- Ensure Bob Brown user exists for created_by fields in schedules and definitions
+INSERT INTO users (username, password, role, employee_number) VALUES
+('bobbrown', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', 'User', 'E004')
+ON CONFLICT (username) DO NOTHING;
+
+-- Insert competency definitions (depends on competency_types)
+INSERT INTO competency_definitions (competency_name, description, competency_type_name, source, expiry_period_months, is_active) VALUES
+('First Aid Level 1', 'Basic first aid and CPR.', 'Certification', 'Custom', 36, TRUE), -- ID: 1
+('Forklift Operation', 'Certified to operate a forklift.', 'License', 'LMS', 24, TRUE), -- ID: 2
+('Working at Heights', 'Safety procedures for working at elevated positions.', 'Certification', 'Custom', 24, TRUE), -- ID: 3
+('Confined Space Entry', 'Procedures for entering and working in confined spaces.', 'Certification', 'Custom', 36, TRUE), -- ID: 4
+('Basic Widget Repair', 'Introductory course for widget maintenance.', 'Internal Training', 'Custom', NULL, TRUE), -- ID: 5
+('Advanced Widget Repair', 'Advanced troubleshooting and repair of complex widgets.', 'Internal Training', 'Custom', NULL, TRUE), -- ID: 6
+('Leadership Foundations', 'Core skills for new supervisors and managers.', 'Internal Training', 'Custom', NULL, TRUE), -- ID: 7
+('Project Management Basics', 'Introduction to project management principles from an external provider.', 'Skill', 'LMS', NULL, TRUE), -- ID: 8
+('Safety Procedures 101', 'General company safety protocols.', 'Internal Training', 'Custom', 12, FALSE) -- ID: 9 (Inactive example)
+ON CONFLICT (competency_name, source) DO NOTHING;
+
+-- -----------------------------------------------------------------------------
+-- Stage 3: Link Tables & History (Depends on Stages 1 & 2)
+-- -----------------------------------------------------------------------------
+
+-- Insert employment history (depends on employees and job_positions)
+INSERT INTO employment_history (employee_number, position_matrix_code, start_date, end_date, employment_type) VALUES
+('E001', 'P001', '2020-01-01', NULL, 'Primary'),
+('E002', 'P004', '2020-09-01', '2021-02-28', 'Primary'), -- Jane was a trainee first
+('E002', 'P001', '2021-03-01', NULL, 'Primary'),
+('E003', 'P001', '2019-05-15', '2025-06-01', 'Primary'), -- Alice's terminated role
+('E004', 'P002', '2022-06-01', NULL, 'Primary'),
+('E005', 'P005', '2021-08-10', NULL, 'Primary'),
+('E006', 'P003', '2022-02-20', NULL, 'Primary'),
+('E007', 'P001', '2023-01-15', NULL, 'Primary'),
+('E008', 'P001', '2022-07-01', NULL, 'Primary'),
+('E009', 'P004', '2024-02-01', NULL, 'Primary')
+ON CONFLICT (employee_number, position_matrix_code, start_date) DO NOTHING;
+
+-- Insert competency prerequisites (depends on competency_definitions)
+-- Assumes competency IDs are generated sequentially from 1
+INSERT INTO competency_prerequisites (competency_id, prerequisite_competency_id) VALUES
+(6, 5) ON CONFLICT DO NOTHING; -- Advanced Widget Repair requires Basic Widget Repair
+
+-- Insert custom job matrix (depends on job_positions and competency_definitions)
+INSERT INTO custom_job_matrix (position_matrix_code, competency_id, requirement_status, notes, created_by) VALUES
+('P001', 1, 'Required', 'All technicians must have current First Aid.', 'johndoe'),
+('P001', 5, 'Required', 'Core skill for the role.', 'johndoe'),
+('P001', 3, 'Optional', 'Required for specific sites only.', 'johndoe'),
+('P003', 6, 'Required', 'Senior techs must be able to handle all repairs.', 'johndoe'),
+('P003', 1, 'Required', 'Team leads must be first aid certified.', 'johndoe'),
+('P002', 7, 'Required', 'Essential for supervisory duties.', 'bobbrown'),
+('P005', 7, 'Required', 'Essential for management duties.', 'bobbrown'),
+('P006', 4, 'Required', 'Core competency for Safety Officers.', 'johndoe')
+ON CONFLICT DO NOTHING;
+
+-- Link users to roles
+INSERT INTO user_has_role (user_id, role_id)
+SELECT u.id, r.role_id FROM users u JOIN roles r ON u.role = r.role_name
+ON CONFLICT (user_id, role_id) DO NOTHING;
+
+-- Set up role permissions (depends on roles)
+-- Admin gets all pages
+INSERT INTO role_permissions (role_id, page)
+SELECT r.role_id, p.page FROM roles r CROSS JOIN (VALUES
+ ('dashboard'), ('users'), ('roles'), ('calendar'), ('event-definitions'), ('events'), ('rules'), ('competencies'), ('main-help')
+) AS p(page)
+WHERE r.role_name = 'Admin' ON CONFLICT DO NOTHING;
+-- User role baseline
+INSERT INTO role_permissions (role_id, page)
+SELECT r.role_id, p.page FROM roles r, (VALUES
+ ('dashboard'), ('calendar'), ('events'), ('main-help')
+) AS p(page)
+WHERE r.role_name = 'User' ON CONFLICT DO NOTHING;
+-- HR role permissions
+INSERT INTO role_permissions (role_id, page)
+SELECT r.role_id, p.page FROM roles r, (VALUES
+ ('dashboard'), ('calendar'), ('events'), ('event-definitions'), ('competencies'), ('main-help')
+) AS p(page)
+WHERE r.role_name = 'HR' ON CONFLICT DO NOTHING;
+
+-- -----------------------------------------------------------------------------
+-- Stage 4: Event Definitions (Depends on Competencies)
+-- -----------------------------------------------------------------------------
+
+INSERT INTO custom_event_definitions (event_name, activity_description, standard_duration, grants_certificate_id, facilitator, created_by) VALUES
+('First Aid & CPR Recertification', 'A one-day course to renew First Aid Level 1 certification.', '8 hours', 1, 'St. John Ambulance', 'bobbrown'),
+('Basic Widget Repair Training', 'A 3-day hands-on course for new technicians.', '3 days', 5, 'John Doe', 'johndoe'),
+('Advanced Widget Repair Workshop', 'An expert-level workshop for senior staff. Prerequisite: Basic Widget Repair.', '2 days', 6, 'Mike Chen', 'johndoe'),
+('Leadership Skills Seminar', 'Interactive seminar covering communication, delegation, and conflict resolution.', '1 day', 7, 'External Consultant', 'bobbrown')
+ON CONFLICT DO NOTHING;
+
+-- Define prerequisites for events
+INSERT INTO custom_event_prerequisites (event_id, prerequisite_event_id) VALUES
+(3, 2) ON CONFLICT DO NOTHING; -- Advanced Workshop requires Basic Training
+
+-- -----------------------------------------------------------------------------
+-- Stage 5: Event Schedules & Attendance (Final Layer)
+-- -----------------------------------------------------------------------------
+
+INSERT INTO custom_event_schedules (custom_event_id, title, event_start_date, event_end_date, room_name, maximum_attendees, minimum_attendees, status_name, color, created_by_user_id) VALUES
+(1, 'PAST: First Aid - Q1', NOW() - INTERVAL '3 months', NOW() - INTERVAL '3 months' + INTERVAL '8 hours', 'Training Room A', 10, 4, 'Completed', '#28a745', (SELECT id FROM users WHERE username='bobbrown')),
+(2, 'Basic Widget Repair - July', NOW() + INTERVAL '1 month', NOW() + INTERVAL '1 month' + INTERVAL '3 days', 'Workshop 1', 6, 2, 'Scheduled', '#007bff', (SELECT id FROM users WHERE username='johndoe')),
+(3, 'Advanced Widget Repair - Aug', NOW() + INTERVAL '2 months', NOW() + INTERVAL '2 months' + INTERVAL '2 days', 'Workshop 2', 4, 2, 'Scheduled', '#ffc107', (SELECT id FROM users WHERE username='johndoe')),
+(4, 'Leadership Seminar - July', NOW() + INTERVAL '25 days', NOW() + INTERVAL '25 days' + INTERVAL '1 day', 'Boardroom', 12, 5, 'Scheduled', '#17a2b8', (SELECT id FROM users WHERE username='bobbrown')),
+(1, 'First Aid - July', NOW() + INTERVAL '15 days', NOW() + INTERVAL '15 days' + INTERVAL '8 hours', 'Training Room B', 10, 4, 'Full', '#6f42c1', (SELECT id FROM users WHERE username='bobbrown')),
+(2, 'Basic Widget Repair - Aug', NOW() + INTERVAL '2 months', NOW() + INTERVAL '2 months' + INTERVAL '3 days', 'Workshop 1', 6, 2, 'Cancelled', '#dc3545', (SELECT id FROM users WHERE username='johndoe'))
+ON CONFLICT DO NOTHING;
+
+-- Link employees to schedules
+INSERT INTO event_schedule_employees (custom_event_schedule_id, employee_number, role) VALUES
+(2, 'E007', 'Attendee'), (2, 'E009', 'Attendee'),
+(3, 'E001', 'Attendee'), (3, 'E006', 'Facilitator'),
+(4, 'E004', 'Attendee'), (4, 'E005', 'Attendee'),
+(5, 'E002', 'Attendee'), (5, 'E006', 'Attendee'), (5, 'E007', 'Attendee'), (5, 'E008', 'Attendee')
+ON CONFLICT (custom_event_schedule_id, employee_number) DO NOTHING;
+
+-- Link positions to schedules
+INSERT INTO event_schedule_position_targets (custom_event_schedule_id, position_matrix_code) VALUES
+(2, 'P001'), (2, 'P004'), (3, 'P003'), (4, 'P002'), (4, 'P005')
+ON CONFLICT (custom_event_schedule_id, position_matrix_code) DO NOTHING;
+
+-- Record attendance for the PAST event
+INSERT INTO event_attendance (custom_event_schedule_id, employee_number, attended, check_in_time, check_out_time) VALUES
+(1, 'E004', TRUE, NOW() - INTERVAL '3 months' + INTERVAL '1 minute', NOW() - INTERVAL '3 months' + INTERVAL '8 hours'),
+(1, 'E005', TRUE, NOW() - INTERVAL '3 months' + INTERVAL '5 minutes', NOW() - INTERVAL '3 months' + INTERVAL '7 hours 50 minutes')
+ON CONFLICT (custom_event_schedule_id, employee_number) DO NOTHING;
+
+-- Grant competencies to employees
+INSERT INTO employee_competencies (employee_number, competency_id, achievement_date, expiry_date, granted_by_schedule_id, notes) VALUES
+-- Historical competencies
+('E001', 5, '2020-01-15', NULL, NULL, 'Previous experience'),
+('E001', 6, '2021-06-20', NULL, NULL, 'Previous experience'),
+('E002', 1, '2023-08-01', '2026-08-01', NULL, 'External training'),
+('E002', 5, '2022-03-10', NULL, NULL, 'On-the-job training'),
+('E006', 5, '2022-03-10', NULL, NULL, 'Trained with Jane'),
+-- Competencies from the completed event (schedule_id=1)
+('E004', 1, (SELECT (event_start_date)::date FROM custom_event_schedules WHERE custom_event_schedule_id=1), (SELECT (event_start_date)::date + INTERVAL '36 months' FROM custom_event_schedules WHERE custom_event_schedule_id=1), 1, 'Completed course.'),
+('E005', 1, (SELECT (event_start_date)::date FROM custom_event_schedules WHERE custom_event_schedule_id=1), (SELECT (event_start_date)::date + INTERVAL '36 months' FROM custom_event_schedules WHERE custom_event_schedule_id=1), 1, 'Completed course.')
+ON CONFLICT (employee_number, competency_id, achievement_date) DO NOTHING;
+
+
+-- =============================================================================

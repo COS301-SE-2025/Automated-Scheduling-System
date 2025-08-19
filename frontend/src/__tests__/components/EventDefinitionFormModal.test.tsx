@@ -38,6 +38,10 @@ describe("EventDefinitionFormModal", () => {
     isOpen: true,
     onClose: mockOnClose,
     onSave: mockOnSave,
+    showGrantField: true,
+    competencies: [
+      { competencyID: 5, competencyName: 'Cert 5', description: null, competencyTypeName: 'Certification', source: 'Custom', expiryPeriodMonths: 12, isActive: true, creationDate: new Date().toISOString() }
+    ],
   } as unknown as EventDefinitionFormModalProps;
 
   beforeEach(() => {

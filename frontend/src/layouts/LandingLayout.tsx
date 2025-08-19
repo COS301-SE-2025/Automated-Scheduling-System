@@ -3,6 +3,7 @@ import Layout from './Layout';
 import { type NavItem } from '../components/layout/Sidebar';
 import { type HeaderAction } from '../components/layout/Header';
 import { useNavigate } from 'react-router-dom';
+import HelpIcon from '../components/ui/HelpIcon';
 
 const navItems: NavItem[] = [
     { path: '/', label: 'Welcome' },
@@ -28,6 +29,7 @@ const LandingLayout: React.FC<LandingLayoutProps> = ({ children }) => {
             companyName="DISCON Specialists"
             headerActions={headerActions}
             requirePermissions={false}
+            headerChildren={<HelpIcon text="Learn about the Automated Scheduling System features and how to get started." />}
         >
             {children}
         </Layout>
