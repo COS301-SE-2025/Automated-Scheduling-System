@@ -86,7 +86,7 @@ func (a *NotificationAction) sendEmail(recipient, subject, message string) error
 // Takes in the recipient and the message string
 func (a *NotificationAction) sendSMS(recipient, message string) error {
 	// Implement SMS sending logic here
-	sms.SendSMS(recipient, message)
+	sms.SendSMS([]string{recipient}, message)
 	log.Printf("SMS SENT: To=%s, Message=%s", recipient, message)
 	return nil
 }
