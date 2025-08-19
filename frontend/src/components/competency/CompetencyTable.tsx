@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Competency } from '../../types/competency';
-import { Edit, Trash2, ListTree, Users, ChevronDown, Undo2 } from 'lucide-react';
+import { Edit, EyeOff, ListTree, Users, ChevronDown, Undo2 } from 'lucide-react';
 import JobLinkManager from './JobLinkManager';
 import type { JobRequirement } from '../../services/jobRequirementService';
 import type { JobPosition } from '../../services/jobPositionService';
@@ -145,14 +145,14 @@ const CompetencyTable: React.FC<CompetencyTableProps> = ({
                                                     >
                                                         <Edit size={16} />
                                                     </button>
-                                                    {competency.isActive ? (
+                            {competency.isActive ? (
                                                         <button
                                                             type="button"
                                                             className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1 ml-2"
                                                             onClick={() => onDelete(competency)}
                                                             title="Deactivate Competency"
                                                         >
-                                                            <Trash2 size={16} />
+                                <EyeOff size={16} />
                                                         </button>
                                                     ) : (
                                                         <button
