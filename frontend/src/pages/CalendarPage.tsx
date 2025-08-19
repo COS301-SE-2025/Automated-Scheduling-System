@@ -15,6 +15,8 @@ import * as eventService from '../services/eventService';
 import type { CalendarEvent, CreateEventDefinitionPayload } from '../services/eventService';
 import { useAuth } from '../hooks/useAuth';
 import Button from '../components/ui/Button';
+import { getAllCompetencies } from '../services/competencyService';
+import type { Competency } from '../types/competency';
 
 type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
 type SelectedInfoType = DateSelectArg | DateClickArg | (EventClickArg['event'] & { eventType?: string; relevantParties?: string });
@@ -35,6 +37,7 @@ const CalendarPage: React.FC = () => {
     const [eventDefinitions, setEventDefinitions] = useState<eventService.EventDefinition[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [competencies, setCompetencies] = useState<Competency[]>([]);
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -42,7 +45,7 @@ const CalendarPage: React.FC = () => {
                 setIsLoading(true);
                 const [schedules, definitions] = await Promise.all([
                     eventService.getScheduledEvents(),
-                    permissions?.includes('event-definitions') ? eventService.getEventDefinitions() : Promise.resolve([])
+                    eventService.getEventDefinitions()
                 ]);
                 setEvents(schedules);
                 setEventDefinitions(definitions);
@@ -57,6 +60,20 @@ const CalendarPage: React.FC = () => {
 
         fetchInitialData();
     }, [permissions]);
+
+    // Load competencies only for Admin/HR so the modal can show the grant field
+    useEffect(() => {
+        if (!user) return;
+        if (user.role !== 'Admin' && user.role !== 'HR') { setCompetencies([]); return; }
+        (async () => {
+            try {
+                const list = await getAllCompetencies();
+                setCompetencies(list.filter(c => c.isActive));
+            } catch {
+                setCompetencies([]);
+            }
+        })();
+    }, [user]);
 
     const handleAddEventClick = () => {
         setSelectedDateInfo(null);
@@ -74,7 +91,7 @@ const CalendarPage: React.FC = () => {
             setIsLoading(true);
             const [schedules, definitions] = await Promise.all([
                 eventService.getScheduledEvents(),
-                permissions?.includes('event-definitions') ? eventService.getEventDefinitions() : Promise.resolve([])
+                eventService.getEventDefinitions()
             ]);
 
             const processedSchedules = schedules.map(event => {
@@ -360,6 +377,8 @@ const CalendarPage: React.FC = () => {
                     isOpen={isDefinitionModalOpen}
                     onClose={() => setIsDefinitionModalOpen(false)}
                     onSave={handleSaveDefinition}
+                    competencies={competencies}
+                    showGrantField={user?.role === 'Admin' || user?.role === 'HR'}
                 />
             )}
             <EventDetailModal

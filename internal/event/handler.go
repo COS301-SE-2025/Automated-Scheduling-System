@@ -28,19 +28,34 @@ func CreateEventDefinitionHandler(c *gin.Context) {
 		return
 	}
 
+	// Resolve current user and roles so we can enforce restrictions
+	_, _, isAdmin, isHR, err := currentUserContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+
 	createdBy, exists := c.Get("email")
 	if !exists {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "User identity not found in token"})
 		return
 	}
 
+	// Regular users are not permitted to set GrantsCertificateID
+	var grants *int
+	if isAdmin || isHR {
+		grants = req.GrantsCertificateID
+	} else {
+		grants = nil
+	}
+
 	definition := models.CustomEventDefinition{
 		EventName:           req.EventName,
 		ActivityDescription: req.ActivityDescription,
 		StandardDuration:    req.StandardDuration,
-		GrantsCertificateID: req.GrantsCertificateID,
+		GrantsCertificateID: grants,
 		Facilitator:         req.Facilitator,
-		CreatedBy:        createdBy.(string),
+		CreatedBy:           createdBy.(string),
 	}
 
 	if err := DB.Create(&definition).Error; err != nil {
@@ -54,9 +69,30 @@ func CreateEventDefinitionHandler(c *gin.Context) {
 // GetEventDefinitionsHandler returns a list of all available event templates.
 func GetEventDefinitionsHandler(c *gin.Context) {
 	var definitions []models.CustomEventDefinition
-	if err := DB.Find(&definitions).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event definitions"})
+
+	// Determine caller role; non-admin/HR users should only see their own definitions
+	_, _, isAdmin, isHR, err := currentUserContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
+	}
+
+	if isAdmin || isHR {
+		if err := DB.Find(&definitions).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event definitions"})
+			return
+		}
+	} else {
+		// Use the email from the token to filter definitions created by this user
+		emailVal, _ := c.Get("email")
+		email := ""
+		if emailVal != nil {
+			email = emailVal.(string)
+		}
+		if err := DB.Where("created_by = ?", email).Find(&definitions).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event definitions"})
+			return
+		}
 	}
 	c.JSON(http.StatusOK, definitions)
 }
@@ -76,18 +112,42 @@ func UpdateEventDefinitionHandler(c *gin.Context) {
         return
     }
 
-    var definitionToUpdate models.CustomEventDefinition
-    if err := DB.First(&definitionToUpdate, definitionID).Error; err != nil {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Event definition not found"})
-        return
-    }
+	var definitionToUpdate models.CustomEventDefinition
+	if err := DB.First(&definitionToUpdate, definitionID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Event definition not found"})
+		return
+	}
 
-    // Update fields from request
-    definitionToUpdate.EventName = req.EventName
-    definitionToUpdate.ActivityDescription = req.ActivityDescription
-    definitionToUpdate.StandardDuration = req.StandardDuration
-    definitionToUpdate.GrantsCertificateID = req.GrantsCertificateID
-    definitionToUpdate.Facilitator = req.Facilitator
+	// Ensure permissions: non-admin/HR can only update their own definitions and cannot set GrantsCertificateID
+	_, _, isAdmin, isHR, err := currentUserContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+	if !(isAdmin || isHR) {
+		// Get requester's email
+		emailVal, _ := c.Get("email")
+		email := ""
+		if emailVal != nil {
+			email = emailVal.(string)
+		}
+		if definitionToUpdate.CreatedBy != email {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You are not permitted to modify this event definition"})
+			return
+		}
+	}
+
+	// Update fields from request
+	definitionToUpdate.EventName = req.EventName
+	definitionToUpdate.ActivityDescription = req.ActivityDescription
+	definitionToUpdate.StandardDuration = req.StandardDuration
+	// Only Admin/HR may set GrantsCertificateID
+	if isAdmin || isHR {
+		definitionToUpdate.GrantsCertificateID = req.GrantsCertificateID
+	} else {
+		definitionToUpdate.GrantsCertificateID = nil
+	}
+	definitionToUpdate.Facilitator = req.Facilitator
 
     if err := DB.Save(&definitionToUpdate).Error; err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event definition"})
@@ -106,21 +166,40 @@ func DeleteEventDefinitionHandler(c *gin.Context) {
         return
     }
 
-    // Using GORM's delete method. It will automatically handle the "where" clause.
-    // It's important to check for foreign key constraints on the database side.
-    // If a scheduled event references this definition, this delete might fail
-    // unless ON DELETE CASCADE is set up.
-    result := DB.Delete(&models.CustomEventDefinition{}, definitionID)
-    if result.Error != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete event definition. It may be in use by a scheduled event."})
-        return
-    }
-    if result.RowsAffected == 0 {
-        c.JSON(http.StatusNotFound, gin.H{"error": "Event definition not found or already deleted"})
-        return
-    }
+	// Load the definition to check ownership/permissions
+	var def models.CustomEventDefinition
+	if err := DB.First(&def, definitionID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Event definition not found"})
+		return
+	}
 
-    c.JSON(http.StatusOK, gin.H{"message": "Event definition deleted successfully"})
+	// Check permissions
+	_, _, isAdmin, isHR, err := currentUserContext(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+	if !(isAdmin || isHR) {
+		emailVal, _ := c.Get("email")
+		email := ""
+		if emailVal != nil { email = emailVal.(string) }
+		if def.CreatedBy != email {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You are not permitted to delete this event definition"})
+			return
+		}
+	}
+
+	result := DB.Delete(&models.CustomEventDefinition{}, definitionID)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete event definition. It may be in use by a scheduled event."})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Event definition not found or already deleted"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Event definition deleted successfully"})
 }
 
 // ================================================================
@@ -406,6 +485,10 @@ type AttendancePayload struct {
 }
 
 // SetAttendanceHandler sets attendance for a schedule; Admin/HR only.
+// Behavior: replaces the entire attendance set for the given schedule with the
+// provided candidate employees. Any employee omitted from the request will be
+// removed. The "attendance" map determines who is marked attended=true; all
+// others default to false.
 func SetAttendanceHandler(c *gin.Context) {
 	scheduleIDStr := c.Param("scheduleID")
 	scheduleID, err := strconv.Atoi(scheduleIDStr)
@@ -419,25 +502,36 @@ func SetAttendanceHandler(c *gin.Context) {
 	if err := c.ShouldBindJSON(&payload); err != nil { c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"}); return }
 
 	now := time.Now()
-	// Normalize list from either array or map keys
-	employeeSet := map[string]bool{}
-	for _, e := range payload.EmployeeNumbers { employeeSet[e] = true }
-	for e, attended := range payload.Attendance { if attended { employeeSet[e] = true } }
+	// Build the full candidate set from provided arrays and map keys
+	candidateSet := map[string]struct{}{}
+	for _, e := range payload.EmployeeNumbers { if e != "" { candidateSet[e] = struct{}{} } }
+	for e := range payload.Attendance { if e != "" { candidateSet[e] = struct{}{} } }
 
-	// Upsert attendance rows: set attended true for provided set, false for explicit false in map
-	for e := range employeeSet {
-		att := models.EventAttendance{ CustomEventScheduleID: scheduleID, EmployeeNumber: e, Attended: true, CheckInTime: &now }
-		// Upsert-like: delete existing, recreate to keep it simple on SQLite tests
-		_ = DB.Where("custom_event_schedule_id = ? AND employee_number = ?", scheduleID, e).Delete(&models.EventAttendance{})
+	// If nothing provided, treat as bad request
+	if len(candidateSet) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No employees provided for attendance"})
+		return
+	}
+
+	// Clear existing attendance rows for this schedule to avoid stale data
+	_ = DB.Where("custom_event_schedule_id = ?", scheduleID).Delete(&models.EventAttendance{})
+
+	// Insert fresh rows: default to not attended unless explicitly true in map
+	for e := range candidateSet {
+		attended, ok := payload.Attendance[e]
+		if !ok { attended = false }
+		var checkIn *time.Time
+		if attended { checkIn = &now }
+	// Important: explicitly persist Attended=false for non-attendees.
+	att := models.EventAttendance{ CustomEventScheduleID: scheduleID, EmployeeNumber: e, Attended: attended, CheckInTime: checkIn }
 		_ = DB.Create(&att).Error
 	}
-	// explicit falses
-	for e, attended := range payload.Attendance {
-		if !attended {
-			// ensure a row exists with attended=false (optional)
-			_ = DB.Where("custom_event_schedule_id = ? AND employee_number = ?", scheduleID, e).Delete(&models.EventAttendance{})
-			att := models.EventAttendance{ CustomEventScheduleID: scheduleID, EmployeeNumber: e, Attended: false }
-			_ = DB.Create(&att).Error
+
+	// If the schedule is already completed, recompute competency grants now
+	var sched models.CustomEventSchedule
+	if err := DB.Select("status_name").First(&sched, scheduleID).Error; err == nil {
+		if sched.StatusName == "Completed" {
+			go grantCompetenciesForCompletedSchedule(scheduleID)
 		}
 	}
 
@@ -493,9 +587,10 @@ func GetAttendanceCandidates(c *gin.Context) {
 		c.JSON(http.StatusOK, out)
 		return
 	}
-	DB.Table("employees e").
-		Select("e.employeeNumber, (e.firstName || ' ' || e.lastName) as name").
-		Where("e.employeeNumber IN ?", empNums).
+	
+	DB.Table("employee AS e").
+		Select("e.employeenumber AS employee_number, (e.firstname || ' ' || e.lastname) AS name").
+		Where("e.employeenumber IN ?", empNums).
 		Scan(&out)
 	c.JSON(http.StatusOK, out)
 }
@@ -515,7 +610,20 @@ func grantCompetenciesForCompletedSchedule(scheduleID int) {
 	empSet := map[string]struct{}{}
 	for _, a := range attendance { empSet[a.EmployeeNumber] = struct{}{} }
 
-	// Insert EmployeeCompetency for each employee if not already present for this schedule
+	// Remove grants for employees no longer marked attended for this schedule
+	// then insert grants for currently attended employees (idempotent behavior)
+	// 1) Delete rows for this schedule where employee is not in the attended set
+	if len(empSet) > 0 {
+		// Build slice for NOT IN clause
+		empList := make([]string, 0, len(empSet))
+		for e := range empSet { empList = append(empList, e) }
+		DB.Exec("DELETE FROM employee_competencies WHERE granted_by_schedule_id = ? AND employee_number NOT IN ?", scheduleID, empList)
+	} else {
+		// If no attendees, remove any existing grants from this schedule
+		DB.Exec("DELETE FROM employee_competencies WHERE granted_by_schedule_id = ?", scheduleID)
+	}
+
+	// 2) Insert EmployeeCompetency for each attended employee if not already present for this schedule
 	for emp := range empSet {
 		// check existing record for this competency & schedule
 		var cnt int64

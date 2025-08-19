@@ -3,7 +3,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { EventDefinition, CreateEventDefinitionPayload  } from '../../services/eventService';
-import { getAllCompetencies } from '../../services/competencyService';
 import type { Competency } from '../../types/competency';
 import MessageBox from './MessageBox';
 import Button from './Button';
@@ -28,13 +27,12 @@ export interface EventDefinitionFormModalProps {
     onClose: () => void;
     onSave: (data: CreateEventDefinitionPayload) => void;
     initialData?: EventDefinition;
+    competencies?: Competency[];
+    showGrantField?: boolean;
 }
 
-const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isOpen, onClose, onSave, initialData }) => {
+const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isOpen, onClose, onSave, initialData, competencies: providedCompetencies = [], showGrantField = false }) => {
     const [apiError, setApiError] = useState<string | null>(null);
-    const [competencies, setCompetencies] = useState<Competency[]>([]);
-    const [compLoading, setCompLoading] = useState(false);
-    const [compError, setCompError] = useState<string | null>(null);
     const isEditMode = !!initialData;
 
     const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<EventDefinitionFormData>({
@@ -91,27 +89,7 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
         }
     }, [isOpen, initialData, reset, setValue]);
 
-    useEffect(() => {
-        if (!isOpen) return;
-        let active = true;
-        (async () => {
-            try {
-                setCompLoading(true);
-                setCompError(null);
-                const list = await getAllCompetencies();
-                if (!active) return;
-                setCompetencies(list.filter(c => c.isActive));
-            } catch (e: any) {
-                if (!active) return;
-                setCompError(e?.message ?? 'Failed to load competencies');
-                setCompetencies([]);
-            } finally {
-                if (active) setCompLoading(false);
-            }
-        })();
-        return () => { active = false; };
-        }
-    , [isOpen]);
+    // We no longer fetch competencies here; the parent page should pass them in when allowed.
 
     const onSubmit = async (data: EventDefinitionFormData) => {
         setApiError(null);
@@ -125,7 +103,7 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
             ActivityDescription: data.ActivityDescription || '',
             StandardDuration: standardDuration,
             Facilitator: data.Facilitator || '',
-            GrantsCertificateID: data.GrantsCertificateID,
+            GrantsCertificateID: showGrantField ? data.GrantsCertificateID : undefined,
         };
 
         onSave(payload);
@@ -146,7 +124,7 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
                 </div>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 p-6">
                     {apiError && <MessageBox type="error" title="Operation Failed">{apiError}</MessageBox>}
-                    {compError && <MessageBox type="error" title="Failed to load competencies">{compError}</MessageBox>}
+                    {/* Only show competency-related messages if parent provided them (admin/HR) */}
                     
                     <div>
                         <label htmlFor="EventName" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Event Name<span className="text-red-500">*</span></label>
@@ -193,31 +171,32 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
                         {errors.Facilitator && <p className="text-red-500 text-xs mt-1">{errors.Facilitator.message}</p>}
                     </div>
 
-                    <div>
-                        <label htmlFor="GrantsCertificateID" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Grants Certificate (Optional)</label>
-                        {competencies.length === 0 ? (
-                            <select id="GrantsCertificateID" className="w-full p-2 border rounded-md dark:bg-dark-input" disabled>
-                                <option value="">No competencies available</option>
-                            </select>
-                        ) : (
-                            <select
-                                id="GrantsCertificateID"
-                                className="w-full p-2 border rounded-md dark:bg-dark-input"
-                                {...register('GrantsCertificateID', {
-                                    setValueAs: (v) => v === '' ? undefined : Number(v)
-                                })}
-                                defaultValue=""
-                            >
-                                {/* Allow user to explicitly choose no competency */}
-                                <option value="">None</option>
-                                {competencies.map((c) => (
-                                    <option key={c.competencyID} value={c.competencyID}>{c.competencyName}</option>
-                                ))}
-                            </select>
-                        )}
-                        {compLoading && <p className="text-xs text-custom-third dark:text-dark-secondary mt-1">Loading competencies…</p>}
-                        {errors.GrantsCertificateID && <p className="text-red-500 text-xs mt-1">{errors.GrantsCertificateID.message}</p>}
-                    </div>
+                    {showGrantField && (
+                        <div>
+                            <label htmlFor="GrantsCertificateID" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Grants Certificate (Optional)</label>
+                            {providedCompetencies.length === 0 ? (
+                                <select id="GrantsCertificateID" className="w-full p-2 border rounded-md dark:bg-dark-input" disabled>
+                                    <option value="">No competencies available</option>
+                                </select>
+                            ) : (
+                                <select
+                                    id="GrantsCertificateID"
+                                    className="w-full p-2 border rounded-md dark:bg-dark-input"
+                                    {...register('GrantsCertificateID', {
+                                        setValueAs: (v) => v === '' ? undefined : Number(v)
+                                    })}
+                                    defaultValue=""
+                                >
+                                    {/* Allow user to explicitly choose no competency */}
+                                    <option value="">None</option>
+                                    {providedCompetencies.map((c: Competency) => (
+                                        <option key={c.competencyID} value={c.competencyID}>{c.competencyName}</option>
+                                    ))}
+                                </select>
+                            )}
+                            {errors.GrantsCertificateID && <p className="text-red-500 text-xs mt-1">{errors.GrantsCertificateID.message}</p>}
+                        </div>
+                    )}
 
                     <div className="flex items-center justify-end pt-4 space-x-3">
                         <Button type="button" onClick={onClose} disabled={isSubmitting} variant="outline">
