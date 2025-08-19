@@ -1,5 +1,6 @@
 //go:build !unit
 // +build !unit
+
 package database
 
 import (
