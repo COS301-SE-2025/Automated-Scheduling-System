@@ -168,8 +168,5 @@ func DeleteJobMatrixEntryHandler(c *gin.Context) {
         return
     }
 
-    // fire trigger: link_job_to_competency deactivate
-    fireLinkJobToCompetency(c, "deactivate")
-
     c.JSON(http.StatusOK, gin.H{"message": "Job requirement entry deleted successfully"})
 }
