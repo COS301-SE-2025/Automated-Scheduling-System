@@ -45,6 +45,12 @@ const EventDefinitionsPage: React.FC = () => {
     }, [fetchDefinitions]);
 
     useEffect(() => {
+        // Only load competencies for Admin or HR users. Regular users don't have permission.
+        if (!user) return;
+        if (user.role !== 'Admin' && user.role !== 'HR') {
+            setCompetencies([]);
+            return;
+        }
         (async () => {
             try {
                 const list = await getAllCompetencies();
@@ -53,7 +59,7 @@ const EventDefinitionsPage: React.FC = () => {
                 setCompetencies([]);
             }
         })();
-    }, []);
+    }, [user]);
 
     const availableFilterOptions = useMemo(() => ({
         facilitators: Array.from(new Set(definitions.map(d => d.Facilitator).filter(Boolean))).sort(),
@@ -212,26 +218,26 @@ const EventDefinitionsPage: React.FC = () => {
                 {renderContent()}
             </div>
 
-            {user?.role === 'Admin' && (
-                <>
-                    <EventDefinitionFormModal
-                        isOpen={isFormModalOpen}
-                        onClose={() => setIsFormModalOpen(false)}
-                        onSave={handleSaveDefinition}
-                        initialData={definitionToEdit || undefined}
+            <>
+                <EventDefinitionFormModal
+                    isOpen={isFormModalOpen}
+                    onClose={() => setIsFormModalOpen(false)}
+                    onSave={handleSaveDefinition}
+                    initialData={definitionToEdit || undefined}
+                    competencies={competencies}
+                    showGrantField={user?.role === 'Admin' || user?.role === 'HR'}
+                />
+                {definitionToDelete && (
+                    <EventDeleteConfirmationModal
+                        isOpen={isDeleteModalOpen}
+                        onClose={() => setIsDeleteModalOpen(false)}
+                        onDeleteSuccess={handleDeletionSuccess}
+                        eventId={definitionToDelete.CustomEventID}
+                        eventName={definitionToDelete.EventName}
+                        isDefinition={true}
                     />
-                    {definitionToDelete && (
-                        <EventDeleteConfirmationModal
-                            isOpen={isDeleteModalOpen}
-                            onClose={() => setIsDeleteModalOpen(false)}
-                            onDeleteSuccess={handleDeletionSuccess}
-                            eventId={definitionToDelete.CustomEventID}
-                            eventName={definitionToDelete.EventName}
-                            isDefinition={true}
-                        />
-                    )}
-                </>
-            )}
+                )}
+            </>
         </MainLayout>
     );
 };

@@ -466,21 +466,56 @@ const AttendanceModal: React.FC<{
     competencyId?: number;
 }> = ({ isOpen, onClose, employees, selectedEmployees, attendance, onChange, scheduleId, competencyId }) => {
     if (!isOpen || !scheduleId) return null;
-    const items = employees.filter(e => selectedEmployees.includes(e.employeeNumber));
+
+    // Load combined candidate list from backend (explicit + position-based). Merge with explicit for safety.
+    const [candidates, setCandidates] = useState<{ employeeNumber: string; name: string }[]>([]);
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                const list = await eventService.getAttendanceCandidates(Number(scheduleId));
+                if (!active) return;
+                const explicit = employees
+                    .filter(e => selectedEmployees.includes(e.employeeNumber))
+                    .map(e => ({ employeeNumber: e.employeeNumber, name: e.name }));
+                const map: Record<string, { employeeNumber: string; name: string }> = {};
+                [...list, ...explicit].forEach(x => { map[x.employeeNumber] = x; });
+                setCandidates(Object.values(map));
+            } catch {
+                const explicit = employees
+                    .filter(e => selectedEmployees.includes(e.employeeNumber))
+                    .map(e => ({ employeeNumber: e.employeeNumber, name: e.name }));
+                setCandidates(explicit);
+            }
+        })();
+        return () => { active = false; };
+    }, [isOpen, scheduleId, selectedEmployees.length]);
+
     const toggle = (empNum: string) => onChange({ ...attendance, [empNum]: !attendance[empNum] });
-    const save = async () => { await eventService.setAttendance(Number(scheduleId), { employeeNumbers: items.map(i => i.employeeNumber), attendance }); onClose(); };
+    const markAll = () => {
+        const next: Record<string, boolean> = { ...attendance };
+        candidates.forEach(c => { next[c.employeeNumber] = true; });
+        onChange(next);
+    };
+    const markNone = () => {
+        const next: Record<string, boolean> = { ...attendance };
+        candidates.forEach(c => { next[c.employeeNumber] = false; });
+        onChange(next);
+    };
+    const save = async () => { await eventService.setAttendance(Number(scheduleId), { employeeNumbers: candidates.map(i => i.employeeNumber), attendance }); onClose(); };
+
     const [fulfilled, setFulfilled] = useState<Record<string, boolean>>({});
     useEffect(() => {
         let active = true;
         (async () => {
-            if (!competencyId || competencyId <= 0 || items.length === 0) { setFulfilled({}); return; }
+            if (!competencyId || competencyId <= 0 || candidates.length === 0) { setFulfilled({}); return; }
             try {
-                const map = await eventService.checkEmployeesHaveCompetency(competencyId, items.map(i => i.employeeNumber));
+                const map = await eventService.checkEmployeesHaveCompetency(competencyId, candidates.map(i => i.employeeNumber));
                 if (!active) return; setFulfilled(map);
             } catch { if (active) setFulfilled({}); }
         })();
         return () => { active = false; };
-    }, [competencyId, isOpen, scheduleId, selectedEmployees.length]);
+    }, [competencyId, isOpen, scheduleId, candidates.length]);
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-600 bg-opacity-50 p-4">
             <div className="relative w-full max-w-md mx-auto bg-white dark:bg-dark-div rounded-lg shadow-xl">
@@ -491,12 +526,19 @@ const AttendanceModal: React.FC<{
                     </button>
                 </div>
                 <div className="p-4">
-                    {items.length === 0 ? (
+                    {candidates.length === 0 ? (
                         <p className="text-sm text-gray-600">No explicitly selected employees for this event.</p>
                     ) : (
                         <div className="grid grid-cols-1 gap-2 max-h-60 overflow-auto">
-                            {items.map(e => (
-                                <label key={e.id} className="flex items-center justify-between gap-2 text-sm">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="text-xs text-gray-500">Candidates include explicit employees and those currently in targeted positions.</div>
+                                <div className="flex gap-2">
+                                    <Button type="button" variant="outline" onClick={markNone}>Clear</Button>
+                                    <Button type="button" variant="primary" onClick={markAll}>Mark all</Button>
+                                </div>
+                            </div>
+                            {candidates.map(e => (
+                                <label key={e.employeeNumber} className="flex items-center justify-between gap-2 text-sm">
                                     <span className="flex items-center gap-2">
                                         <input type="checkbox" checked={!!attendance[e.employeeNumber]} onChange={() => toggle(e.employeeNumber)} />
                                         <span>{e.name} ({e.employeeNumber})</span>

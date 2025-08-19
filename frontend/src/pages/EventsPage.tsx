@@ -6,37 +6,42 @@ import FeatureGrid from '../components/ui/FeatureGrid';
 import FeatureBlock from '../components/ui/FeatureBlock';
 import * as eventService from '../services/eventService';
 import type { CalendarEvent, EventDefinition, CreateEventDefinitionPayload  } from '../services/eventService';
-import { Edit, Trash2, AlertCircle, CalendarClock, Link as LinkIcon } from 'lucide-react';
+import { Edit, Trash2, AlertCircle, CalendarClock, Link as LinkIcon, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import EventFormModal, { type EventFormModalProps } from '../components/ui/EventFormModal';
+import EventDetailModal from '../components/ui/EventDetailModal';
 import EventDefinitionFormModal from '../components/ui/EventDefinitionFormModal';
+import { getAllCompetencies } from '../services/competencyService';
+import type { Competency } from '../types/competency';
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
 import Button from '../components/ui/Button';
 
 type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
 
 const EventsPage: React.FC = () => {
-    const { user, permissions } = useAuth();
+    const { user } = useAuth();
     const [events, setEvents] = useState<CalendarEvent[]>([]);
     const [eventDefinitions, setEventDefinitions] = useState<EventDefinition[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [competencies, setCompetencies] = useState<Competency[]>([]);
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [isDefinitionModalOpen, setIsDefinitionModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [eventToEdit, setEventToEdit] = useState<CalendarEvent | null>(null);
     const [eventToDelete, setEventToDelete] = useState<CalendarEvent | null>(null);
+    const [eventToView, setEventToView] = useState<CalendarEvent | null>(null);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
     const fetchAndSetData = useCallback(async () => {
         if (!user) return;
 
         try {
             setIsLoading(true);
-            const calls: [Promise<CalendarEvent[]>, Promise<EventDefinition[] | null>] = [
+            const [fetchedEvents, fetchedDefinitions] = await Promise.all([
                 eventService.getScheduledEvents(),
-                permissions?.includes('event-definitions') ? eventService.getEventDefinitions() : Promise.resolve(null)
-            ];
-            const [fetchedEvents, fetchedDefinitions] = await Promise.all(calls);
+                eventService.getEventDefinitions()
+            ]);
 
             fetchedEvents.sort((a, b) => new Date(a.start as string).getTime() - new Date(b.start as string).getTime());
 
@@ -55,6 +60,20 @@ const EventsPage: React.FC = () => {
     useEffect(() => {
         fetchAndSetData();
     }, [fetchAndSetData]);
+
+    // Load competencies for Admin/HR only
+    useEffect(() => {
+        if (!user) return;
+        if (user.role !== 'Admin' && user.role !== 'HR') { setCompetencies([]); return; }
+        (async () => {
+            try {
+                const list = await getAllCompetencies();
+                setCompetencies(list.filter(c => c.isActive));
+            } catch {
+                setCompetencies([]);
+            }
+        })();
+    }, [user]);
 
     // --- Admin-specific Handlers ---
 
@@ -81,6 +100,11 @@ const EventsPage: React.FC = () => {
     const handleStartEdit = (event: CalendarEvent) => {
         setEventToEdit(event);
         setIsFormModalOpen(true);
+    };
+
+    const handleViewEvent = (event: CalendarEvent) => {
+        setEventToView(event);
+        setIsDetailModalOpen(true);
     };
 
     const handleDeleteRequest = (event: CalendarEvent) => {
@@ -168,7 +192,7 @@ const EventsPage: React.FC = () => {
             );
         }
         if (user?.role === 'Admin') {
-            return <AdminView events={events} onEdit={handleStartEdit} onDelete={handleDeleteRequest} />;
+            return <AdminView events={events} onEdit={handleStartEdit} onDelete={handleDeleteRequest} onView={handleViewEvent} />;
         }
         return <UserView events={events} />;
     };
@@ -213,11 +237,22 @@ const EventsPage: React.FC = () => {
                         eventDefinitions={eventDefinitions}
                         onNeedDefinition={handleOpenDefinitionModal}
                     />
+                    {eventToView && (
+                        <EventDetailModal
+                            isOpen={isDetailModalOpen}
+                            onClose={() => setIsDetailModalOpen(false)}
+                            event={eventToView as any}
+                            onEdit={(e: any) => { handleStartEdit(e as CalendarEvent); setIsDetailModalOpen(false); }}
+                            onDelete={(e: any) => { handleDeleteRequest(e as CalendarEvent); setIsDetailModalOpen(false); }}
+                        />
+                    )}
                     {isDefinitionModalOpen && (
                         <EventDefinitionFormModal
                             isOpen={isDefinitionModalOpen}
                             onClose={() => setIsDefinitionModalOpen(false)}
                             onSave={handleSaveDefinition}
+                            competencies={competencies}
+                            showGrantField={user?.role === 'Admin' || user?.role === 'HR'}
                         />
                     )}
                     {eventToDelete && (
@@ -241,9 +276,10 @@ interface AdminViewProps {
     events: CalendarEvent[];
     onEdit: (event: CalendarEvent) => void;
     onDelete: (event: CalendarEvent) => void;
+    onView: (event: CalendarEvent) => void;
 }
 
-const AdminView: React.FC<AdminViewProps> = ({ events, onEdit, onDelete }) => {
+const AdminView: React.FC<AdminViewProps> = ({ events, onEdit, onDelete, onView }) => {
     const groupedEvents = useMemo(() => {
         const groups = events.reduce((acc, event) => {
             const date = new Date(event.start as string).toLocaleDateString(undefined, {
@@ -283,7 +319,8 @@ const AdminView: React.FC<AdminViewProps> = ({ events, onEdit, onDelete }) => {
                                             Type: {event.extendedProps.eventType || 'General'} | For: {event.relevantParties || 'All'}
                                         </p>
                                     </div>
-                                    <div className="flex items-center space-x-2">
+                                        <div className="flex items-center space-x-2">
+                                        <button onClick={() => onView(event)} className="text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"><Eye size={16} /></button>
                                         <button onClick={() => onEdit(event)} className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary"><Edit size={16} /></button>
                                         <button onClick={() => onDelete(event)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"><Trash2 size={16} /></button>
                                     </div>

@@ -154,6 +154,12 @@ export const setAttendance = async (scheduleId: number, data: { employeeNumbers?
     await api(`event-schedules/${scheduleId}/attendance`, { method: 'POST', data });
 };
 
+// Returns explicit employees linked to the schedule, plus those currently in targeted positions
+export interface AttendanceCandidate { employeeNumber: string; name: string; }
+export const getAttendanceCandidates = async (scheduleId: number): Promise<AttendanceCandidate[]> => {
+    return api<AttendanceCandidate[]>(`event-schedules/${scheduleId}/attendance-candidates`, { method: 'GET' });
+};
+
 // --- Utilities for UI ---
 export const getEmployeesByPositions = async (codes: string[]): Promise<string[]> => {
     if (!codes || codes.length === 0) return [];
