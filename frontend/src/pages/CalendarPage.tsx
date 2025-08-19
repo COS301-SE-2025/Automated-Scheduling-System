@@ -87,6 +87,12 @@ const CalendarPage: React.FC = () => {
     };
 
     const fetchAndSetData = useCallback(async () => {
+        // Preserve the current view and date before refreshing data
+    const api = calendarRef.current?.getApi();
+    const currentView = api?.view?.type;
+    const currentDate = api?.getDate ? api.getDate() : undefined;
+    const scroller: HTMLElement | null = (api as any)?.el?.querySelector?.('.fc-timegrid .fc-scroller') || (api as any)?.el?.querySelector?.('.fc-scroller');
+    const previousScrollTop = scroller ? scroller.scrollTop : undefined;
         try {
             setIsLoading(true);
             const [schedules, definitions] = await Promise.all([
@@ -120,6 +126,18 @@ const CalendarPage: React.FC = () => {
             setEvents(processedSchedules);
             setEventDefinitions(definitions);
             setError(null);
+            // Restore the preserved view and date so the user stays where they were
+            if (api && currentView && currentDate) {
+                // Use a microtask to ensure FC has applied state updates before changing view
+                setTimeout(() => {
+                    api.changeView(currentView, currentDate);
+                    // Restore scroll position in time-grid views
+                    const newScroller: HTMLElement | null = (api as any)?.el?.querySelector?.('.fc-timegrid .fc-scroller') || (api as any)?.el?.querySelector?.('.fc-scroller');
+                    if (previousScrollTop != null && newScroller) {
+                        newScroller.scrollTop = previousScrollTop;
+                    }
+                }, 0);
+            }
         } catch (err) {
             console.error("Failed to fetch calendar data:", err);
             setError("Could not load calendar data.");
@@ -327,8 +345,14 @@ const CalendarPage: React.FC = () => {
                     </div>
                 )}
 
-                {!isLoading && !error && (
-                    <div className="bg-white dark:bg-dark-div p-4 rounded-lg shadow calendar-container">
+                {!error && (
+                    <div className="bg-white dark:bg-dark-div p-4 rounded-lg shadow calendar-container relative">
+                        {/* Non-blocking loading veil to avoid unmounting the calendar */}
+                        {isLoading && (
+                            <div className="absolute inset-0 flex items-start justify-end p-2 pointer-events-none">
+                                <span className="text-xs bg-white/80 dark:bg-black/40 text-gray-600 dark:text-gray-200 rounded px-2 py-1 shadow">Refreshing…</span>
+                            </div>
+                        )}
                         <FullCalendar
                             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
                             initialView="dayGridMonth"
@@ -337,10 +361,10 @@ const CalendarPage: React.FC = () => {
                                 center: 'title',
                                 right: 'dayGridMonth,timeGridWeek,timeGridDay'
                             }}
-                            height="100%"            
-                            expandRows={true}        
+                            height="100%"
+                            expandRows={true}
                             handleWindowResize={true}
-                            scrollTime="00:00:00"    
+                            scrollTime="00:00:00"
                             editable={true}
                             selectable={true}
                             selectMirror={true}
@@ -351,7 +375,7 @@ const CalendarPage: React.FC = () => {
                             eventClick={handleEventClick}
                             dateClick={handleDateClick}
                             select={handleSelect}
-                            eventDrop={handleEventDrop} 
+                            eventDrop={handleEventDrop}
                         />
                     </div>
                 )}
