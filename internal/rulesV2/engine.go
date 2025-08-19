@@ -316,6 +316,10 @@ func matchTriggerParams(evCtx EvalContext, params map[string]any) bool {
 		return false
 	}
 	for k, v := range params {
+		// Ignore optional/blank params sent by UI (e.g., update_kind: "")
+		if isBlankParam(v) {
+			continue
+		}
 		tv, ok := readTriggerValue(trig, k)
 		if !ok {
 			return false
@@ -325,6 +329,16 @@ func matchTriggerParams(evCtx EvalContext, params map[string]any) bool {
 		}
 	}
 	return true
+}
+
+func isBlankParam(v any) bool {
+	if v == nil {
+		return true
+	}
+	if s, ok := v.(string); ok {
+		return strings.TrimSpace(s) == ""
+	}
+	return false
 }
 
 // readTriggerValue tries exact, snake_case <-> camelCase variants
