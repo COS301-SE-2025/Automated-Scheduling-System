@@ -7,6 +7,8 @@ const ForgotPasswordPage: React.FC = () => {
         <AuthLayout
             title="Reset your password."
             helpText="Enter your email to reset your password. If you remember your password, use the 'Back to login' link."
+            helpPlacement="above"
+            helpAlign="center"
         >
             <ForgotPasswordForm />
         </AuthLayout>
