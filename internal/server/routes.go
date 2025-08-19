@@ -28,8 +28,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 			"http://127.0.0.1:5173",
 			"http://schedulingsystem.app", // Production
 			"https://schedulingsystem.app",
-			"http://vm.local", // This is temporary for testing on my vm
-			"https://vm.local",
+			"http://schedulingsystem.me", // Production
+			"https://schedulingsystem.me",
 		},
 
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
