@@ -380,12 +380,12 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                         {/* Row 5: Min + Max */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label htmlFor="minimumAttendees" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Min Attendees</label>
+                                <label htmlFor="minimumAttendees" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Min Attendees (Optional)</label>
                                 <input id="minimumAttendees" type="number" {...register('minimumAttendees', { valueAsNumber: true })} className="w-full p-2 border rounded-md dark:bg-dark-input" />
                                 {errors.minimumAttendees && <p className="text-red-500 text-xs mt-1">{errors.minimumAttendees.message}</p>}
                             </div>
                             <div>
-                                <label htmlFor="maximumAttendees" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Max Attendees</label>
+                                <label htmlFor="maximumAttendees" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Max Attendees (Optional)</label>
                                 <input id="maximumAttendees" type="number" {...register('maximumAttendees', { valueAsNumber: true })} className="w-full p-2 border rounded-md dark:bg-dark-input" />
                                 {errors.maximumAttendees && <p className="text-red-500 text-xs mt-1">{errors.maximumAttendees.message}</p>}
                             </div>
