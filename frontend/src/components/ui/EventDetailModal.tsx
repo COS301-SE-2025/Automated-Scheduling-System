@@ -64,7 +64,11 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
     };
 
     const getStatusBadge = (name: string | undefined | null) => {
-        const status = (name || '').toString().toLowerCase().trim();
+        if (!name || String(name).trim() === '') {
+            return <span className="text-gray-400">N/A</span>;
+        }
+
+        const status = String(name).toLowerCase().trim();
         let classes = 'inline-block px-2 py-1 rounded text-sm font-semibold ';
         switch (status) {
             case 'completed':
@@ -83,7 +87,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
             default:
                 classes += 'bg-gray-100 text-gray-800 dark:bg-gray-700';
         }
-        return <span className={classes}>{name ?? 'Unknown'}</span>;
+        return <span className={classes}>{name}</span>;
     };
 
     return (
