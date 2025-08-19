@@ -27,7 +27,7 @@ func (UserHasRole) TableName() string { return "user_has_role" }
 
 // API contracts
 type AddRoleRequest struct {
-	Name        string   `json:"name" binding:"required,min=2"`
+	Name        string   `json:"name" binding:"required,min=1"`
 	Description string   `json:"description"`
 	Permissions []string `json:"permissions"`
 }

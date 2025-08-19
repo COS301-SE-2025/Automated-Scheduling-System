@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"text/template"
 	"time"
 )
@@ -138,8 +139,16 @@ func (e *Engine) EvaluateOnce(evCtx EvalContext, r Rulev2) error {
 		evCtx.Now = time.Now().UTC()
 	}
 
-	ok, err := e.evalConditions(evCtx, r.Conditions)
+	// Debug: show incoming trigger map, rule params, and match result
+	matched := matchTriggerParams(evCtx, r.Trigger.Parameters)
 
+	// Enforce trigger parameter guards (e.g., operation must match)
+	if !matched {
+		// parameters don't match the incoming event -> skip this rule
+		return nil
+	}
+
+	ok, err := e.evalConditions(evCtx, r.Conditions)
 	if err != nil || !ok {
 		return err
 	}
@@ -296,4 +305,86 @@ func (m *MultiError) Err() error {
 	}
 	// Join (Go 1.20+). If you want older Go, concatenate manually.
 	return errors.Join(m.errs...)
+}
+
+func matchTriggerParams(evCtx EvalContext, params map[string]any) bool {
+	if len(params) == 0 {
+		return true
+	}
+	trig, _ := evCtx.Data["trigger"].(map[string]any)
+	if trig == nil {
+		return false
+	}
+	for k, v := range params {
+		tv, ok := readTriggerValue(trig, k)
+		if !ok {
+			return false
+		}
+		if !paramEquals(tv, v) {
+			return false
+		}
+	}
+	return true
+}
+
+// readTriggerValue tries exact, snake_case <-> camelCase variants
+func readTriggerValue(trig map[string]any, key string) (any, bool) {
+	// exact
+	if v, ok := trig[key]; ok {
+		return v, true
+	}
+	// snake_case -> camelCase
+	cc := snakeToCamel(key)
+	if v, ok := trig[cc]; ok {
+		return v, true
+	}
+	// camelCase -> snake_case
+	sc := camelToSnake(key)
+	if v, ok := trig[sc]; ok {
+		return v, true
+	}
+	return nil, false
+}
+
+func paramEquals(a, b any) bool {
+	// normalize basic scalar comparisons
+	as := fmt.Sprint(a)
+	bs := fmt.Sprint(b)
+	// case-insensitive for strings
+	if _, ok := a.(string); ok {
+		return strings.EqualFold(as, bs)
+	}
+	if _, ok := b.(string); ok {
+		return strings.EqualFold(as, bs)
+	}
+	return as == bs
+}
+
+func snakeToCamel(s string) string {
+	var out string
+	upper := false
+	for _, r := range s {
+		if r == '_' {
+			upper = true
+			continue
+		}
+		if upper {
+			out += strings.ToUpper(string(r))
+			upper = false
+		} else {
+			out += string(r)
+		}
+	}
+	return out
+}
+
+func camelToSnake(s string) string {
+	var b strings.Builder
+	for i, r := range s {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			b.WriteByte('_')
+		}
+		b.WriteByte(byte(strings.ToLower(string(r))[0]))
+	}
+	return b.String()
 }
