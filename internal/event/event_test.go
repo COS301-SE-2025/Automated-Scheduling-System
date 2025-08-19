@@ -305,6 +305,12 @@ func TestDeleteEventScheduleHandler_Unit(t *testing.T) {
 	db, mock := newMockDB(t)
 	scheduleID := 1
 
+	// Handler now loads the schedule first to include data in trigger context
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT * FROM "custom_event_schedules" WHERE "custom_event_schedules"."custom_event_schedule_id" = $1 ORDER BY "custom_event_schedules"."custom_event_schedule_id" LIMIT $2`)).
+		WithArgs(scheduleID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "title"}).AddRow(scheduleID, "Unit Title"))
+
 	mock.ExpectBegin()
 	mock.ExpectExec(regexp.QuoteMeta(
 		`DELETE FROM "custom_event_schedules" WHERE "custom_event_schedules"."custom_event_schedule_id" = $1`)).

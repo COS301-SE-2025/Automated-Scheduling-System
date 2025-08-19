@@ -2,10 +2,14 @@ package rulesv2
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // GetRulesMetadataHandler returns metadata about all available triggers, actions, facts, and operators
@@ -160,6 +164,21 @@ func GetRule(c *gin.Context, service *RuleBackEndService) {
 	c.JSON(http.StatusOK, gin.H{"rule": rule})
 }
 
+// helper to map store errors to HTTP codes
+func httpStatusForStoreErr(err error) int {
+	if err == nil {
+		return http.StatusOK
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, sql.ErrNoRows) {
+		return http.StatusNotFound
+	}
+	// best-effort string check if store wraps its own error with "not found"
+	if strings.Contains(strings.ToLower(err.Error()), "not found") {
+		return http.StatusNotFound
+	}
+	return http.StatusInternalServerError
+}
+
 // UpdateRule updates an existing rule
 func UpdateRule(c *gin.Context, service *RuleBackEndService) {
 	ruleID := c.Param("id")
@@ -174,7 +193,7 @@ func UpdateRule(c *gin.Context, service *RuleBackEndService) {
 	defer cancel()
 
 	if err := service.Store.UpdateRule(ctx, ruleID, rule); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(httpStatusForStoreErr(err), gin.H{"error": err.Error()})
 		return
 	}
 
@@ -189,7 +208,7 @@ func DeleteRule(c *gin.Context, service *RuleBackEndService) {
 	defer cancel()
 
 	if err := service.Store.DeleteRule(ctx, ruleID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(httpStatusForStoreErr(err), gin.H{"error": err.Error()})
 		return
 	}
 
@@ -204,7 +223,7 @@ func EnableRule(c *gin.Context, service *RuleBackEndService) {
 	defer cancel()
 
 	if err := service.Store.EnableRule(ctx, ruleID, true); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(httpStatusForStoreErr(err), gin.H{"error": err.Error()})
 		return
 	}
 
@@ -219,7 +238,7 @@ func DisableRule(c *gin.Context, service *RuleBackEndService) {
 	defer cancel()
 
 	if err := service.Store.EnableRule(ctx, ruleID, false); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(httpStatusForStoreErr(err), gin.H{"error": err.Error()})
 		return
 	}
 
@@ -303,8 +322,8 @@ func TriggerEventDefinition(c *gin.Context, service *RuleBackEndService) {
 
 func TriggerScheduledEvent(c *gin.Context, service *RuleBackEndService) {
 	var req struct {
-		Operation     string         `json:"operation" binding:"required"`
-		UpdateField   string         `json:"update_field"`
+		Operation      string         `json:"operation" binding:"required"`
+		UpdateField    string         `json:"update_field"`
 		ScheduledEvent map[string]any `json:"scheduledEvent"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -341,10 +360,10 @@ func TriggerRoles(c *gin.Context, service *RuleBackEndService) {
 
 func TriggerLinkJobToCompetency(c *gin.Context, service *RuleBackEndService) {
 	var req struct {
-		Operation    string         `json:"operation" binding:"required"` // add|deactivate|reactivate
-		Link         map[string]any `json:"link"`
-		JobPosition  map[string]any `json:"jobPosition"`
-		Competency   map[string]any `json:"competency"`
+		Operation   string         `json:"operation" binding:"required"` // add|remove
+		Link        map[string]any `json:"link"`
+		JobPosition map[string]any `json:"jobPosition"`
+		Competency  map[string]any `json:"competency"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -361,9 +380,9 @@ func TriggerLinkJobToCompetency(c *gin.Context, service *RuleBackEndService) {
 
 func TriggerCompetencyPrerequisite(c *gin.Context, service *RuleBackEndService) {
 	var req struct {
-		Operation     string         `json:"operation" binding:"required"` // add|remove
-		Prerequisite  map[string]any `json:"prerequisite"`
-		Competency    map[string]any `json:"competency"` // parent competency (optional)
+		Operation    string         `json:"operation" binding:"required"` // add|remove
+		Prerequisite map[string]any `json:"prerequisite"`
+		Competency   map[string]any `json:"competency"` // parent competency (optional)
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
