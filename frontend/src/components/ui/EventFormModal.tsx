@@ -10,6 +10,7 @@ import Button from './Button';
 import { useAuth } from '../../hooks/useAuth';
 import { getAllUsers } from '../../services/userService';
 import { getAllJobPositions, type JobPosition } from '../../services/jobPositionService';
+import { getAllJobRequirements } from '../../services/jobRequirementService';
 import type { User } from '../../types/user';
 
 const scheduleSchema = z.object({
@@ -72,18 +73,20 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
     const isElevated = auth.permissions?.includes('events') && (auth.user?.role === 'Admin' || auth.user?.role === 'HR');
     const [users, setUsers] = useState<User[]>([]);
     const [positions, setPositions] = useState<JobPosition[]>([]);
+    const [allPositions, setAllPositions] = useState<JobPosition[]>([]);
     const [attendance, setAttendance] = useState<Record<string, boolean>>({});
     const [showAttendanceModal, setShowAttendanceModal] = useState(false);
 
     const { register, handleSubmit, reset, control, watch, setValue, formState: { errors, isSubmitting } } = useForm<ScheduleFormData>({
         resolver: zodResolver(scheduleSchema),
         defaultValues: {
-            color: '#3788d8', // Default color
+            color: '#3788d8',
             employeeNumbers: [],
             positionCodes: [],
         }
     });
     const watchPositions = watch('positionCodes');
+    const watchCustomEventId = watch('customEventId');
     const filteredEmployees = useMemo(() => {
         return users;
     }, [users]);
@@ -138,12 +141,45 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                 ]);
                 if (!active) return;
                 setUsers(u);
-                setPositions(p.filter(x => x.isActive));
+                setAllPositions(p.filter(x => x.isActive));
             } catch (e) {
             }
         })();
         return () => { active = false; };
     }, [isOpen, isElevated]);
+
+    useEffect(() => {
+        if (!isOpen || !isElevated) return;
+        let cancelled = false;
+        (async () => {
+            const activePositions = allPositions; 
+            const competencyId = ((): number => {
+                const def = eventDefinitions.find(d => d.CustomEventID === (watchCustomEventId ?? initialData?.customEventId ?? 0));
+                return def?.GrantsCertificateID ?? 0;
+            })();
+
+            if (competencyId && competencyId > 0) {
+                try {
+                    const requirements = await getAllJobRequirements({ competencyId });
+                    const allowedCodes = new Set(requirements.map(r => r.positionMatrixCode));
+                    const allowedPositions = activePositions.filter(p => allowedCodes.has(p.positionMatrixCode));
+                    if (cancelled) return;
+                    setPositions(allowedPositions);
+                    const current = watch('positionCodes') || [];
+                    const allowedSet = new Set(allowedPositions.map(p => p.positionMatrixCode));
+                    const filtered = current.filter(code => allowedSet.has(code));
+                    if (filtered.length !== current.length) {
+                        setValue('positionCodes', filtered, { shouldDirty: true, shouldValidate: true });
+                    }
+                } catch {
+                    if (!cancelled) setPositions(activePositions);
+                }
+            } else {
+                if (!cancelled) setPositions(activePositions);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [isOpen, isElevated, allPositions, watchCustomEventId, eventDefinitions, initialData?.customEventId]);
 
     const [employeesInPositions, setEmployeesInPositions] = useState<string[]>([]);
     useEffect(() => {
@@ -198,9 +234,10 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
     };
 
     const grantedCompetencyId = useMemo(() => {
-        const def = eventDefinitions.find((d) => d.CustomEventID === (initialData?.customEventId ?? 0));
+        const selectedId = watchCustomEventId ?? initialData?.customEventId ?? 0;
+        const def = eventDefinitions.find((d) => d.CustomEventID === selectedId);
         return def?.GrantsCertificateID ?? 0;
-    }, [eventDefinitions, initialData?.customEventId]);
+    }, [eventDefinitions, watchCustomEventId, initialData?.customEventId]);
 
     if (!isOpen) return null;
 
