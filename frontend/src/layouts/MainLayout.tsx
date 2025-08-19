@@ -4,6 +4,7 @@ import { type NavItem } from '../components/layout/Sidebar';
 import { type HeaderAction } from '../components/layout/Header';
 import { useAuth } from '../hooks/useAuth';
 import apiClient from '../services/api';
+import HelpIcon from '../components/ui/HelpIcon';
 import {
     LayoutDashboard,
     Users,
@@ -32,9 +33,10 @@ const baseNavItems: NavItem[] = [
 interface MainLayoutProps {
     children: React.ReactNode;
     pageTitle: string;
+    helpText?: string;
 }
 
-const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle }) => {
+const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, helpText }) => {
     const { logout, user } = useAuth();
     const [allowedPages, setAllowedPages] = useState<string[] | null>(null);
 
@@ -69,12 +71,27 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle }) => {
         }
     ];
 
+    // Provide a sensible default help description based on the page title
+    const defaultHelpByTitle: Record<string, string> = {
+        'dashboard': 'Overview of your schedules, quick links, and recent activity.',
+        'users': 'Manage user accounts, view details, and update roles and access.',
+        'roles': 'Create and edit roles and permissions to control page access.',
+        'calendar': 'View and manage scheduled events in a calendar view.',
+        'event definitions': 'Define reusable event templates and settings.',
+        'events': 'Browse, create, and update scheduled events.',
+        'rules': 'Centralize and maintain organizational rules and policies.',
+        'competencies': 'Manage competency requirements and job position mappings.',
+        'main-help': 'Guidance and FAQs about using the system.',
+    };
+    const effectiveHelpText = helpText ?? defaultHelpByTitle[pageTitle.toLowerCase()];
+
     return (
         <Layout
             pageTitle={pageTitle}
             navItems={navItems}
             companyName="DISCON Specialists"
             headerActions={headerActions}
+            headerChildren={effectiveHelpText ? <HelpIcon text={effectiveHelpText} /> : undefined}
         >
             {children}
         </Layout>

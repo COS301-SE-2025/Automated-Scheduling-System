@@ -132,7 +132,7 @@ const RulesPage: React.FC = () => {
     };
 
     return (
-        <MainLayout pageTitle="Rule Builder">
+        <MainLayout pageTitle="Rule Builder" helpText="Visually design rules by composing triggers, conditions, and actions. Drag items from the toolbox and connect them on the canvas.">
             {/* below sticky header, and to the right of sidebar via MainLayout; column layout */}
             <div className="flex flex-col h-[calc(100vh-120px)] min-h-0">
                 <ReactFlowProvider>

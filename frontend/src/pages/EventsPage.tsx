@@ -262,17 +262,17 @@ const AdminView: React.FC<AdminViewProps> = ({ events, onEdit, onDelete }) => {
     return (
         <>
             {Object.entries(groupedEvents).map(([date, dateEvents]) => (
-                <FeatureBlock key={date} title={date} icon={<CalendarClock size={24} />}>
+                <FeatureBlock key={date} title={date} icon={<CalendarClock size={24} />} className="dark:from-dark-accent-hover dark:to-dark-accent">
                     <ul className="space-y-4">
                         {dateEvents.map(event => (
                             <li key={event.id} className="p-3 rounded-lg bg-custom-bg-secondary dark:bg-dark-div-secondary">
                                 <div className="flex justify-between items-start">
                                     <div>
-                                        <p className="font-bold text-custom-primary dark:text-dark-primary">{event.title}</p>
-                                        <p className="text-sm text-custom-text dark:text-dark-secondary">
+                                        <p className="font-bold text-custom-text dark:text-dark-text">{event.title}</p>
+                                        <p className="text-sm text-custom-text dark:text-dark-text">
                                             {new Date(event.start as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </p>
-                                        <p className="text-xs mt-1 text-custom-text dark:text-dark-secondary">
+                                        <p className="text-xs mt-1 text-custom-text dark:text-dark-text/80">
                                             Type: {event.extendedProps.eventType || 'General'} | For: {event.relevantParties || 'All'}
                                         </p>
                                     </div>
@@ -309,12 +309,12 @@ const UserView: React.FC<UserViewProps> = ({ events }) => {
 
     return (
         <>
-            <FeatureBlock title="Your Schedule" icon={<CalendarClock size={24} />} className="md:col-span-2 lg:col-span-3">
+            <FeatureBlock title="Your Schedule" icon={<CalendarClock size={24} />} className="md:col-span-2 lg:col-span-3 dark:from-dark-accent-hover dark:to-dark-accent">
                 <ul className="space-y-3">
                     {upcomingEvents.map(event => (
-                        <li key={event.id} className="text-sm border-l-4 border-custom-secondary pl-4 py-1">
-                            <p className="font-bold text-custom-primary dark:text-dark-primary">{event.title}</p>
-                            <p className="text-custom-text dark:text-dark-secondary">
+                        <li key={event.id} className="text-sm border-l-4 border-custom-secondary dark:border-dark-accent pl-4 py-1">
+                            <p className="font-bold text-custom-text dark:text-dark-text">{event.title}</p>
+                            <p className="text-custom-text dark:text-dark-text">
                                 {new Date(event.start! as string).toLocaleDateString(undefined, {
                                     weekday: 'long',
                                     year: 'numeric',

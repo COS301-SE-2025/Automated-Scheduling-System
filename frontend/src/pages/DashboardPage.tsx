@@ -5,7 +5,7 @@ import MainLayout from '../layouts/MainLayout';
 import FeatureGrid from '../components/ui/FeatureGrid';
 import FeatureBlock from '../components/ui/FeatureBlock';
 import { getScheduledEvents, type CalendarEvent } from '../services/eventService';
-import { CalendarClock, Users, Calendar, HelpCircle, AlertCircle } from 'lucide-react';
+import { CalendarClock, Users, Calendar, HelpCircle, AlertCircle, Shield, FileText, Gavel, GraduationCap } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
     const { user } = useAuth();
@@ -24,7 +24,7 @@ const DashboardPage: React.FC = () => {
                 const upcoming = userEvents
                     .filter(event => event.start && new Date(event.start as string) > new Date())
                     .sort((a, b) => new Date(a.start! as string).getTime() - new Date(b.start! as string).getTime())
-                    .slice(0, 4);
+                    .slice(0, 3);
 
                 setUpcomingEvents(upcoming);
                 setError(null);
@@ -57,9 +57,9 @@ const DashboardPage: React.FC = () => {
         return (
             <ul className="space-y-3">
                 {upcomingEvents.map(event => (
-                    <li key={event.id} className="text-sm border-l-4 border-custom-secondary pl-3">
-                        <p className="font-bold text-custom-primary dark:text-dark-primary">{event.title}</p>
-                        <p className="text-custom-text dark:text-dark-secondary">
+                    <li key={event.id} className="text-sm border-l-4 border-custom-secondary dark:border-dark-accent pl-3">
+                        <p className="font-bold text-custom-text dark:text-dark-text">{event.title}</p>
+                        <p className="text-custom-text dark:text-dark-text">
                             {new Date(event.start! as string).toLocaleDateString(undefined, {
                                 weekday: 'long',
                                 year: 'numeric',
@@ -90,27 +90,52 @@ const DashboardPage: React.FC = () => {
             <FeatureGrid className="grid-cols-1 md:grid-cols-2 lg:grid-cols-2">
 
                 <Link to="/events" className='block'>
-                    <FeatureBlock title="Your Upcoming Events" icon={<CalendarClock size={24} />}>
+                    <FeatureBlock title="Your Upcoming Events" icon={<CalendarClock size={24} />} className="dark:from-dark-accent-hover dark:to-dark-accent">                    
                         <UpcomingEventsContent />
                     </FeatureBlock>
                 </Link>
 
                 {user?.role === 'Admin' && (
                     <Link to="/users" className="block">
-                        <FeatureBlock title="Manage Users" icon={<Users size={24} />}>
+                        <FeatureBlock title="Manage Users" icon={<Users size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
                             <p>Add, edit, or remove users and manage their roles and permissions across the system.</p>
                         </FeatureBlock>
                     </Link>
                 )}
 
                 <Link to="/calendar" className="block">
-                    <FeatureBlock title="View Full Calendar" icon={<Calendar size={24} />}>
+                    <FeatureBlock title="View Full Calendar" icon={<Calendar size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
                         <p>Access the interactive company calendar to view all events, schedule new meetings, and manage deadlines.</p>
                     </FeatureBlock>
                 </Link>
 
+                {/* Additional links in sidebar order after keeping Events, Users, Calendar in place */}
+                <Link to="/roles" className="block">
+                    <FeatureBlock title="Roles & Permissions" icon={<Shield size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
+                        <p>Create and edit roles, and control page access via permissions.</p>
+                    </FeatureBlock>
+                </Link>
+
+                <Link to="/event-definitions" className="block">
+                    <FeatureBlock title="Event Definitions" icon={<FileText size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
+                        <p>Define reusable event templates, facilitators, and durations used for scheduling.</p>
+                    </FeatureBlock>
+                </Link>
+
+                <Link to="/rules" className="block">
+                    <FeatureBlock title="Rules" icon={<Gavel size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
+                        <p>Design business rules by combining triggers, conditions, and actions.</p>
+                    </FeatureBlock>
+                </Link>
+
+                <Link to="/competencies" className="block">
+                    <FeatureBlock title="Competencies" icon={<GraduationCap size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
+                        <p>Manage competencies, types, prerequisites, and job position requirements.</p>
+                    </FeatureBlock>
+                </Link>
+
                 <Link to="/main-help" className="block">
-                    <FeatureBlock title="Help & Feedback" icon={<HelpCircle size={24} />}>
+                    <FeatureBlock title="Help & Feedback" icon={<HelpCircle size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
                         <p>Find answers to common questions, read documentation, or get in touch with support for assistance.</p>
                     </FeatureBlock>
                 </Link>
