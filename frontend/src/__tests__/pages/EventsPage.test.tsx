@@ -119,9 +119,9 @@ describe("EventsPage", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText("All Company Events")).toBeInTheDocument();
-    expect(screen.getByText("Manage Event Types")).toBeInTheDocument();
-    expect(screen.getByText("Schedule Event")).toBeInTheDocument();
+  expect(screen.getByText("All Company Events")).toBeInTheDocument();
+  expect(await screen.findByText("Create New Event Types")).toBeInTheDocument();
+  expect(await screen.findByText("Schedule Event")).toBeInTheDocument();
 
     await waitFor(() => expect(mockGetScheduledEvents).toHaveBeenCalled());
   });
@@ -133,7 +133,7 @@ describe("EventsPage", () => {
       </MemoryRouter>
     );
 
-    await user.click(screen.getByText("Manage Event Types"));
+  await user.click(await screen.findByText("Create New Event Types"));
     const modal = await screen.findByTestId("event-definition-modal");
     expect(modal).toBeInTheDocument();
     await user.click(screen.getByText("save-def"));
