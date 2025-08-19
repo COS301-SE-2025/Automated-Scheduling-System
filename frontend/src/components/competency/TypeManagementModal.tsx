@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { CompetencyType } from '../../types/competency';
 import { Plus, Edit2, EyeOff, Undo2 } from 'lucide-react';
+import ConfirmModal from '../ui/ConfirmModal';
 
 interface TypeManagementModalProps {
     isOpen: boolean;
@@ -17,6 +18,15 @@ const TypeManagementModal: React.FC<TypeManagementModalProps> = ({ isOpen, onClo
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [apiError, setApiError] = useState('');
+
+    // confirm modal state
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [confirmBusy, setConfirmBusy] = useState(false);
+    const [confirmError, setConfirmError] = useState<string | null>(null);
+    const [confirmTitle, setConfirmTitle] = useState('');
+    const [confirmMessage, setConfirmMessage] = useState<React.ReactNode>(null);
+    const [confirmVariant, setConfirmVariant] = useState<'primary' | 'danger' | 'outline'>('primary');
+    const confirmActionRef = React.useRef<() => Promise<void> | void>(() => {});
 
     useEffect(() => {
         if (!isOpen) {
@@ -55,20 +65,32 @@ const TypeManagementModal: React.FC<TypeManagementModalProps> = ({ isOpen, onClo
         }
     };
 
-    const handleToggleClick = async (typeName: string, newStatus: boolean) => {
-        const action = newStatus ? 'reactivate' : 'deactivate';
-        if (window.confirm(`Are you sure you want to ${action} the type "${typeName}"?`)) {
+    const handleToggleClick = (typeName: string, newStatus: boolean) => {
+        const action = newStatus ? 'Reactivate' : 'Deactivate';
+        setConfirmTitle(`${action} Competency Type`);
+        setConfirmMessage(
+            <span>Are you sure you want to {action.toLowerCase()} the type "<strong>{typeName}</strong>"?</span>
+        );
+        setConfirmVariant(newStatus ? 'primary' : 'danger');
+        setConfirmError(null);
+        confirmActionRef.current = async () => {
             try {
+                setConfirmBusy(true);
                 await onToggleStatus(typeName, newStatus);
+                setConfirmOpen(false);
             } catch (err: any) {
-                alert(err.data?.error || err.message || `Failed to ${action} type.`);
+                setConfirmError(err?.data?.error || err?.message || `Failed to ${action.toLowerCase()} type.`);
+            } finally {
+                setConfirmBusy(false);
             }
-        }
+        };
+        setConfirmOpen(true);
     };
 
     if (!isOpen) return null;
 
     return (
+        <>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-600 bg-opacity-50 p-4">
             <div className="relative w-full max-w-2xl bg-white dark:bg-dark-div rounded-lg shadow-xl">
                 <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
@@ -128,6 +150,19 @@ const TypeManagementModal: React.FC<TypeManagementModalProps> = ({ isOpen, onClo
                 </div>
             </div>
         </div>
+        <ConfirmModal
+            isOpen={confirmOpen}
+            title={confirmTitle}
+            message={confirmMessage}
+            confirmLabel="Confirm"
+            cancelLabel="Cancel"
+            confirmVariant={confirmVariant}
+            isBusy={confirmBusy}
+            error={confirmError}
+            onCancel={() => !confirmBusy && setConfirmOpen(false)}
+            onConfirm={() => confirmActionRef.current?.()}
+        />
+        </>
     );
 };
 

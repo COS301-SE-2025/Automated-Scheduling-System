@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { JobPosition } from '../../services/jobPositionService';
 import { Plus, Edit2, EyeOff, Undo2 } from 'lucide-react';
+import ConfirmModal from '../ui/ConfirmModal';
 
 interface JobPositionManagementModalProps {
     isOpen: boolean;
@@ -16,6 +17,15 @@ const JobPositionManagementModal: React.FC<JobPositionManagementModalProps> = ({
     const [currentPos, setCurrentPos] = useState<JobPosition | null>(null);
     const [formData, setFormData] = useState({ code: '', title: '', description: '' });
     const [apiError, setApiError] = useState('');
+
+    // confirm modal state
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [confirmBusy, setConfirmBusy] = useState(false);
+    const [confirmError, setConfirmError] = useState<string | null>(null);
+    const [confirmTitle, setConfirmTitle] = useState('');
+    const [confirmMessage, setConfirmMessage] = useState<React.ReactNode>(null);
+    const [confirmVariant, setConfirmVariant] = useState<'primary' | 'danger' | 'outline'>('primary');
+    const confirmActionRef = React.useRef<() => Promise<void> | void>(() => {});
 
     useEffect(() => { if (!isOpen) resetForm(); }, [isOpen]);
 
@@ -48,20 +58,32 @@ const JobPositionManagementModal: React.FC<JobPositionManagementModalProps> = ({
         }
     };
 
-    const handleToggleClick = async (pos: JobPosition, newStatus: boolean) => {
-        const action = newStatus ? 'reactivate' : 'deactivate';
-        if (window.confirm(`Are you sure you want to ${action} the position "${pos.jobTitle}"?`)) {
+    const handleToggleClick = (pos: JobPosition, newStatus: boolean) => {
+        const action = newStatus ? 'Reactivate' : 'Deactivate';
+        setConfirmTitle(`${action} Job Position`);
+        setConfirmMessage(
+            <span>Are you sure you want to {action.toLowerCase()} the position "<strong>{pos.jobTitle}</strong>"?</span>
+        );
+        setConfirmVariant(newStatus ? 'primary' : 'danger');
+        setConfirmError(null);
+        confirmActionRef.current = async () => {
             try {
+                setConfirmBusy(true);
                 await onToggleStatus(pos.positionMatrixCode, newStatus);
+                setConfirmOpen(false);
             } catch (err: any) {
-                alert(err.data?.error || err.message || `Failed to ${action} position.`);
+                setConfirmError(err?.data?.error || err?.message || `Failed to ${action.toLowerCase()} position.`);
+            } finally {
+                setConfirmBusy(false);
             }
-        }
+        };
+        setConfirmOpen(true);
     };
 
     if (!isOpen) return null;
 
     return (
+        <>
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-600 bg-opacity-50 p-4">
             <div className="relative w-full max-w-3xl bg-white dark:bg-dark-div rounded-lg shadow-xl">
                 <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
@@ -120,6 +142,19 @@ const JobPositionManagementModal: React.FC<JobPositionManagementModalProps> = ({
                 </div>
             </div>
         </div>
+        <ConfirmModal
+            isOpen={confirmOpen}
+            title={confirmTitle}
+            message={confirmMessage}
+            confirmLabel="Confirm"
+            cancelLabel="Cancel"
+            confirmVariant={confirmVariant}
+            isBusy={confirmBusy}
+            error={confirmError}
+            onCancel={() => !confirmBusy && setConfirmOpen(false)}
+            onConfirm={() => confirmActionRef.current?.()}
+        />
+        </>
     );
 };
 

@@ -7,6 +7,7 @@ import CompetencyModal from '../components/competency/CompetencyModal';
 import PrerequisiteModal from '../components/competency/PrerequisiteModal';
 import TypeManagementModal from '../components/competency/TypeManagementModal';
 import JobPositionManagementModal from '../components/competency/JobPositionManagementModal';
+import ConfirmModal from '../components/ui/ConfirmModal';
 import * as competencyService from '../services/competencyService';
 import { ApiError } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
@@ -53,6 +54,15 @@ const CompetencyPage: React.FC = () => {
     // --- State for JobRequirements (custom job matrix) ---
     const [jobRequirements, setJobRequirements] = useState<JobRequirement[]>([]);
     const [expandedCompetencyId, setExpandedCompetencyId] = useState<number | null>(null);
+
+    // --- Confirm modal state ---
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [confirmBusy, setConfirmBusy] = useState(false);
+    const [confirmError, setConfirmError] = useState<string | null>(null);
+    const [confirmTitle, setConfirmTitle] = useState('');
+    const [confirmMessage, setConfirmMessage] = useState<React.ReactNode>(null);
+    const [confirmVariant, setConfirmVariant] = useState<'primary' | 'danger' | 'outline'>('danger');
+    const confirmActionRef = React.useRef<() => Promise<void> | void>(() => {});
 
     useEffect(() => {
         if (!isAuthenticated) {
@@ -143,15 +153,56 @@ const CompetencyPage: React.FC = () => {
     };
 
     const handleDeleteRequest = async (competency: Competency) => {
-        if (window.confirm(`Are you sure you want to deactivate "${competency.competencyName}"? This is a soft delete.`)) {
+        setConfirmTitle('Deactivate Competency');
+        setConfirmMessage(
+            <span>Are you sure you want to deactivate "<strong>{competency.competencyName}</strong>"? This is a soft delete.</span>
+        );
+        setConfirmError(null);
+    setConfirmVariant('danger');
+        confirmActionRef.current = async () => {
             try {
+                setConfirmBusy(true);
                 await competencyService.deleteCompetency(competency.competencyID);
                 setCompetencies(prev => prev.map(c => c.competencyID === competency.competencyID ? { ...c, isActive: false } : c));
+                setConfirmOpen(false);
             } catch (err) {
                 const message = err instanceof ApiError ? (err.data?.error || err.message) : 'Failed to deactivate competency.';
-                alert(message);
+                setConfirmError(message);
+            } finally {
+                setConfirmBusy(false);
             }
-        }
+        };
+        setConfirmOpen(true);
+    };
+
+    const handleReactivate = async (competency: Competency) => {
+        setConfirmTitle('Reactivate Competency');
+        setConfirmMessage(
+            <span>Are you sure you want to reactivate "<strong>{competency.competencyName}</strong>"?</span>
+        );
+        setConfirmError(null);
+    setConfirmVariant('primary');
+        confirmActionRef.current = async () => {
+            try {
+                setConfirmBusy(true);
+                const payload: UpdateCompetencyData = {
+                    competencyName: competency.competencyName,
+                    description: competency.description ?? '',
+                    competencyTypeName: competency.competencyTypeName,
+                    expiryPeriodMonths: competency.expiryPeriodMonths,
+                    isActive: true,
+                } as any;
+                const updated = await competencyService.updateCompetency(competency.competencyID, payload);
+                setCompetencies(prev => prev.map(c => c.competencyID === competency.competencyID ? updated : c));
+                setConfirmOpen(false);
+            } catch (err) {
+                const message = err instanceof ApiError ? (err.data?.error || err.message) : 'Failed to reactivate competency.';
+                setConfirmError(message);
+            } finally {
+                setConfirmBusy(false);
+            }
+        };
+        setConfirmOpen(true);
     };
 
     const handleOpenPrereqModal = (competency: Competency) => {
@@ -323,6 +374,7 @@ const CompetencyPage: React.FC = () => {
                 isLoading={isLoading}
                 onEdit={handleOpenEditModal}
                 onDelete={handleDeleteRequest}
+                onReactivate={handleReactivate}
                 onViewPrerequisites={handleOpenPrereqModal}
                 // drop down 
                 expandedCompetencyId={expandedCompetencyId}
@@ -372,7 +424,20 @@ const CompetencyPage: React.FC = () => {
                 onUpdate={handleUpdateJobPosition}
                 onToggleStatus={handleToggleJobPositionStatus}
             />
-        </MainLayout>
+    </MainLayout>
+        <ConfirmModal
+            isOpen={confirmOpen}
+            title={confirmTitle}
+            message={confirmMessage}
+            confirmLabel="Confirm"
+            cancelLabel="Cancel"
+            confirmVariant={confirmVariant}
+            isBusy={confirmBusy}
+            error={confirmError}
+            onCancel={() => !confirmBusy && setConfirmOpen(false)}
+            onConfirm={() => confirmActionRef.current?.()}
+        />
+    </>
     );
 };
 
