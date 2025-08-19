@@ -4,7 +4,9 @@ import (
 	"Automated-Scheduling-Project/internal/database/gen_models"
 	"Automated-Scheduling-Project/internal/database/models"
 	"Automated-Scheduling-Project/internal/role"
+	"Automated-Scheduling-Project/internal/rulesV2"
 	//"log"
+	"context"
 	"net/http"
 	"strconv"
 	"time"
@@ -17,6 +19,22 @@ import (
 var DB *gorm.DB
 // Allow tests to stub the current user/role resolution logic.
 var currentUserContextFn = currentUserContext
+
+// Rules service wiring: mirror jobposition pattern
+var RulesSvc *rulesv2.RuleBackEndService
+func SetRulesService(s *rulesv2.RuleBackEndService) { RulesSvc = s }
+func fireEventDefinitionTrigger(c *gin.Context, operation string, def any) {
+	if RulesSvc == nil { return }
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = RulesSvc.OnEventDefinition(ctx, operation, def)
+}
+func fireScheduledEventTrigger(c *gin.Context, operation, updateField string, sched any) {
+	if RulesSvc == nil { return }
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = RulesSvc.OnScheduledEvent(ctx, operation, updateField, sched)
+}
 
 // ================================================================
 // Event Definition Handlers (for HR to manage course templates)
@@ -64,6 +82,9 @@ func CreateEventDefinitionHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create event definition"})
 		return
 	}
+
+	// fire rules trigger
+	fireEventDefinitionTrigger(c, "create", definition)
 
 	c.JSON(http.StatusCreated, definition)
 }
@@ -151,10 +172,13 @@ func UpdateEventDefinitionHandler(c *gin.Context) {
 	}
 	definitionToUpdate.Facilitator = req.Facilitator
 
-    if err := DB.Save(&definitionToUpdate).Error; err != nil {
+	if err := DB.Save(&definitionToUpdate).Error; err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event definition"})
         return
     }
+
+	// fire rules trigger
+	fireEventDefinitionTrigger(c, "update", definitionToUpdate)
 
     c.JSON(http.StatusOK, definitionToUpdate)
 }
@@ -200,6 +224,9 @@ func DeleteEventDefinitionHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Event definition not found or already deleted"})
 		return
 	}
+
+	// fire rules trigger
+	fireEventDefinitionTrigger(c, "delete", def)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Event definition deleted successfully"})
 }
@@ -297,7 +324,10 @@ func CreateEventScheduleHandler(c *gin.Context) {
         return
     }
 
-    c.JSON(http.StatusCreated, allSchedules)
+	// fire rules trigger
+	fireScheduledEventTrigger(c, "create", "", schedule)
+
+	c.JSON(http.StatusCreated, allSchedules)
 }
 
 // GetEventSchedulesHandler fetches all scheduled events, suitable for a calendar view.
@@ -428,7 +458,10 @@ func UpdateEventScheduleHandler(c *gin.Context) {
         return
     } 
 
-    c.JSON(http.StatusOK, allSchedules)
+	// fire rules trigger (generic field for now)
+	fireScheduledEventTrigger(c, "update", "other", scheduleToUpdate)
+
+	c.JSON(http.StatusOK, allSchedules)
 }
 
 // DeleteEventScheduleHandler deletes a scheduled event.
@@ -437,6 +470,20 @@ func DeleteEventScheduleHandler(c *gin.Context) {
 	scheduleID, err := strconv.Atoi(scheduleIDStr)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID format"})
+		return
+	}
+
+	// Load the schedule first so we can include fields (e.g., Title) in the trigger context
+	var schedule models.CustomEventSchedule
+	if err := DB.First(&schedule, scheduleID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Event schedule not found"})
+		return
+	}
+
+	// Load the schedule first so we can include fields (e.g., Title) in the trigger context
+	var schedule models.CustomEventSchedule
+	if err := DB.First(&schedule, scheduleID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Event schedule not found"})
 		return
 	}
 
@@ -449,6 +496,10 @@ func DeleteEventScheduleHandler(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Event schedule not found or already deleted"})
 		return
 	}
+
+	// fire rules trigger
+	// Include the pre-delete schedule so facts like scheduledEvent.Title resolve
+	fireScheduledEventTrigger(c, "delete", "", schedule)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Event schedule deleted successfully"})
 }

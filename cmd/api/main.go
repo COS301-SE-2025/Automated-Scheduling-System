@@ -64,6 +64,7 @@ func main() {
 	rulesService := rulesv2.NewRuleBackEndService(dbConnection)
 
 	// Inject rules service into domain handlers that should fire triggers
+	event.SetRulesService(rulesService)
 	competency.SetRulesService(rulesService)
 	jobposition.SetRulesService(rulesService)
 	competency_type.SetRulesService(rulesService)

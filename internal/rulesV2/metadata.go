@@ -68,26 +68,7 @@ func GetRulesMetadata() RulesMetadata {
 // getTriggerMetadata returns metadata for all available triggers
 func getTriggerMetadata() []TriggerMetadata {
 	return []TriggerMetadata{
-		{
-			Type:        "new_hire",
-			Name:        "New Hire",
-			Description: "Triggered when a new employee is hired",
-			Parameters: []Parameter{
-				{
-					Name:        "employee_id",
-					Type:        "string",
-					Required:    true,
-					Description: "Employee number/ID of the new hire",
-					Example:     "EMP001",
-				},
-			},
-		},
-		{
-			Type:        "scheduled_competency_check",
-			Name:        "Scheduled Competency Check",
-			Description: "Triggered on scheduled intervals to check competency compliance",
-			Parameters:  []Parameter{}, // No external parameters - runs on schedule
-		},
+	// Removed legacy triggers new_hire and scheduled_competency_check
 		{
 			Type:        "job_position",
 			Name:        "Job Position",
@@ -386,8 +367,6 @@ func getActionMetadata() []ActionMetadata {
 // getFactMetadata returns metadata for all available facts in conditions
 func getFactMetadata() []FactMetadata {
 	const (
-		trNewHire     = "new_hire"
-		trSchedCheck  = "scheduled_competency_check"
 		trJobPos      = "job_position"
 		trCompType    = "competency_type"
 		trCompetency  = "competency"
@@ -421,48 +400,7 @@ func getFactMetadata() []FactMetadata {
 		},
 
 		// Employee facts (match seeder casing/fields)
-		{
-			Name:        "employee.EmployeeNumber",
-			Type:        "string",
-			Description: "Employee number/ID",
-			Operators:   strOps,
-			Triggers:    []string{trNewHire, trSchedCheck},
-		},
-		{
-			Name:        "employee.EmployeeStatus",
-			Type:        "string",
-			Description: "Current status of the employee",
-			Operators:   []string{"equals", "notEquals", "in", "notIn"},
-			Triggers:    []string{trNewHire, trSchedCheck},
-		},
-		{
-			Name:        "employee.FirstName",
-			Type:        "string",
-			Description: "Employee's first name",
-			Operators:   []string{"equals", "notEquals", "contains", "startsWith", "endsWith"},
-			Triggers:    []string{trNewHire},
-		},
-		{
-			Name:        "employee.LastName",
-			Type:        "string",
-			Description: "Employee's last name",
-			Operators:   []string{"equals", "notEquals", "contains", "startsWith", "endsWith"},
-			Triggers:    []string{trNewHire},
-		},
-		{
-			Name:        "employee.UserAccountEmail",
-			Type:        "string",
-			Description: "Employee's email address",
-			Operators:   []string{"equals", "notEquals", "contains", "endsWith"},
-			Triggers:    []string{trNewHire},
-		},
-		{
-			Name:        "employee.TerminationDate",
-			Type:        "date",
-			Description: "Employee termination date",
-			Operators:   dateOps,
-			Triggers:    []string{trNewHire, trSchedCheck},
-		},
+	// Removed employee-centric facts tied to deleted triggers
 
 		// Competency facts
 		{
@@ -470,42 +408,42 @@ func getFactMetadata() []FactMetadata {
 			Type:        "number",
 			Description: "Competency definition ID",
 			Operators:   append([]string{"equals", "notEquals"}, []string{"in", "notIn"}...),
-			Triggers:    []string{trCompetency, trLinkJobComp, trCompPrereq, trSchedCheck},
+			Triggers:    []string{trCompetency, trLinkJobComp, trCompPrereq},
 		},
 		{
 			Name:        "competency.CompetencyName",
 			Type:        "string",
 			Description: "Name of the competency",
 			Operators:   []string{"equals", "notEquals", "contains", "in", "notIn"},
-			Triggers:    []string{trCompetency, trLinkJobComp, trCompPrereq, trSchedCheck},
+			Triggers:    []string{trCompetency, trLinkJobComp, trCompPrereq},
 		},
 		{
 			Name:        "competency.CompetencyTypeName",
 			Type:        "string",
 			Description: "Type/category of the competency",
 			Operators:   []string{"equals", "notEquals", "in", "notIn"},
-			Triggers:    []string{trCompetency, trLinkJobComp, trCompPrereq, trSchedCheck},
+			Triggers:    []string{trCompetency, trLinkJobComp, trCompPrereq},
 		},
 		{
 			Name:        "competency.IsActive",
 			Type:        "boolean",
 			Description: "Whether the competency is currently active",
 			Operators:   boolOps,
-			Triggers:    []string{trCompetency, trLinkJobComp, trSchedCheck},
+			Triggers:    []string{trCompetency, trLinkJobComp},
 		},
 		{
 			Name:        "competency.Source",
 			Type:        "string",
 			Description: "Source of the competency (Internal, External, etc.)",
 			Operators:   []string{"equals", "notEquals", "in", "notIn"},
-			Triggers:    []string{trCompetency, trSchedCheck},
+			Triggers:    []string{trCompetency},
 		},
 		{
 			Name:        "competency.ExpiryPeriodMonths",
 			Type:        "number",
 			Description: "Expiry period in months for the competency",
 			Operators:   numOps,
-			Triggers:    []string{trCompetency, trSchedCheck},
+			Triggers:    []string{trCompetency},
 		},
 
 		// Competency type facts
@@ -553,7 +491,7 @@ func getFactMetadata() []FactMetadata {
 			Type:        "number",
 			Description: "Employee's current competency level",
 			Operators:   numOps,
-			Triggers:    []string{trSchedCheck}, // removed trJobMatrix
+			Triggers:    []string{},
 		},
 
 		// Link job to competency facts
@@ -680,18 +618,11 @@ func getFactMetadata() []FactMetadata {
 
 		// Temporal/global facts
 		{
-			Name:        "days_since_training",
-			Type:        "number",
-			Description: "Number of days since last training",
-			Operators:   []string{"greaterThan", "lessThan", "greaterThanEqual", "lessThanEqual", "equals"},
-			Triggers:    []string{trSchedCheck},
-		},
-		{
 			Name:        "current_time",
 			Type:        "date",
 			Description: "Current date and time",
 			Operators:   []string{"before", "after", "equals"},
-			Triggers:    []string{trSchedCheck, trSchedEvent},
+			Triggers:    []string{trSchedEvent},
 		},
 	}
 }

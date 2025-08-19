@@ -31,12 +31,7 @@ func RegisterRulesRoutes(router *gin.Engine, service *RuleBackEndService) {
 		})
 
 		// Trigger endpoints for external systems to notify the rules engine
-		rulesGroup.POST("/trigger/new-hire", func(c *gin.Context) {
-			TriggerNewHire(c, service)
-		})
-		rulesGroup.POST("/trigger/scheduled-check", func(c *gin.Context) {
-			TriggerScheduledCheck(c, service)
-		})
+		// Removed legacy triggers new-hire and scheduled-check
 
 		// New/updated trigger endpoints
 		rulesGroup.POST("/trigger/job-position", func(c *gin.Context) { TriggerJobPosition(c, service) })
