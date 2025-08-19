@@ -33,20 +33,20 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 		UseTrigger("event_definition", &EventDefinitionTrigger{DB: db}).
 		UseTrigger("scheduled_event", &ScheduledEventTrigger{DB: db}).
 		UseTrigger("roles", &RolesTrigger{DB: db}).
-		UseTrigger("link_job_to_competency", &LinkJobToCompetencyTrigger{DB: db}). // NEW
-		UseTrigger("competency_prerequisite", &CompetencyPrerequisiteTrigger{DB: db}). // NEW
+		UseTrigger("link_job_to_competency", &LinkJobToCompetencyTrigger{DB: db}).
+		UseTrigger("competency_prerequisite", &CompetencyPrerequisiteTrigger{DB: db}).
 		UseAction("notification", &NotificationAction{DB: db}).
 		UseAction("schedule_training", &ScheduleTrainingAction{DB: db}).
 		UseAction("competency_assignment", &CompetencyAssignmentAction{DB: db}).
-		
 		UseAction("webhook", &WebhookAction{}).
-		UseAction("audit_log", &AuditLogAction{DB: db})
+		UseAction("audit_log", &AuditLogAction{DB: db}).
+		UseAction("create_event", &CreateEventAction{DB: db})
 
 	engine := &Engine{
 		R:                       registry,
 		ContinueActionsOnError:  true,
 		StopOnFirstConditionErr: false,
-		Debug:					 true,
+		Debug:                   true,
 	}
 
 	// ensure rules table exists
@@ -219,116 +219,116 @@ func (s *DbRuleStore) GetRuleStats(ctx context.Context) (map[string]interface{},
 // New trigger entrypoints for DispatchEvent
 
 func (s *RuleBackEndService) OnJobPosition(ctx context.Context, operation string, jobPosition any) error {
-    data := map[string]any{
-        "trigger": map[string]any{
-            "type":      "job_position",
-            "operation": operation,
-        },
-    }
-    if jobPosition != nil {
-        data["jobPosition"] = jobPosition
-    }
-    return DispatchEvent(ctx, s.Engine, s.Store, "job_position", data)
+	data := map[string]any{
+		"trigger": map[string]any{
+			"type":      "job_position",
+			"operation": operation,
+		},
+	}
+	if jobPosition != nil {
+		data["jobPosition"] = jobPosition
+	}
+	return DispatchEvent(ctx, s.Engine, s.Store, "job_position", data)
 }
 
 func (s *RuleBackEndService) OnCompetencyType(ctx context.Context, operation string, competencyType any) error {
-    data := map[string]any{
-        "trigger": map[string]any{
-            "type":      "competency_type",
-            "operation": operation,
-        },
-    }
-    if competencyType != nil {
-        data["competencyType"] = competencyType
-    }
-    return DispatchEvent(ctx, s.Engine, s.Store, "competency_type", data)
+	data := map[string]any{
+		"trigger": map[string]any{
+			"type":      "competency_type",
+			"operation": operation,
+		},
+	}
+	if competencyType != nil {
+		data["competencyType"] = competencyType
+	}
+	return DispatchEvent(ctx, s.Engine, s.Store, "competency_type", data)
 }
 
 func (s *RuleBackEndService) OnCompetency(ctx context.Context, operation string, competency any) error {
-    data := map[string]any{
-        "trigger": map[string]any{
-            "type":      "competency",
-            "operation": operation,
-        },
-    }
-    if competency != nil {
-        data["competency"] = competency
-    }
-    return DispatchEvent(ctx, s.Engine, s.Store, "competency", data)
+	data := map[string]any{
+		"trigger": map[string]any{
+			"type":      "competency",
+			"operation": operation,
+		},
+	}
+	if competency != nil {
+		data["competency"] = competency
+	}
+	return DispatchEvent(ctx, s.Engine, s.Store, "competency", data)
 }
 
 func (s *RuleBackEndService) OnEventDefinition(ctx context.Context, operation string, eventDefinition any) error {
-    data := map[string]any{
-        "trigger": map[string]any{
-            "type":      "event_definition",
-            "operation": operation,
-        },
-    }
-    if eventDefinition != nil {
-        data["eventDefinition"] = eventDefinition
-    }
-    return DispatchEvent(ctx, s.Engine, s.Store, "event_definition", data)
+	data := map[string]any{
+		"trigger": map[string]any{
+			"type":      "event_definition",
+			"operation": operation,
+		},
+	}
+	if eventDefinition != nil {
+		data["eventDefinition"] = eventDefinition
+	}
+	return DispatchEvent(ctx, s.Engine, s.Store, "event_definition", data)
 }
 
 func (s *RuleBackEndService) OnScheduledEvent(ctx context.Context, operation, updateField string, scheduledEvent any) error {
-    data := map[string]any{
-        "trigger": map[string]any{
-            "type":        "scheduled_event",
-            "operation":   operation,
-            "updateField": updateField,
-        },
-    }
-    if scheduledEvent != nil {
-        data["scheduledEvent"] = scheduledEvent
-    }
-    return DispatchEvent(ctx, s.Engine, s.Store, "scheduled_event", data)
+	data := map[string]any{
+		"trigger": map[string]any{
+			"type":        "scheduled_event",
+			"operation":   operation,
+			"updateField": updateField,
+		},
+	}
+	if scheduledEvent != nil {
+		data["scheduledEvent"] = scheduledEvent
+	}
+	return DispatchEvent(ctx, s.Engine, s.Store, "scheduled_event", data)
 }
 
 func (s *RuleBackEndService) OnRoles(ctx context.Context, operation, updateKind string, role any) error {
-    data := map[string]any{
-        "trigger": map[string]any{
-            "type":       "roles",
-            "operation":  operation,
-            "updateKind": updateKind,
-        },
-    }
-    if role != nil {
-        data["role"] = role
-    }
-    return DispatchEvent(ctx, s.Engine, s.Store, "roles", data)
+	data := map[string]any{
+		"trigger": map[string]any{
+			"type":       "roles",
+			"operation":  operation,
+			"updateKind": updateKind,
+		},
+	}
+	if role != nil {
+		data["role"] = role
+	}
+	return DispatchEvent(ctx, s.Engine, s.Store, "roles", data)
 }
 
 func (s *RuleBackEndService) OnLinkJobToCompetency(ctx context.Context, operation string, link any, jobPosition any, competency any) error {
-    data := map[string]any{
-        "trigger": map[string]any{
-            "type":      "link_job_to_competency",
-            "operation": operation,
-        },
-    }
-    if link != nil {
-        data["link"] = link
-    }
-    if jobPosition != nil {
-        data["jobPosition"] = jobPosition
-    }
-    if competency != nil {
-        data["competency"] = competency
-    }
-    return DispatchEvent(ctx, s.Engine, s.Store, "link_job_to_competency", data)
+	data := map[string]any{
+		"trigger": map[string]any{
+			"type":      "link_job_to_competency",
+			"operation": operation,
+		},
+	}
+	if link != nil {
+		data["link"] = link
+	}
+	if jobPosition != nil {
+		data["jobPosition"] = jobPosition
+	}
+	if competency != nil {
+		data["competency"] = competency
+	}
+	return DispatchEvent(ctx, s.Engine, s.Store, "link_job_to_competency", data)
 }
 
 func (s *RuleBackEndService) OnCompetencyPrerequisite(ctx context.Context, operation string, prerequisite any, competency any) error {
-    data := map[string]any{
-        "trigger": map[string]any{
-            "type":      "competency_prerequisite",
-            "operation": operation,
-        },
-    }
-    if prerequisite != nil {
-        data["prerequisite"] = prerequisite
-    }
-    if competency != nil {
-        data["competency"] = competency
-    }
-    return DispatchEvent(ctx, s.Engine, s.Store, "competency_prerequisite", data)
+	data := map[string]any{
+		"trigger": map[string]any{
+			"type":      "competency_prerequisite",
+			"operation": operation,
+		},
+	}
+	if prerequisite != nil {
+		data["prerequisite"] = prerequisite
+	}
+	if competency != nil {
+		data["competency"] = competency
+	}
+	return DispatchEvent(ctx, s.Engine, s.Store, "competency_prerequisite", data)
 }

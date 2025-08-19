@@ -31,44 +31,43 @@ func (a *NotificationAction) Execute(ctx EvalContext, params map[string]any) err
 	}
 
 	if notificationType == "" {
-		notificationType = "system" // Default to system notification
+		notificationType = "email" // Default to email notification
 	}
 
 	switch notificationType {
 	case "email":
-		// Call the sendEmail method
-		return a.sendEmail(recipient, subject, message)
+		err := a.sendEmail(recipient, subject, message)
+		if err != nil {
+			return fmt.Errorf("failed to execute NotificationAction: %w", err)
+		}
 	case "sms":
 		a.sendSMS(recipient, message)
-		return nil
 	case "push":
-		// Implement push notification logic here
+		// TODO: Implement push notification logic here
 		log.Printf("PUSH NOTIFICATION SENT: To=%s, Subject=%s, Message=%s", recipient, subject, message)
-		return nil
-	case "system":
-		// Implement system notification logic here
-		a.sendSystem(recipient, subject, message, params)
-		return nil
 	default:
 		return fmt.Errorf("unknown notification type: %s", notificationType)
 	}
+
+	// Logs notification if it didn't return early(error didn't occur)
+	a.logSuccessfulNotification(recipient, subject, message, notificationType)
+
+	return nil
 }
 
 // System notification function (default behaviour if no notification service is passed in)
-func (a *NotificationAction) sendSystem(recipient, subject, message string, params map[string]any) error {
+func (a *NotificationAction) logSuccessfulNotification(recipient, subject, message string, notificationType string) error {
 	// TODO add notifications to the database models.
 	notificationData := map[string]any{
-		"type":      "system_notification",
+		"type":      notificationType,
 		"recipient": recipient,
 		"subject":   subject,
 		"message":   message,
-		"timestamp": time.Now().Format(time.RFC3339),
-		"priority":  params["priority"],
 	}
 
 	logData, _ := json.Marshal(notificationData)
-	log.Printf("SYSTEM NOTIFICATION: %s", string(logData))
-	log.Printf("SYSTEM NOTIFICATION: [%s] %s - %s", recipient, subject, message)
+	log.Printf("NOTIFICATION SUCCEEDED: %s", string(logData))
+
 	return nil
 }
 
@@ -78,7 +77,6 @@ func (a *NotificationAction) sendEmail(recipient, subject, message string) error
 	if err != nil {
 		return fmt.Errorf("failed to send email: %w", err)
 	}
-	log.Printf("EMAIL SENT: To=%s, Subject=%s", recipient, subject)
 	return nil
 }
 
