@@ -180,61 +180,53 @@ func mustCompare(lhs, rhs any) (int, error) {
 // tryCompare attempts to compare common types: time, numeric, string, bool.
 // Returns (cmp, true) when comparable; otherwise (0, false).
 func tryCompare(lhs, rhs any) (int, bool) {
-	// time.Time
-	if lt, ok := lhs.(time.Time); ok {
-		switch rt := rhs.(type) {
-		case time.Time:
-			if lt.Before(rt) {
-				return -1, true
-			}
-			if lt.After(rt) {
-				return 1, true
-			}
-			return 0, true
-		}
-	}
+    // time.Time
+    if lt, ok := lhs.(time.Time); ok {
+        switch rt := rhs.(type) {
+        case time.Time:
+            if lt.Before(rt) { return -1, true }
+            if lt.After(rt) { return 1, true }
+            return 0, true
+        }
+    }
 
-	// numeric
-	if lf, lok := toFloat(lhs); lok {
-		if rf, rok := toFloat(rhs); rok {
-			switch {
-				case lf < rf:
-					return -1, true
-				case lf > rf:
-					return 1, true
-				default:
-					return 0, true
-			}
-		}
-	}
+    // numeric (coerce pointers and strings)
+    if lf, lok := asFloat(lhs); lok {
+        if rf, rok := asFloat(rhs); rok {
+            switch {
+            case lf < rf:
+                return -1, true
+            case lf > rf:
+                return 1, true
+            default:
+                return 0, true
+            }
+        }
+    }
 
-	// strings
-	if ls, ok := lhs.(string); ok {
-		if rs, ok := rhs.(string); ok {
-			switch {
-			case ls < rs:
-				return -1, true
-			case ls > rs:
-				return 1, true
-			default:
-				return 0, true
-			}
-		}
-	}
+    // strings
+    if ls, ok := lhs.(string); ok {
+        if rs, ok := rhs.(string); ok {
+            switch {
+            case ls < rs:
+                return -1, true
+            case ls > rs:
+                return 1, true
+            default:
+                return 0, true
+            }
+        }
+    }
 
-	// bool: only equality meaningful
-	if lb, ok := lhs.(bool); ok {
-		if rb, ok := rhs.(bool); ok {
-			if lb == rb {
-				return 0, true
-			}
-			if !lb && rb {
-				return -1, true
-			}
-			return 1, true
-		}
-	}
-	return 0, false
+    // bool: only equality meaningful
+    if lb, ok := lhs.(bool); ok {
+        if rb, ok := rhs.(bool); ok {
+            if lb == rb { return 0, true }
+            if !lb && rb { return -1, true }
+            return 1, true
+        }
+    }
+    return 0, false
 }
 
 func toFloat(v any) (float64, bool) {

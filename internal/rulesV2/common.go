@@ -49,6 +49,9 @@ func resolveFromMapOrStruct(root any, segments []string) (any, bool) {
 		default:
 			rv := reflect.ValueOf(cur)
 			if rv.Kind() == reflect.Pointer {
+				if rv.IsNil() {
+					return nil, false
+				}
 				rv = rv.Elem()
 			}
 			if rv.Kind() != reflect.Struct {
@@ -68,8 +71,17 @@ func resolveFromMapOrStruct(root any, segments []string) (any, bool) {
 			if !field.IsValid() {
 				return nil, false
 			}
+			// Auto-deref pointers on traversal
+			if field.Kind() == reflect.Pointer && !field.IsNil() {
+				field = field.Elem()
+			}
 			cur = field.Interface()
 		}
+	}
+	// Final leaf: auto-deref pointers
+	rv := reflect.ValueOf(cur)
+	if rv.Kind() == reflect.Pointer && !rv.IsNil() {
+		cur = rv.Elem().Interface()
 	}
 	return cur, true
 }
@@ -113,6 +125,12 @@ func asTime(v any) (time.Time, bool) {
 
 // asFloat for numeric comparisons
 func asFloat(v any) (float64, bool) {
+	// Auto-deref pointers
+	rv := reflect.ValueOf(v)
+	if rv.Kind() == reflect.Pointer && !rv.IsNil() {
+		return asFloat(rv.Elem().Interface())
+	}
+
 	switch t := v.(type) {
 	case float64:
 		return t, true
