@@ -29,8 +29,6 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 		UseFactResolver(CompetencyFacts{}).
 		UseFactResolver(EventFacts{}).
 		UseFactResolver(DomainFacts{}). // add to support jobPosition/competencyType/role/link/prerequisite/jobMatrix
-		UseTrigger("scheduled_competency_check", &ScheduledCompetencyCheckTrigger{DB: db}).
-		UseTrigger("new_hire", &NewHireTrigger{DB: db}).
 		UseTrigger("job_position", &JobPositionTrigger{DB: db}).
 		UseTrigger("competency_type", &CompetencyTypeTrigger{DB: db}).
 		UseTrigger("competency", &CompetencyTrigger{DB: db}).
@@ -50,7 +48,7 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 		R:                       registry,
 		ContinueActionsOnError:  true,
 		StopOnFirstConditionErr: false,
-		Debug:					 false,
+		Debug:					 true,
 	}
 
 	// ensure rules table exists
@@ -65,24 +63,6 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 		Engine: engine,
 		Store:  store,
 	}
-}
-
-// OnNewHire triggers rules for new employee
-func (s *RuleBackEndService) OnNewHire(ctx context.Context, employeeNumber string) error {
-	data := map[string]any{
-		"employeeNumber": employeeNumber,
-	}
-
-	return DispatchEvent(ctx, s.Engine, s.Store, "new_hire", data)
-}
-
-// RunScheduledChecks runs periodic competency and compliance checks
-func (s *RuleBackEndService) RunScheduledChecks(ctx context.Context) error {
-	data := map[string]any{
-		"intervalDays": 1, // daily check
-	}
-
-	return DispatchEvent(ctx, s.Engine, s.Store, "scheduled_competency_check", data)
 }
 
 // CreateSampleRules creates some example rules for demonstration

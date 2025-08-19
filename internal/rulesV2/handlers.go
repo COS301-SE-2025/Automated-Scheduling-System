@@ -77,40 +77,7 @@ func ValidateRuleHandler(c *gin.Context) {
 	})
 }
 
-// TriggerNewHire triggers rules for new employee
-func TriggerNewHire(c *gin.Context, service *RuleBackEndService) {
-	var request struct {
-		EmployeeNumber string `json:"employeeNumber" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	if err := service.OnNewHire(ctx, request.EmployeeNumber); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "New hire processing completed"})
-}
-
-// TriggerScheduledCheck runs scheduled competency checks
-func TriggerScheduledCheck(c *gin.Context, service *RuleBackEndService) {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	if err := service.RunScheduledChecks(ctx); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Scheduled checks completed"})
-}
+// Removed legacy new_hire and scheduled_competency_check handlers
 
 // GetRulesStatus returns system status and statistics
 func GetRulesStatus(c *gin.Context, service *RuleBackEndService) {
