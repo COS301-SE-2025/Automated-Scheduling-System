@@ -104,7 +104,8 @@ type EventAttendance struct {
 	ID                    int       `gorm:"primaryKey;autoIncrement" json:"id"`
 	CustomEventScheduleID int       `gorm:"column:custom_event_schedule_id;index" json:"customEventScheduleId"`
 	EmployeeNumber        string    `gorm:"column:employee_number;index" json:"employeeNumber"`
-	Attended              bool      `gorm:"column:attended;default:true" json:"attended"`
+	// NOTE: Do NOT set a GORM default here; we must be able to persist explicit false values.
+	Attended              bool      `gorm:"column:attended" json:"attended"`
 	CheckInTime           *time.Time `gorm:"column:check_in_time" json:"checkInTime"`
 	CheckOutTime          *time.Time `gorm:"column:check_out_time" json:"checkOutTime"`
 	CreatedAt             time.Time `gorm:"autoCreateTime" json:"createdAt"`
