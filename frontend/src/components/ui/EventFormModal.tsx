@@ -143,6 +143,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                 setUsers(u);
                 setAllPositions(p.filter(x => x.isActive));
             } catch (e) {
+                console.log('Failed to load users and positions:', e);
             }
         })();
         return () => { active = false; };
@@ -218,7 +219,9 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                 const map: Record<string, boolean> = {};
                 rows.forEach((r: any) => { map[r.employeeNumber ?? r.EmployeeNumber] = !!(r.attended ?? r.Attended); });
                 setAttendance(map);
-            } catch {  }
+            } catch (e) {
+                console.log("Couldn't get employee attendance:", e)
+            }
         })();
         return () => { active = false; };
     }, [isOpen, isEditMode, isElevated, initialData?.id]);
@@ -502,10 +505,9 @@ const AttendanceModal: React.FC<{
     scheduleId?: string;
     competencyId?: number;
 }> = ({ isOpen, onClose, employees, selectedEmployees, attendance, onChange, scheduleId, competencyId }) => {
-    if (!isOpen || !scheduleId) return null;
+    const [candidates, setCandidates] = useState<{ employeeNumber: string; name: string }[]>([]);
 
     // Load combined candidate list from backend (explicit + position-based). Merge with explicit for safety.
-    const [candidates, setCandidates] = useState<{ employeeNumber: string; name: string }[]>([]);
     useEffect(() => {
         let active = true;
         (async () => {
@@ -528,6 +530,23 @@ const AttendanceModal: React.FC<{
         return () => { active = false; };
     }, [isOpen, scheduleId, selectedEmployees.length]);
 
+    const [fulfilled, setFulfilled] = useState<Record<string, boolean>>({});
+
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            if (!competencyId || competencyId <= 0 || candidates.length === 0) { setFulfilled({}); return; }
+            try {
+                const map = await eventService.checkEmployeesHaveCompetency(competencyId, candidates.map(i => i.employeeNumber));
+                if (!active) return; setFulfilled(map);
+            } catch { if (active) setFulfilled({}); }
+        })();
+        return () => { active = false; };
+    }, [competencyId, isOpen, scheduleId, candidates.length]);
+
+    if (!isOpen || !scheduleId) return null;
+
+
     const toggle = (empNum: string) => onChange({ ...attendance, [empNum]: !attendance[empNum] });
     const markAll = () => {
         const next: Record<string, boolean> = { ...attendance };
@@ -541,18 +560,6 @@ const AttendanceModal: React.FC<{
     };
     const save = async () => { await eventService.setAttendance(Number(scheduleId), { employeeNumbers: candidates.map(i => i.employeeNumber), attendance }); onClose(); };
 
-    const [fulfilled, setFulfilled] = useState<Record<string, boolean>>({});
-    useEffect(() => {
-        let active = true;
-        (async () => {
-            if (!competencyId || competencyId <= 0 || candidates.length === 0) { setFulfilled({}); return; }
-            try {
-                const map = await eventService.checkEmployeesHaveCompetency(competencyId, candidates.map(i => i.employeeNumber));
-                if (!active) return; setFulfilled(map);
-            } catch { if (active) setFulfilled({}); }
-        })();
-        return () => { active = false; };
-    }, [competencyId, isOpen, scheduleId, candidates.length]);
     return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-600 bg-opacity-50 p-4">
             <div className="relative w-full max-w-md mx-auto bg-white dark:bg-dark-div rounded-lg shadow-xl">

@@ -12,6 +12,12 @@ export interface EventDetailModalProps {
 }
 
 const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, event, onEdit, onDelete }) => {
+    const auth = useAuth();
+
+    // local UI state for chip overflow toggles
+    const [showAllEmployees, setShowAllEmployees] = React.useState(false);
+    const [showAllPositions, setShowAllPositions] = React.useState(false);
+
     if (!isOpen || !event) return null;
 
     const { title, start, end, extendedProps } = event;
@@ -26,14 +32,9 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
             year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
         });
     };
-    const auth = useAuth();
     const canManage = !!(
         auth.user && (auth.user.role === 'Admin' || auth.user.role === 'HR')
     ) || !!auth.permissions?.includes('events');
-
-    // local UI state for chip overflow toggles
-    const [showAllEmployees, setShowAllEmployees] = React.useState(false);
-    const [showAllPositions, setShowAllPositions] = React.useState(false);
 
     const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => {
         const isElement = React.isValidElement(value);
