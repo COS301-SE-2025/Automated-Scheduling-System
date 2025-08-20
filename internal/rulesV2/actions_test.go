@@ -1,3 +1,5 @@
+//go:build !unit
+
 package rulesv2
 
 import (
@@ -85,100 +87,6 @@ func TestNotificationAction_Execute(t *testing.T) {
 		assert.Contains(t, err.Error(), "message")
 	})
 }
-
-// func TestScheduleTrainingAction_Execute(t *testing.T) {
-// 	db := setupTestDBForActions()
-// 	action := &ScheduleTrainingAction{DB: db}
-
-// 	t.Run("ValidTrainingSchedule", func(t *testing.T) {
-// 		params := map[string]any{
-// 			"employeeNumber": "EMP001",
-// 			"eventType":      "safety_training",
-// 			"scheduledDate":  "2025-09-01",
-// 		}
-
-// 		ctx := EvalContext{}
-// 		err := action.Execute(ctx, params)
-// 		assert.NoError(t, err)
-
-// 		// Verify event was created
-// 		var event gen_models.Event
-// 		result := db.Where("relevant_parties = ?", "EMP001").First(&event)
-// 		assert.NoError(t, result.Error)
-// 		assert.Equal(t, "safety_training", event.EventType)
-// 	})
-
-// 	t.Run("ValidTrainingScheduleWithoutDate", func(t *testing.T) {
-// 		params := map[string]any{
-// 			"employeeNumber": "EMP002",
-// 			"eventType":      "compliance_training",
-// 		}
-
-// 		ctx := EvalContext{}
-// 		err := action.Execute(ctx, params)
-// 		assert.NoError(t, err)
-
-// 		// Verify event was created with default date
-// 		var event gen_models.Event
-// 		result := db.Where("relevant_parties = ?", "EMP002").First(&event)
-// 		assert.NoError(t, result.Error)
-// 		assert.Equal(t, "compliance_training", event.EventType)
-// 	})
-
-// 	t.Run("InvalidDateFormat", func(t *testing.T) {
-// 		params := map[string]any{
-// 			"employeeNumber": "EMP003",
-// 			"eventType":      "training",
-// 			"scheduledDate":  "invalid-date",
-// 		}
-
-// 		ctx := EvalContext{}
-// 		err := action.Execute(ctx, params)
-// 		assert.NoError(t, err) // Should still work with default date
-
-// 		var event gen_models.Event
-// 		result := db.Where("relevant_parties = ?", "EMP003").First(&event)
-// 		assert.NoError(t, result.Error)
-// 	})
-
-// 	t.Run("RFC3339DateFormat", func(t *testing.T) {
-// 		params := map[string]any{
-// 			"employeeNumber": "EMP004",
-// 			"eventType":      "training",
-// 			"scheduledDate":  "2025-09-01T10:00:00Z",
-// 		}
-
-// 		ctx := EvalContext{}
-// 		err := action.Execute(ctx, params)
-// 		assert.NoError(t, err)
-
-// 		var event gen_models.Event
-// 		result := db.Where("relevant_parties = ?", "EMP004").First(&event)
-// 		assert.NoError(t, result.Error)
-// 	})
-
-// 	t.Run("MissingEmployeeNumber", func(t *testing.T) {
-// 		params := map[string]any{
-// 			"eventType": "training",
-// 		}
-
-// 		ctx := EvalContext{}
-// 		err := action.Execute(ctx, params)
-// 		assert.Error(t, err)
-// 		assert.Contains(t, err.Error(), "employeeNumber")
-// 	})
-
-// 	t.Run("MissingEventType", func(t *testing.T) {
-// 		params := map[string]any{
-// 			"employeeNumber": "EMP001",
-// 		}
-
-// 		ctx := EvalContext{}
-// 		err := action.Execute(ctx, params)
-// 		assert.Error(t, err)
-// 		assert.Contains(t, err.Error(), "eventType")
-// 	})
-// }
 
 func TestCompetencyAssignmentAction_Execute(t *testing.T) {
 	db := setupTestDBForActions()
@@ -317,8 +225,6 @@ func TestAuditLogAction_Execute(t *testing.T) {
 		ctx := EvalContext{}
 		err := action.Execute(ctx, params)
 		assert.NoError(t, err)
-		// Note: This assumes AuditLogAction creates some audit record in the database
-		// The actual implementation may vary
 	})
 
 	t.Run("MissingAction", func(t *testing.T) {
@@ -347,8 +253,6 @@ func TestNotificationActionComprehensive_Execute(t *testing.T) {
 
 		ctx := EvalContext{}
 		err := action.Execute(ctx, params)
-		// Email will fail in test environment due to SMTP configuration
-		// We expect this to fail, but we can test that it reaches the email sending logic
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to send email")
 	})
@@ -357,13 +261,12 @@ func TestNotificationActionComprehensive_Execute(t *testing.T) {
 		params := map[string]any{
 			"type":      "sms",
 			"recipient": "+1234567890",
-			"subject":   "SMS", // SMS still needs subject for validation
+			"subject":   "SMS",
 			"message":   "Test SMS message",
 		}
 
 		ctx := EvalContext{}
 		err := action.Execute(ctx, params)
-		// SMS implementation returns nil for now (placeholder)
 		assert.NoError(t, err)
 	})
 
@@ -377,7 +280,6 @@ func TestNotificationActionComprehensive_Execute(t *testing.T) {
 
 		ctx := EvalContext{}
 		err := action.Execute(ctx, params)
-		// Push implementation returns nil for now (placeholder)
 		assert.NoError(t, err)
 	})
 
@@ -391,7 +293,6 @@ func TestNotificationActionComprehensive_Execute(t *testing.T) {
 
 		ctx := EvalContext{}
 		err := action.Execute(ctx, params)
-		// The action doesn't support "system" type, so this should fail
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown notification type")
 	})
