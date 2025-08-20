@@ -31,7 +31,7 @@
 | ------ | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Demo 1 | [Demo 1](https://drive.google.com/drive/folders/1vOPVthLNlVF2fgY1ZBmNBSnBYhcFAFdi)     | [Slides 1](https://www.canva.com/design/DAGorRU2lTc/os4bYH1iU9YRJyTcd99fxw/edit) |
 | Demo 2 | [Demo 2](https://drive.google.com/drive/u/1/folders/1-mdaq45m-Sp1UUUVYKJQAZZTceB0rOP_) |                                                                                  |
-| Demo 3 |                                                                                        | [Slides 3](https://www.canva.com/design/DAGwb_F4zsE/I9vMSY4Pc_XMz4enSEpG2Q/edit) |
+| Demo 3 | [Demo 3](https://drive.google.com/drive/u/1/folders/1odLyx5iK4Imljp3SzXOKa6GeVPKQt6L_) | [Slides 3](https://www.canva.com/design/DAGwb_F4zsE/I9vMSY4Pc_XMz4enSEpG2Q/edit) |
 
 ---
 
