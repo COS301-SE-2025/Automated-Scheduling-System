@@ -1,3 +1,5 @@
+//go:build unit
+
 package rulesv2
 
 import (
@@ -8,349 +10,274 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
-func setupTestRouter() (*gin.Engine, *RuleBackEndService) {
+// setup helpers
+
+func setupRouter(t *testing.T) (*gin.Engine, *RuleBackEndService) {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
-	router := gin.New()
 
-	// Create test database
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
-	if err != nil {
-		panic("Failed to create test database: " + err.Error())
-	}
+	require.NoError(t, err)
 
-	// Create the required tables
-	err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS db_rules (
-			id TEXT PRIMARY KEY,
-			enabled BOOLEAN NOT NULL DEFAULT true,
-			type TEXT NOT NULL,
-			body TEXT NOT NULL
-		)
-	`).Error
-	if err != nil {
-		panic("Failed to create db_rules table: " + err.Error())
-	}
+	svc := NewRuleBackEndService(db)
+	router := gin.New()
+	RegisterRulesRoutes(router, svc)
 
-	service := NewRuleBackEndService(db)
-
-	RegisterRulesRoutes(router, service)
-
-	return router, service
+	return router, svc
 }
 
-func TestMetadataHandlers(t *testing.T) {
-	router, _ := setupTestRouter()
+func doJSON(t *testing.T, router *gin.Engine, method, path string, body any) *httptest.ResponseRecorder {
+	t.Helper()
+	var buf *bytes.Buffer
+	if body != nil {
+		data, err := json.Marshal(body)
+		require.NoError(t, err)
+		buf = bytes.NewBuffer(data)
+	} else {
+		buf = bytes.NewBuffer(nil)
+	}
+	req, err := http.NewRequest(method, path, buf)
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
 
-	tests := []struct {
+// tests
+
+func TestMetadataHandlers_Unit(t *testing.T) {
+	router, _ := setupRouter(t)
+
+	type tc struct {
 		name     string
 		endpoint string
-		contains string
-	}{
-		{
-			name:     "GetRulesMetadata",
-			endpoint: "/api/rules/metadata",
-			contains: "triggers",
-		},
-		{
-			name:     "GetTriggersMetadata",
-			endpoint: "/api/rules/metadata/triggers",
-			contains: "job_matrix_update",
-		},
-		{
-			name:     "GetActionsMetadata",
-			endpoint: "/api/rules/metadata/actions",
-			contains: "notification",
-		},
-		{
-			name:     "GetFactsMetadata",
-			endpoint: "/api/rules/metadata/facts",
-			contains: "employee.Employeestatus",
-		},
-		{
-			name:     "GetOperatorsMetadata",
-			endpoint: "/api/rules/metadata/operators",
-			contains: "equals",
-		},
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req, _ := http.NewRequest("GET", tt.endpoint, nil)
-			resp := httptest.NewRecorder()
-
-			router.ServeHTTP(resp, req)
-
-			assert.Equal(t, http.StatusOK, resp.Code)
-			assert.Contains(t, resp.Body.String(), tt.contains)
+	for _, c := range []tc{
+		{name: "All", endpoint: "/api/rules/metadata"},
+		{name: "Triggers", endpoint: "/api/rules/metadata/triggers"},
+		{name: "Actions", endpoint: "/api/rules/metadata/actions"},
+		{name: "Facts", endpoint: "/api/rules/metadata/facts"},
+		{name: "Operators", endpoint: "/api/rules/metadata/operators"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			rec := doJSON(t, router, http.MethodGet, c.endpoint, nil)
+			require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 		})
 	}
 }
 
-func TestValidateRuleHandler(t *testing.T) {
-	router, _ := setupTestRouter()
+func TestValidateRuleHandler_Unit(t *testing.T) {
+	router, _ := setupRouter(t)
 
-	t.Run("ValidRule", func(t *testing.T) {
-		rule := Rulev2{
-			Name: "Test Rule",
-			Trigger: TriggerSpec{
-				Type: "job_matrix_update",
-			},
-			Conditions: []Condition{
-				{
-					Fact:     "employee.Employeestatus",
-					Operator: "equals",
-					Value:    "Active",
+	validRule := Rulev2{
+		Name: "Test Rule",
+		Trigger: TriggerSpec{
+			Type: "scheduled_event",
+		},
+		Conditions: []Condition{
+			{Fact: "scheduledEvent.StatusName", Operator: "equals", Value: "Scheduled"},
+		},
+		Actions: []ActionSpec{
+			{
+				Type: "notification",
+				Parameters: map[string]any{
+					"recipient": "test@example.com",
+					"subject":   "Hello",
+					"message":   "World",
 				},
 			},
-			Actions: []ActionSpec{
-				{
-					Type: "notification",
-					Parameters: map[string]any{
-						"recipient": "test@example.com",
-						"subject":   "Test",
-						"message":   "Test message",
-					},
-				},
-			},
-		}
-
-		jsonData, _ := json.Marshal(rule)
-		req, _ := http.NewRequest("POST", "/api/rules/validate", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-
-		router.ServeHTTP(resp, req)
-
-		assert.Equal(t, http.StatusOK, resp.Code)
-		assert.Contains(t, resp.Body.String(), "\"valid\":true")
+		},
+	}
+	t.Run("Valid", func(t *testing.T) {
+		rec := doJSON(t, router, http.MethodPost, "/api/rules/validate", validRule)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		require.Contains(t, rec.Body.String(), `"valid":true`)
 	})
 
-	t.Run("InvalidRule", func(t *testing.T) {
-		rule := Rulev2{
-			Name: "Invalid Rule",
-			Trigger: TriggerSpec{
-				Type: "invalid_trigger",
-			},
-			Actions: []ActionSpec{
-				{
-					Type: "invalid_action",
-				},
-			},
-		}
-
-		jsonData, _ := json.Marshal(rule)
-		req, _ := http.NewRequest("POST", "/api/rules/validate", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-
-		router.ServeHTTP(resp, req)
-
-		assert.Equal(t, http.StatusBadRequest, resp.Code)
-		assert.Contains(t, resp.Body.String(), "\"valid\":false")
+	invalidRule := Rulev2{
+		Name: "Bad Rule",
+		Trigger: TriggerSpec{
+			Type: "not_a_real_trigger",
+		},
+		Actions: []ActionSpec{
+			{Type: "no_such_action"},
+		},
+	}
+	t.Run("Invalid", func(t *testing.T) {
+		rec := doJSON(t, router, http.MethodPost, "/api/rules/validate", invalidRule)
+		require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+		require.Contains(t, rec.Body.String(), `"valid":false`)
 	})
 
-	t.Run("InvalidJSON", func(t *testing.T) {
-		req, _ := http.NewRequest("POST", "/api/rules/validate", bytes.NewBufferString("invalid json"))
+	t.Run("BadJSON", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodPost, "/api/rules/validate", bytes.NewBufferString("{"))
 		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-
-		router.ServeHTTP(resp, req)
-
-		assert.Equal(t, http.StatusBadRequest, resp.Code)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 	})
 }
 
-func TestTriggerHandlers(t *testing.T) {
-	router, _ := setupTestRouter()
+func TestTriggerHandlers_Unit(t *testing.T) {
+	router, _ := setupRouter(t)
 
-	t.Run("TriggerJobMatrixUpdate", func(t *testing.T) {
+	t.Run("ScheduledEvent OK", func(t *testing.T) {
 		payload := map[string]any{
-			"employeeNumber": "EMP001",
-			"competencyID":   123,
-			"action":         "created",
+			"operation": "create",
+			"scheduledEvent": map[string]any{
+				"Title": "Safety Training",
+			},
 		}
-
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/api/rules/trigger/job-matrix", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-
-		router.ServeHTTP(resp, req)
-
-		assert.Equal(t, http.StatusOK, resp.Code)
+		rec := doJSON(t, router, http.MethodPost, "/api/rules/trigger/scheduled-event", payload)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	})
 
-	t.Run("TriggerJobMatrixUpdate_InvalidPayload", func(t *testing.T) {
+	t.Run("EventDefinition OK", func(t *testing.T) {
 		payload := map[string]any{
-			"employeeNumber": "", // Missing required field
+			"operation": "update",
+			"eventDefinition": map[string]any{
+				"EventName": "Confined Space",
+			},
 		}
-
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/api/rules/trigger/job-matrix", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-
-		router.ServeHTTP(resp, req)
-
-		assert.Equal(t, http.StatusBadRequest, resp.Code)
+		rec := doJSON(t, router, http.MethodPost, "/api/rules/trigger/event-definition", payload)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	})
 
-	t.Run("TriggerNewHire", func(t *testing.T) {
+	t.Run("Roles OK", func(t *testing.T) {
 		payload := map[string]any{
-			"employeeNumber": "EMP001",
+			"operation":   "update",
+			"update_kind": "permissions",
+			"role": map[string]any{
+				"Name": "Supervisor",
+			},
 		}
-
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/api/rules/trigger/new-hire", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-
-		router.ServeHTTP(resp, req)
-
-		assert.Equal(t, http.StatusOK, resp.Code)
+		rec := doJSON(t, router, http.MethodPost, "/api/rules/trigger/roles", payload)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	})
 
-	t.Run("TriggerScheduledCheck", func(t *testing.T) {
-		req, _ := http.NewRequest("POST", "/api/rules/trigger/scheduled-check", nil)
-		resp := httptest.NewRecorder()
+	t.Run("LinkJobToCompetency OK", func(t *testing.T) {
+		payload := map[string]any{
+			"operation": "add",
+			"link":      map[string]any{"State": "active"},
+			"jobPosition": map[string]any{
+				"PositionMatrixCode": "POS001",
+			},
+			"competency": map[string]any{
+				"CompetencyName": "Basic Safety",
+			},
+		}
+		rec := doJSON(t, router, http.MethodPost, "/api/rules/trigger/link-job-to-competency", payload)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	})
 
-		router.ServeHTTP(resp, req)
+	t.Run("CompetencyPrerequisite OK", func(t *testing.T) {
+		payload := map[string]any{
+			"operation": "add",
+			"prerequisite": map[string]any{
+				"ParentCompetencyID":   1,
+				"RequiredCompetencyID": 2,
+			},
+			"competency": map[string]any{"ID": 1},
+		}
+		rec := doJSON(t, router, http.MethodPost, "/api/rules/trigger/competency-prerequisite", payload)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	})
 
-		assert.Equal(t, http.StatusOK, resp.Code)
+	t.Run("Missing Operation -> 400", func(t *testing.T) {
+		payload := map[string]any{
+			// no operation
+			"scheduledEvent": map[string]any{"Title": "X"},
+		}
+		rec := doJSON(t, router, http.MethodPost, "/api/rules/trigger/scheduled-event", payload)
+		require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 	})
 }
 
-func TestRuleCRUDHandlers(t *testing.T) {
-	router, _ := setupTestRouter()
+func TestRuleCRUDAndStatus_Unit(t *testing.T) {
+	router, _ := setupRouter(t)
 
-	t.Run("GetRulesStatus", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/api/rules/status", nil)
-		resp := httptest.NewRecorder()
-
-		router.ServeHTTP(resp, req)
-
-		assert.Equal(t, http.StatusOK, resp.Code)
-		assert.Contains(t, resp.Body.String(), "total_rules")
-	})
-
-	t.Run("ListRules", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/api/rules/rules", nil)
-		resp := httptest.NewRecorder()
-
-		router.ServeHTTP(resp, req)
-
-		assert.Equal(t, http.StatusOK, resp.Code)
-	})
-
-	t.Run("CreateRule", func(t *testing.T) {
-		rule := Rulev2{
-			Name: "Test Rule",
-			Trigger: TriggerSpec{
-				Type: "job_matrix_update",
-			},
-			Actions: []ActionSpec{
-				{
-					Type: "notification",
-					Parameters: map[string]any{
-						"recipient": "test@example.com",
-						"subject":   "Test",
-						"message":   "Test message",
-					},
+	// Create
+	createRule := Rulev2{
+		Name: "My Rule",
+		Trigger: TriggerSpec{
+			Type: "event_definition",
+		},
+		Actions: []ActionSpec{
+			{
+				Type: "notification",
+				Parameters: map[string]any{
+					"recipient": "ops@example.com",
+					"subject":   "Subj",
+					"message":   "Msg",
 				},
 			},
-		}
+		},
+	}
+	rec := doJSON(t, router, http.MethodPost, "/api/rules/rules", createRule)
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
 
-		jsonData, _ := json.Marshal(rule)
-		req, _ := http.NewRequest("POST", "/api/rules/rules", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
+	var createResp map[string]any
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &createResp))
+	id, _ := createResp["id"].(string)
+	require.NotEmpty(t, id)
 
-		router.ServeHTTP(resp, req)
+	// List
+	rec = doJSON(t, router, http.MethodGet, "/api/rules/rules", nil)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Contains(t, rec.Body.String(), `"rules"`)
 
-		assert.Equal(t, http.StatusCreated, resp.Code)
-	})
+	// Get
+	rec = doJSON(t, router, http.MethodGet, "/api/rules/rules/"+id, nil)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Contains(t, rec.Body.String(), `"rule"`)
 
-	t.Run("CreateRule_InvalidJSON", func(t *testing.T) {
-		req, _ := http.NewRequest("POST", "/api/rules/rules", bytes.NewBufferString("invalid json"))
-		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
-
-		router.ServeHTTP(resp, req)
-
-		assert.Equal(t, http.StatusBadRequest, resp.Code)
-	})
-
-	t.Run("GetRule", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/api/rules/rules/test_rule", nil)
-		resp := httptest.NewRecorder()
-
-		router.ServeHTTP(resp, req)
-
-		// Rule may not exist, but handler should not crash
-		assert.True(t, resp.Code == http.StatusOK || resp.Code == http.StatusNotFound)
-	})
-
-	t.Run("UpdateRule", func(t *testing.T) {
-		rule := Rulev2{
-			Name: "Updated Rule",
-			Trigger: TriggerSpec{
-				Type: "job_matrix_update",
+	// Update
+	updateRule := Rulev2{
+		Name: "My Rule Updated",
+		Trigger: TriggerSpec{
+			Type: "scheduled_event",
+			Parameters: map[string]any{
+				"operation": "update",
 			},
-			Actions: []ActionSpec{
-				{
-					Type: "notification",
-					Parameters: map[string]any{
-						"recipient": "updated@example.com",
-						"subject":   "Updated",
-						"message":   "Updated message",
-					},
+		},
+		Actions: []ActionSpec{
+			{
+				Type: "notification",
+				Parameters: map[string]any{
+					"recipient": "ops@example.com",
+					"subject":   "Updated",
+					"message":   "Updated Body",
 				},
 			},
-		}
+		},
+	}
+	rec = doJSON(t, router, http.MethodPut, "/api/rules/rules/"+id, updateRule)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
-		jsonData, _ := json.Marshal(rule)
-		req, _ := http.NewRequest("PUT", "/api/rules/rules/test_rule", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		resp := httptest.NewRecorder()
+	// Disable
+	rec = doJSON(t, router, http.MethodPost, "/api/rules/rules/"+id+"/disable", nil)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
-		router.ServeHTTP(resp, req)
+	// Enable
+	rec = doJSON(t, router, http.MethodPost, "/api/rules/rules/"+id+"/enable", nil)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
-		// Rule may not exist, but handler should not crash
-		assert.True(t, resp.Code == http.StatusOK || resp.Code == http.StatusNotFound)
-	})
+	// Status
+	rec = doJSON(t, router, http.MethodGet, "/api/rules/status", nil)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	require.Contains(t, rec.Body.String(), "total_rules")
 
-	t.Run("DeleteRule", func(t *testing.T) {
-		req, _ := http.NewRequest("DELETE", "/api/rules/rules/test_rule", nil)
-		resp := httptest.NewRecorder()
+	// Delete
+	rec = doJSON(t, router, http.MethodDelete, "/api/rules/rules/"+id, nil)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
-		router.ServeHTTP(resp, req)
-
-		// Rule may not exist, but handler should not crash
-		assert.True(t, resp.Code == http.StatusOK || resp.Code == http.StatusNotFound)
-	})
-
-	t.Run("EnableRule", func(t *testing.T) {
-		req, _ := http.NewRequest("POST", "/api/rules/rules/test_rule/enable", nil)
-		resp := httptest.NewRecorder()
-
-		router.ServeHTTP(resp, req)
-
-		// Rule may not exist, but handler should not crash
-		assert.True(t, resp.Code == http.StatusOK || resp.Code == http.StatusNotFound)
-	})
-
-	t.Run("DisableRule", func(t *testing.T) {
-		req, _ := http.NewRequest("POST", "/api/rules/rules/test_rule/disable", nil)
-		resp := httptest.NewRecorder()
-
-		router.ServeHTTP(resp, req)
-
-		// Rule may not exist, but handler should not crash
-		assert.True(t, resp.Code == http.StatusOK || resp.Code == http.StatusNotFound)
-	})
+	// Get after delete -> 404
+	rec = doJSON(t, router, http.MethodGet, "/api/rules/rules/"+id, nil)
+	require.Equal(t, http.StatusNotFound, rec.Code, rec.Body.String())
 }

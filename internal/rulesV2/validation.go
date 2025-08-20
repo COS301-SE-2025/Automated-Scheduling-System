@@ -3,6 +3,7 @@ package rulesv2
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -109,7 +110,26 @@ func validateParameter(param Parameter, params map[string]any) error {
 	}
 
 	// Validate parameter type
-	return validateParameterType(param, value)
+	if err := validateParameterType(param, value); err != nil {
+		return err
+	}
+
+	// If options (enum) are provided, enforce membership
+	if len(param.Options) > 0 {
+		valStr := strings.ToLower(fmt.Sprint(value))
+		ok := false
+		for _, opt := range param.Options {
+			if valStr == strings.ToLower(fmt.Sprint(opt)) {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return fmt.Errorf("parameter '%s' must be one of %v", param.Name, param.Options)
+		}
+	}
+
+	return nil
 }
 
 // validateParameterType validates that a parameter value matches its expected type

@@ -3,14 +3,35 @@ package role
 import (
 	"Automated-Scheduling-Project/internal/database/gen_models"
 	"Automated-Scheduling-Project/internal/database/models"
+	rulesv2 "Automated-Scheduling-Project/internal/rulesV2" // added
+	"context"                                               // added
+	"log"
 	"net/http"
 	"strconv"
+	"time" // added
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 var DB *gorm.DB
+
+// added: rules service wiring
+var RulesSvc *rulesv2.RuleBackEndService
+
+func SetRulesService(s *rulesv2.RuleBackEndService) { RulesSvc = s }
+
+func fireRolesTrigger(c *gin.Context, operation, updateKind string, roleObj models.Role) {
+	if RulesSvc == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := RulesSvc.OnRoles(ctx, operation, updateKind, roleObj); err != nil {
+		log.Printf("Failed to fire roles trigger (operation=%s, updateKind=%s, roleID=%d): %v",
+			operation, updateKind, roleObj.RoleID, err)
+	}
+}
 
 // Helpers
 func toResponse(r models.Role, perms []models.RolePermission) models.RoleResponse {
@@ -66,6 +87,9 @@ func CreateRoleHandler(c *gin.Context) {
 		_ = DB.Create(&models.RolePermission{RoleID: role.RoleID, Page: p}).Error
 	}
 
+	// fire trigger: roles create
+	fireRolesTrigger(c, "create", "general", role)
+
 	var perms []models.RolePermission
 	_ = DB.Where("role_id = ?", role.RoleID).Find(&perms).Error
 	c.JSON(http.StatusCreated, toResponse(role, perms))
@@ -92,6 +116,14 @@ func UpdateRoleHandler(c *gin.Context) {
 		return
 	}
 
+	// track permission changes (before overwrite)
+	var oldPerms []models.RolePermission
+	_ = DB.Where("role_id = ?", role.RoleID).Find(&oldPerms).Error
+	oldSet := map[string]struct{}{}
+	for _, p := range oldPerms {
+		oldSet[p.Page] = struct{}{}
+	}
+
 	if req.Name != nil {
 		role.RoleName = *req.Name
 	}
@@ -104,15 +136,40 @@ func UpdateRoleHandler(c *gin.Context) {
 		return
 	}
 
+	var added, removed bool
 	if req.Permissions != nil {
 		// replace perms
 		if err := DB.Where("role_id = ?", role.RoleID).Delete(&models.RolePermission{}).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update permissions"})
 			return
 		}
+		newSet := map[string]struct{}{}
 		for _, p := range *req.Permissions {
+			newSet[p] = struct{}{}
 			_ = DB.Create(&models.RolePermission{RoleID: role.RoleID, Page: p}).Error
+			if _, ok := oldSet[p]; !ok {
+				added = true
+			}
 		}
+		for p := range oldSet {
+			if _, ok := newSet[p]; !ok {
+				removed = true
+			}
+		}
+	}
+
+	// fire trigger: roles update
+	// emit specific kinds if we detected permission changes; otherwise general
+	switch {
+	case added && removed:
+		fireRolesTrigger(c, "update", "permission_added", role)
+		fireRolesTrigger(c, "update", "permission_removed", role)
+	case added:
+		fireRolesTrigger(c, "update", "permission_added", role)
+	case removed:
+		fireRolesTrigger(c, "update", "permission_removed", role)
+	default:
+		fireRolesTrigger(c, "update", "general", role)
 	}
 
 	var perms []models.RolePermission
@@ -271,4 +328,29 @@ func GetMyPermissionsHandler(c *gin.Context) {
 		result = append(result, "roles")
 	}
 	c.JSON(http.StatusOK, result)
+}
+
+// UserHasRoleName checks if the user has a role by name via user_has_role mapping or legacy users.role
+func UserHasRoleName(userID int64, roleName string) (bool, error) {
+	// Check mapping
+	type cnt struct{ C int64 }
+	var c cnt
+	err := DB.Raw(`
+		SELECT COUNT(*) AS c
+		FROM user_has_role uhr
+		JOIN roles r ON r.role_id = uhr.role_id
+		WHERE uhr.user_id = ? AND r.role_name = ?
+	`, userID, roleName).Scan(&c).Error
+	if err != nil {
+		return false, err
+	}
+	if c.C > 0 {
+		return true, nil
+	}
+	// Fallback to legacy users table
+	var u gen_models.User
+	if err := DB.First(&u, userID).Error; err == nil && u.Role == roleName {
+		return true, nil
+	}
+	return false, nil
 }

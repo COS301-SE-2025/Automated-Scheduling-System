@@ -10,9 +10,6 @@ import (
 
 // getPathSegments splits "employee.EmployeeStatus" → ["employee","EmployeeStatus"]
 func getPathSegments(path string) []string {
-	// Support function-like “selector” syntax in the last segment:
-	// e.g. employee.HasCompetencyPrerequisites[COMP123]
-	// We'll leave the whole token in place; resolvers may parse [].
 	return strings.Split(path, ".")
 }
 
@@ -23,7 +20,6 @@ func fetchTop(evCtx EvalContext, top string) (any, bool) {
 }
 
 // resolveFromMapOrStruct walks nested fields across map[string]any and/or struct fields (case-insensitive).
-// Returns (value, true) if found; (nil, false) if any segment missing.
 func resolveFromMapOrStruct(root any, segments []string) (any, bool) {
 	cur := root
 	for _, seg := range segments {
@@ -31,7 +27,6 @@ func resolveFromMapOrStruct(root any, segments []string) (any, bool) {
 		case map[string]any:
 			nv, ok := v[seg]
 			if !ok {
-				// try case-insensitive match
 				found := false
 				for k := range v {
 					if strings.EqualFold(k, seg) {
@@ -49,13 +44,15 @@ func resolveFromMapOrStruct(root any, segments []string) (any, bool) {
 		default:
 			rv := reflect.ValueOf(cur)
 			if rv.Kind() == reflect.Pointer {
+				if rv.IsNil() {
+					return nil, false
+				}
 				rv = rv.Elem()
 			}
 			if rv.Kind() != reflect.Struct {
 				return nil, false
 			}
 			var field reflect.Value
-			// Try exact then case-insensitive field name
 			field = rv.FieldByName(seg)
 			if !field.IsValid() {
 				for i := 0; i < rv.NumField(); i++ {
@@ -68,13 +65,21 @@ func resolveFromMapOrStruct(root any, segments []string) (any, bool) {
 			if !field.IsValid() {
 				return nil, false
 			}
+
+			if field.Kind() == reflect.Pointer && !field.IsNil() {
+				field = field.Elem()
+			}
 			cur = field.Interface()
 		}
+	}
+
+	rv := reflect.ValueOf(cur)
+	if rv.Kind() == reflect.Pointer && !rv.IsNil() {
+		cur = rv.Elem().Interface()
 	}
 	return cur, true
 }
 
-// parseBracketArg extracts the content inside "Name[arg]" → "arg", ok.
 func parseBracketArg(s string) (string, bool) {
 	i := strings.IndexByte(s, '[')
 	j := strings.LastIndexByte(s, ']')
@@ -84,13 +89,12 @@ func parseBracketArg(s string) (string, bool) {
 	return s[i+1 : j], true
 }
 
-// asTime tries common shapes: time.Time, string (RFC3339), unix seconds (float64/int)
+// asTime tries common shapes
 func asTime(v any) (time.Time, bool) {
 	switch t := v.(type) {
 	case time.Time:
 		return t, true
 	case string:
-		// be strict: RFC3339
 		tt, err := time.Parse(time.RFC3339, t)
 		if err == nil {
 			return tt, true
@@ -113,6 +117,11 @@ func asTime(v any) (time.Time, bool) {
 
 // asFloat for numeric comparisons
 func asFloat(v any) (float64, bool) {
+	rv := reflect.ValueOf(v)
+	if rv.Kind() == reflect.Pointer && !rv.IsNil() {
+		return asFloat(rv.Elem().Interface())
+	}
+
 	switch t := v.(type) {
 	case float64:
 		return t, true
@@ -129,23 +138,6 @@ func asFloat(v any) (float64, bool) {
 	}
 	return 0, false
 }
-
-// boolFromAny returns (bool, true) if v is bool, or string "true"/"false".
-// func boolFromAny(v any) (bool, bool) {
-// 	switch b := v.(type) {
-// 	case bool:
-// 		return b, true
-// 	case string:
-// 		l := strings.ToLower(strings.TrimSpace(b))
-// 		if l == "true" {
-// 			return true, true
-// 		}
-// 		if l == "false" {
-// 			return false, true
-// 		}
-// 	}
-// 	return false, false
-// }
 
 // error helper for resolvers
 func factErr(fact, msg string) error {

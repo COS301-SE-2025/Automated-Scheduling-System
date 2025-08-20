@@ -31,15 +31,14 @@ func RegisterRulesRoutes(router *gin.Engine, service *RuleBackEndService) {
 		})
 
 		// Trigger endpoints for external systems to notify the rules engine
-		rulesGroup.POST("/trigger/job-matrix", func(c *gin.Context) {
-			TriggerJobMatrixUpdate(c, service)
-		})
-		rulesGroup.POST("/trigger/new-hire", func(c *gin.Context) {
-			TriggerNewHire(c, service)
-		})
-		rulesGroup.POST("/trigger/scheduled-check", func(c *gin.Context) {
-			TriggerScheduledCheck(c, service)
-		})
+		rulesGroup.POST("/trigger/job-position", func(c *gin.Context) { TriggerJobPosition(c, service) })
+		rulesGroup.POST("/trigger/competency-type", func(c *gin.Context) { TriggerCompetencyType(c, service) })
+		rulesGroup.POST("/trigger/competency", func(c *gin.Context) { TriggerCompetency(c, service) })
+		rulesGroup.POST("/trigger/event-definition", func(c *gin.Context) { TriggerEventDefinition(c, service) })
+		rulesGroup.POST("/trigger/scheduled-event", func(c *gin.Context) { TriggerScheduledEvent(c, service) })
+		rulesGroup.POST("/trigger/roles", func(c *gin.Context) { TriggerRoles(c, service) })
+		rulesGroup.POST("/trigger/link-job-to-competency", func(c *gin.Context) { TriggerLinkJobToCompetency(c, service) })
+        rulesGroup.POST("/trigger/competency-prerequisite", func(c *gin.Context) { TriggerCompetencyPrerequisite(c, service) })
 
 		// Status and monitoring endpoints
 		rulesGroup.GET("/status", func(c *gin.Context) {

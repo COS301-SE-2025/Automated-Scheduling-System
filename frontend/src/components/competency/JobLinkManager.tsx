@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import type { Competency } from '../../types/competency';
 import type { JobRequirement } from '../../services/jobRequirementService';
 import type { JobPosition } from '../../services/jobPositionService';
 import { Plus, Trash2 } from 'lucide-react';
+import ConfirmModal from '../ui/ConfirmModal';
 
 interface JobLinkManagerProps {
     competency: Competency;
@@ -16,6 +17,7 @@ const JobLinkManager: React.FC<JobLinkManagerProps> = ({ competency, allJobPosit
     const [selectedPosition, setSelectedPosition] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const [infoOpen, setInfoOpen] = useState(false);
 
     const availablePositions = useMemo(() => {
         const linkedCodes = new Set(linkedRequirements.map(r => r.positionMatrixCode));
@@ -50,6 +52,16 @@ const JobLinkManager: React.FC<JobLinkManagerProps> = ({ competency, allJobPosit
         }
     };
 
+    const hasPositions = availablePositions.length > 0;
+    const placeholder = hasPositions ? '-- Choose a position --' : 'Create a new job position to link';
+
+    const handleGuardedOpen = useCallback((e: React.MouseEvent<HTMLSelectElement> | React.KeyboardEvent<HTMLSelectElement>) => {
+        if (!hasPositions) {
+            e.preventDefault();
+            setInfoOpen(true);
+        }
+    }, [hasPositions]);
+
     return (
         <div className="p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -72,26 +84,42 @@ const JobLinkManager: React.FC<JobLinkManagerProps> = ({ competency, allJobPosit
                 </div>
                 <div>
                     <h4 className="font-semibold text-sm text-custom-primary dark:text-dark-primary mb-2">Add a Link</h4>
-                    <form onSubmit={handleAdd} className="flex items-end gap-2">
+            <form onSubmit={handleAdd} className="flex items-end gap-2">
                         <div className="flex-grow">
                             <label htmlFor={`pos-select-${competency.competencyID}`} className="sr-only">Select Position</label>
                             <select
                                 id={`pos-select-${competency.competencyID}`}
                                 value={selectedPosition}
-                                onChange={e => setSelectedPosition(e.target.value)}
-                                className="block w-full rounded-md border-0 py-1.5 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-custom-secondary sm:text-sm"
+                onChange={e => setSelectedPosition(e.target.value)}
+                onMouseDown={handleGuardedOpen}
+                onKeyDown={(e) => {
+                    if (!hasPositions && ['Enter', ' ', 'ArrowDown', 'ArrowUp'].includes(e.key)) {
+                        handleGuardedOpen(e);
+                    }
+                }}
+                className={`block w-full rounded-md border-0 py-1.5 text-gray-900 dark:text-white shadow-sm ring-1 ring-inset ring-gray-300 dark:ring-gray-700 focus:ring-2 focus:ring-inset focus:ring-custom-secondary sm:text-sm ${!hasPositions ? 'cursor-default' : ''}`}
                             >
-                                <option value="" disabled>-- Choose a position --</option>
-                                {availablePositions.map(pos => <option key={pos.positionMatrixCode} value={pos.positionMatrixCode}>{pos.jobTitle}</option>)}
+                <option value="" disabled>{placeholder}</option>
+                {availablePositions.map(pos => <option key={pos.positionMatrixCode} value={pos.positionMatrixCode}>{pos.jobTitle}</option>)}
                             </select>
                         </div>
-                        <button type="submit" disabled={!selectedPosition || isLoading} className="px-3 py-1.5 text-sm font-semibold text-white bg-custom-secondary rounded-md shadow-sm hover:bg-custom-third disabled:bg-gray-400">
+            <button type="submit" disabled={!selectedPosition || isLoading || !hasPositions} className="px-3 py-1.5 text-sm font-semibold text-white bg-custom-secondary rounded-md shadow-sm hover:bg-custom-third disabled:bg-gray-400">
                             <Plus size={16} />
                         </button>
                     </form>
                     {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
                 </div>
             </div>
+            <ConfirmModal
+                isOpen={infoOpen}
+                title="No available positions"
+                message="Create a new job position to link. Active positions that aren't already linked will appear in the dropdown."
+                confirmLabel="OK"
+                confirmVariant="primary"
+                onConfirm={() => setInfoOpen(false)}
+                onCancel={() => setInfoOpen(false)}
+                showCancel={false}
+            />
         </div>
     );
 };

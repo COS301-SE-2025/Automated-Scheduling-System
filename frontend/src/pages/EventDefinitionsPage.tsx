@@ -44,8 +44,13 @@ const EventDefinitionsPage: React.FC = () => {
         fetchDefinitions();
     }, [fetchDefinitions]);
 
-    // Load competencies (active only)
     useEffect(() => {
+        // Only load competencies for Admin or HR users. Regular users don't have permission.
+        if (!user) return;
+        if (user.role !== 'Admin' && user.role !== 'HR') {
+            setCompetencies([]);
+            return;
+        }
         (async () => {
             try {
                 const list = await getAllCompetencies();
@@ -54,7 +59,7 @@ const EventDefinitionsPage: React.FC = () => {
                 setCompetencies([]);
             }
         })();
-    }, []);
+    }, [user]);
 
     const availableFilterOptions = useMemo(() => ({
         facilitators: Array.from(new Set(definitions.map(d => d.Facilitator).filter(Boolean))).sort(),
@@ -91,18 +96,17 @@ const EventDefinitionsPage: React.FC = () => {
     const handleSaveDefinition = async (definitionData: CreateEventDefinitionPayload) => {
         try {
             if (definitionToEdit) {
-                // Assuming you have an update function in your service
+                
                 await eventService.updateEventDefinition(definitionToEdit.CustomEventID, definitionData);
             } else {
                 await eventService.createEventDefinition(definitionData);
             }
             
-            await fetchDefinitions(); // Refetch all definitions to get the latest state
+            await fetchDefinitions(); 
             setIsFormModalOpen(false);
             setDefinitionToEdit(null);
         } catch (err) {
             console.error("Failed to save event definition:", err);
-            // Optionally, set an error state to show in the modal or on the page
             setError("Failed to save the definition.");
         }
     };
@@ -197,14 +201,10 @@ const EventDefinitionsPage: React.FC = () => {
                         </p>
                     </div>
                     <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-                        <button
-                            onClick={handleAddClick}
-                        >
-                            <Button type="button" variant="primary">
-                                <PlusCircle size={20} className="inline-block mr-2" />
-                                Add Definition
-                            </Button>
-                        </button>
+                        <Button type="button" variant="primary" onClick={handleAddClick}>
+                            <PlusCircle size={20} className="inline-block mr-2" />
+                            Add Definition
+                        </Button>
                     </div>
                 </div>
 
@@ -218,26 +218,26 @@ const EventDefinitionsPage: React.FC = () => {
                 {renderContent()}
             </div>
 
-            {user?.role === 'Admin' && (
-                <>
-                    <EventDefinitionFormModal
-                        isOpen={isFormModalOpen}
-                        onClose={() => setIsFormModalOpen(false)}
-                        onSave={handleSaveDefinition}
-                        initialData={definitionToEdit || undefined}
+            <>
+                <EventDefinitionFormModal
+                    isOpen={isFormModalOpen}
+                    onClose={() => setIsFormModalOpen(false)}
+                    onSave={handleSaveDefinition}
+                    initialData={definitionToEdit || undefined}
+                    competencies={competencies}
+                    showGrantField={user?.role === 'Admin' || user?.role === 'HR'}
+                />
+                {definitionToDelete && (
+                    <EventDeleteConfirmationModal
+                        isOpen={isDeleteModalOpen}
+                        onClose={() => setIsDeleteModalOpen(false)}
+                        onDeleteSuccess={handleDeletionSuccess}
+                        eventId={definitionToDelete.CustomEventID}
+                        eventName={definitionToDelete.EventName}
+                        isDefinition={true}
                     />
-                    {definitionToDelete && (
-                        <EventDeleteConfirmationModal
-                            isOpen={isDeleteModalOpen}
-                            onClose={() => setIsDeleteModalOpen(false)}
-                            onDeleteSuccess={handleDeletionSuccess}
-                            eventId={definitionToDelete.CustomEventID}
-                            eventName={definitionToDelete.EventName}
-                            isDefinition={true}
-                        />
-                    )}
-                </>
-            )}
+                )}
+            </>
         </MainLayout>
     );
 };

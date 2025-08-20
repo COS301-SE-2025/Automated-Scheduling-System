@@ -5,7 +5,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"    // added
 	"reflect"
+	"strings"
 	"text/template"
 	"time"
 )
@@ -18,6 +20,15 @@ type Engine struct {
 	// Policy toggles (optional; adjust to taste)
 	ContinueActionsOnError  bool // if true, runs all actions and aggregates errors
 	StopOnFirstConditionErr bool // if true, aborts rule on first condition error
+
+	Debug bool // added
+}
+
+func (e *Engine) debugf(format string, args ...any) { // added
+	if !e.Debug {
+		return
+	}
+	log.Printf("[rules] "+format, args...)
 }
 
 // ValidateRule checks that a Rulev2 is internally consistent and
@@ -33,11 +44,6 @@ func ValidateRule(r *Registry, rule Rulev2) error {
 	if rule.Trigger.Type == "" {
 		return fmt.Errorf("rule %q: trigger type is empty", rule.Name)
 	}
-	// if _, ok := r.Triggers[rule.Trigger.Type]; !ok {
-	// Trigger not required to be present (maybe only stored), but we can warn.
-	// Comment out if you want to allow unknown triggers until wired.
-	// return fmt.Errorf("rule %q: unknown trigger %q", rule.Name, rule.Trigger.Type)
-	// }
 
 	for i, c := range rule.Conditions {
 		if c.Operator == "" {
@@ -46,7 +52,6 @@ func ValidateRule(r *Registry, rule Rulev2) error {
 		if _, ok := r.Operators[c.Operator]; !ok {
 			return fmt.Errorf("rule %q: condition %d unknown operator %q", rule.Name, i, c.Operator)
 		}
-		// Fact string can be left unchecked: unknown facts just resolve false at runtime
 	}
 
 	for i, a := range rule.Actions {
@@ -75,7 +80,6 @@ func (e *Engine) RunRule(ctx context.Context, r Rulev2) error {
 	// Wrap the trigger's emit to evaluate conditions & actions for each context.
 	var agg MultiError
 	err := th.Fire(ctx, r.Trigger.Parameters, func(evCtx EvalContext) error {
-		// Default Now if unset (helps tests & callers that don't fill it)
 		if evCtx.Now.IsZero() {
 			evCtx.Now = time.Now().UTC()
 		}
@@ -85,10 +89,10 @@ func (e *Engine) RunRule(ctx context.Context, r Rulev2) error {
 				return err
 			}
 			agg.Append(err)
-			return nil // skip actions for this context
+			return nil
 		}
 		if !ok {
-			return nil // conditions false → no actions
+			return nil
 		}
 		if err := e.execActions(evCtx, r.Actions); err != nil {
 			agg.Append(err)
@@ -103,43 +107,26 @@ func (e *Engine) RunRule(ctx context.Context, r Rulev2) error {
 
 /* --------------------------- Condition Evaluation ------------------------ */
 
-func (e *Engine) evalConditions(evCtx EvalContext, conds []Condition) (bool, error) {
-	for _, c := range conds {
-		val, ok, err := e.resolveFact(evCtx, c)
-		if err != nil {
-			return false, fmt.Errorf("resolve fact %q: %w", c.Fact, err)
-		}
-		if !ok {
-			// Unknown/missing fact → treat as false
-			return false, nil
-		}
-		op, ok := e.R.Operators[c.Operator]
-		if !ok || op == nil {
-			return false, fmt.Errorf("unknown operator %q", c.Operator)
-		}
-
-		// Pass the "Value" by default. If you have operator-specific extras,
-		// wire them here (e.g., forCompetency) by reading from c.Extras.
-		rhs := c.Value
-
-		pass, err := op(val, rhs)
-		if err != nil {
-			return false, fmt.Errorf("operator %q: %w", c.Operator, err)
-		}
-		if !pass {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
 func (e *Engine) EvaluateOnce(evCtx EvalContext, r Rulev2) error {
 	if evCtx.Now.IsZero() {
 		evCtx.Now = time.Now().UTC()
 	}
 
-	ok, err := e.evalConditions(evCtx, r.Conditions)
+	// Debug: show incoming trigger map, rule params, and match result
+	if e.Debug {
+		keys := make([]string, 0, len(evCtx.Data))
+		for k := range evCtx.Data { keys = append(keys, k) }
+		e.debugf("Evaluate rule=%q trigger=%v dataKeys=%v", r.Name, evCtx.Data["trigger"], keys)
+	}
 
+	matched := matchTriggerParams(evCtx, r.Trigger.Parameters)
+	e.debugf("Trigger params match=%v expected=%v actual=%v", matched, r.Trigger.Parameters, evCtx.Data["trigger"])
+
+	if !matched {
+		return nil
+	}
+
+	ok, err := e.evalConditions(evCtx, r.Conditions)
 	if err != nil || !ok {
 		return err
 	}
@@ -147,15 +134,52 @@ func (e *Engine) EvaluateOnce(evCtx EvalContext, r Rulev2) error {
 	return e.execActions(evCtx, r.Actions)
 }
 
+func (e *Engine) evalConditions(evCtx EvalContext, conds []Condition) (bool, error) {
+	for _, c := range conds {
+		e.debugf("Cond: fact=%q op=%s rhs=%#v", c.Fact, c.Operator, c.Value)
+
+		val, ok, err := e.resolveFact(evCtx, c)
+		if err != nil {
+			e.debugf(" -> resolve error: %v", err)
+			return false, fmt.Errorf("resolve fact %q: %w", c.Fact, err)
+		}
+		if !ok {
+			e.debugf(" -> fact not found")
+			return false, nil
+		}
+		e.debugf(" -> fact value: (%T) %#v", val, val)
+
+		op, ok := e.R.Operators[c.Operator]
+		if !ok || op == nil {
+			return false, fmt.Errorf("unknown operator %q", c.Operator)
+		}
+
+		pass, err := op(val, c.Value)
+		if err != nil {
+			e.debugf(" -> operator error: %v", err)
+			return false, fmt.Errorf("operator %q: %w", c.Operator, err)
+		}
+		e.debugf(" -> result: %v", pass)
+		if !pass {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 func (e *Engine) resolveFact(evCtx EvalContext, c Condition) (any, bool, error) {
 	for _, fr := range e.R.Facts {
+		name := fmt.Sprintf("%T", fr)
 		v, handled, err := fr.Resolve(evCtx, c.Fact)
 		if err != nil {
+			e.debugf("Resolver %s error on %q: %v", name, c.Fact, err)
 			return nil, handled, err
 		}
 		if handled {
+			e.debugf("Resolver %s handled %q -> (%T) %#v", name, c.Fact, v, v)
 			return v, true, nil
 		}
+		e.debugf("Resolver %s skipped %q", name, c.Fact)
 	}
 	return nil, false, nil
 }
@@ -296,4 +320,98 @@ func (m *MultiError) Err() error {
 	}
 	// Join (Go 1.20+). If you want older Go, concatenate manually.
 	return errors.Join(m.errs...)
+}
+
+func matchTriggerParams(evCtx EvalContext, params map[string]any) bool {
+	if len(params) == 0 {
+		return true
+	}
+	trig, _ := evCtx.Data["trigger"].(map[string]any)
+	if trig == nil {
+		return false
+	}
+	for k, v := range params {
+		// Ignore optional/blank params sent by UI (e.g., update_kind: "")
+		if isBlankParam(v) {
+			continue
+		}
+		tv, ok := readTriggerValue(trig, k)
+		if !ok {
+			return false
+		}
+		if !paramEquals(tv, v) {
+			return false
+		}
+	}
+	return true
+}
+
+func isBlankParam(v any) bool {
+	if v == nil {
+		return true
+	}
+	if s, ok := v.(string); ok {
+		return strings.TrimSpace(s) == ""
+	}
+	return false
+}
+
+// readTriggerValue tries exact, snake_case <-> camelCase variants
+func readTriggerValue(trig map[string]any, key string) (any, bool) {
+	if v, ok := trig[key]; ok {
+		return v, true
+	}
+
+	cc := snakeToCamel(key)
+	if v, ok := trig[cc]; ok {
+		return v, true
+	}
+
+	sc := camelToSnake(key)
+	if v, ok := trig[sc]; ok {
+		return v, true
+	}
+	return nil, false
+}
+
+func paramEquals(a, b any) bool {
+	as := fmt.Sprint(a)
+	bs := fmt.Sprint(b)
+	// case-insensitive for strings
+	if _, ok := a.(string); ok {
+		return strings.EqualFold(as, bs)
+	}
+	if _, ok := b.(string); ok {
+		return strings.EqualFold(as, bs)
+	}
+	return as == bs
+}
+
+func snakeToCamel(s string) string {
+	var out string
+	upper := false
+	for _, r := range s {
+		if r == '_' {
+			upper = true
+			continue
+		}
+		if upper {
+			out += strings.ToUpper(string(r))
+			upper = false
+		} else {
+			out += string(r)
+		}
+	}
+	return out
+}
+
+func camelToSnake(s string) string {
+	var b strings.Builder
+	for i, r := range s {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			b.WriteByte('_')
+		}
+		b.WriteByte(byte(strings.ToLower(string(r))[0]))
+	}
+	return b.String()
 }

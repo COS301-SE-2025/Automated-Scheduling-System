@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 
-	"Automated-Scheduling-Project/internal/database/gen_models"
+	"Automated-Scheduling-Project/internal/database/models"
 
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -20,25 +22,36 @@ type RuleBackEndService struct {
 
 // NewRuleBackEndService creates a new integration service with all components wired
 func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
-	// Create registry with all components
 	registry := NewRegistryWithDefaults().
 		UseFactResolver(EmployeeFacts{}).
 		UseFactResolver(CompetencyFacts{}).
 		UseFactResolver(EventFacts{}).
-		UseTrigger("job_matrix_update", &JobMatrixTrigger{DB: db}).
-		UseTrigger("scheduled_competency_check", &ScheduledCompetencyCheckTrigger{DB: db}).
-		UseTrigger("new_hire", &NewHireTrigger{DB: db}).
+		UseFactResolver(DomainFacts{}).
+		UseTrigger("job_position", &JobPositionTrigger{DB: db}).
+		UseTrigger("competency_type", &CompetencyTypeTrigger{DB: db}).
+		UseTrigger("competency", &CompetencyTrigger{DB: db}).
+		UseTrigger("event_definition", &EventDefinitionTrigger{DB: db}).
+		UseTrigger("scheduled_event", &ScheduledEventTrigger{DB: db}).
+		UseTrigger("roles", &RolesTrigger{DB: db}).
+		UseTrigger("link_job_to_competency", &LinkJobToCompetencyTrigger{DB: db}).
+		UseTrigger("competency_prerequisite", &CompetencyPrerequisiteTrigger{DB: db}).
 		UseAction("notification", &NotificationAction{DB: db}).
-		UseAction("schedule_training", &ScheduleTrainingAction{DB: db}).
+		// UseAction("schedule_training", &ScheduleTrainingAction{DB: db}).
 		UseAction("competency_assignment", &CompetencyAssignmentAction{DB: db}).
-		UseAction("job_matrix_update", &JobMatrixUpdateAction{DB: db}).
 		UseAction("webhook", &WebhookAction{}).
-		UseAction("audit_log", &AuditLogAction{DB: db})
+		UseAction("audit_log", &AuditLogAction{DB: db}).
+		UseAction("create_event", &CreateEventAction{DB: db})
 
 	engine := &Engine{
 		R:                       registry,
 		ContinueActionsOnError:  true,
 		StopOnFirstConditionErr: false,
+		Debug:                   true,
+	}
+
+	// ensure rules table exists
+	if err := db.AutoMigrate(&models.Rule{}); err != nil {
+		panic(err)
 	}
 
 	store := &DbRuleStore{DB: db}
@@ -50,224 +63,272 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 	}
 }
 
-// OnJobMatrixUpdate triggers rules when job matrix entries are modified
-func (s *RuleBackEndService) OnJobMatrixUpdate(ctx context.Context, employeeNumber string, competencyID int32, action string) error {
-	data := map[string]any{
-		"employeeNumber": employeeNumber,
-		"competencyID":   competencyID,
-		"action":         action,
-	}
-
-	return DispatchEvent(ctx, s.Engine, s.Store, "job_matrix_update", data)
-}
-
-// OnNewHire triggers rules for new employee
-func (s *RuleBackEndService) OnNewHire(ctx context.Context, employeeNumber string) error {
-	data := map[string]any{
-		"employeeNumber": employeeNumber,
-	}
-
-	return DispatchEvent(ctx, s.Engine, s.Store, "new_hire", data)
-}
-
-// RunScheduledChecks runs periodic competency and compliance checks
-func (s *RuleBackEndService) RunScheduledChecks(ctx context.Context) error {
-	data := map[string]any{
-		"intervalDays": 1, // daily check
-	}
-
-	return DispatchEvent(ctx, s.Engine, s.Store, "scheduled_competency_check", data)
-}
-
-// CreateSampleRules creates some example rules for demonstration
-func (s *RuleBackEndService) CreateSampleRules(ctx context.Context) error {
-	sampleRules := []Rulev2{
-		{
-			Name: "Notify Manager on Critical Competency Gap",
-			Trigger: TriggerSpec{
-				Type: "job_matrix_update",
-			},
-			Conditions: []Condition{
-				{
-					Fact:     "employee.Employeestatus",
-					Operator: "equals",
-					Value:    "Active",
-				},
-			},
-			Actions: []ActionSpec{
-				{
-					Type: "notification",
-					Parameters: map[string]any{
-						"recipient": "manager@company.com",
-						"subject":   "Critical Competency Gap Identified",
-						"message":   "Employee needs training",
-					},
-				},
-			},
-		},
-	}
-
-	// Convert to database storage format and save
-	for i, rule := range sampleRules {
-		ruleData, err := json.Marshal(rule)
-		if err != nil {
-			return fmt.Errorf("failed to marshal rule %s: %w", rule.Name, err)
-		}
-
-		dbRule := gen_models.DbRule{
-			ID:      fmt.Sprintf("rule_%d", i+1),
-			Type:    rule.Trigger.Type,
-			Enabled: true,
-			Body:    string(ruleData),
-		}
-
-		if err := s.DB.Create(&dbRule).Error; err != nil {
-			log.Printf("Failed to create rule %s: %v", rule.Name, err)
-		} else {
-			log.Printf("Created sample rule: %s", rule.Name)
-		}
-	}
-
-	return nil
-}
-
-// DbRuleStore implements RuleStore interface for database persistence
+// DbRuleStore implements RuleStore interface for database persistence (uses models.Rule -> table "rules")
 type DbRuleStore struct {
 	DB *gorm.DB
 }
 
-func (s *DbRuleStore) ListByTrigger(ctx context.Context, triggerType string) ([]Rulev2, error) {
-	var dbRules []gen_models.DbRule
-	err := s.DB.Where("type = ? AND enabled = ?", triggerType, true).Find(&dbRules).Error
-	if err != nil {
+// ListAllRuleRows returns full DB rows (id, name, trigger_type, spec, enabled)
+func (s *DbRuleStore) ListAllRuleRows(ctx context.Context) ([]models.Rule, error) {
+	var rows []models.Rule
+	if err := s.DB.WithContext(ctx).Order("id ASC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
+	return rows, nil
+}
 
-	var rules []Rulev2
-	for _, dbRule := range dbRules {
-		var rule Rulev2
-		if err := json.Unmarshal([]byte(dbRule.Body), &rule); err != nil {
-			log.Printf("Failed to unmarshal rule %s: %v", dbRule.ID, err)
+func (s *DbRuleStore) ListByTrigger(ctx context.Context, triggerType string) ([]Rulev2, error) {
+	var rows []models.Rule
+	if err := s.DB.WithContext(ctx).
+		Where("trigger_type = ? AND enabled = ?", triggerType, true).
+		Order("id ASC").
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	out := make([]Rulev2, 0, len(rows))
+	for _, r := range rows {
+		var spec Rulev2
+		if err := json.Unmarshal(r.Spec, &spec); err != nil {
+			log.Printf("Failed to unmarshal rule id=%d: %v", r.ID, err)
 			continue
 		}
-		rules = append(rules, rule)
+		out = append(out, spec)
 	}
-
-	return rules, nil
+	return out, nil
 }
 
-// GetRuleByID retrieves a specific rule by ID
 func (s *DbRuleStore) GetRuleByID(ctx context.Context, ruleID string) (*Rulev2, error) {
-	var dbRule gen_models.DbRule
-	err := s.DB.Where("id = ?", ruleID).First(&dbRule).Error
+	id, err := strconv.ParseUint(ruleID, 10, 64)
 	if err != nil {
+		return nil, fmt.Errorf("invalid rule id: %w", err)
+	}
+	var row models.Rule
+	if err := s.DB.WithContext(ctx).First(&row, uint(id)).Error; err != nil {
 		return nil, err
 	}
-
-	var rule Rulev2
-	if err := json.Unmarshal([]byte(dbRule.Body), &rule); err != nil {
+	var spec Rulev2
+	if err := json.Unmarshal(row.Spec, &spec); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal rule: %w", err)
 	}
-
-	return &rule, nil
+	return &spec, nil
 }
 
-// CreateRule creates a new rule in the database
-func (s *DbRuleStore) CreateRule(ctx context.Context, rule Rulev2, ruleID string) error {
-	ruleData, err := json.Marshal(rule)
+// CreateRule inserts and returns the DB id as string (so frontend can store it)
+func (s *DbRuleStore) CreateRule(ctx context.Context, rule Rulev2) (string, error) {
+	body, err := json.Marshal(rule)
 	if err != nil {
-		return fmt.Errorf("failed to marshal rule: %w", err)
+		return "", fmt.Errorf("failed to marshal rule: %w", err)
 	}
-
-	dbRule := gen_models.DbRule{
-		ID:      ruleID,
-		Type:    rule.Trigger.Type,
-		Enabled: true,
-		Body:    string(ruleData),
+	row := models.Rule{
+		Name:        rule.Name,
+		TriggerType: rule.Trigger.Type,
+		Spec:        datatypes.JSON(body),
+		Enabled:     true,
 	}
-
-	return s.DB.Create(&dbRule).Error
+	if err := s.DB.WithContext(ctx).Create(&row).Error; err != nil {
+		return "", err
+	}
+	return strconv.FormatUint(uint64(row.ID), 10), nil
 }
 
-// UpdateRule updates an existing rule
 func (s *DbRuleStore) UpdateRule(ctx context.Context, ruleID string, rule Rulev2) error {
-	ruleData, err := json.Marshal(rule)
+	id, err := strconv.ParseUint(ruleID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid rule id: %w", err)
+	}
+	body, err := json.Marshal(rule)
 	if err != nil {
 		return fmt.Errorf("failed to marshal rule: %w", err)
 	}
-
-	return s.DB.Model(&gen_models.DbRule{}).
-		Where("id = ?", ruleID).
-		Updates(map[string]interface{}{
-			"type": rule.Trigger.Type,
-			"body": string(ruleData),
+	return s.DB.WithContext(ctx).Model(&models.Rule{}).
+		Where("id = ?", uint(id)).
+		Updates(map[string]any{
+			"name":         rule.Name,
+			"trigger_type": rule.Trigger.Type,
+			"spec":         datatypes.JSON(body),
 		}).Error
 }
 
-// DeleteRule removes a rule from the database
 func (s *DbRuleStore) DeleteRule(ctx context.Context, ruleID string) error {
-	return s.DB.Where("id = ?", ruleID).Delete(&gen_models.DbRule{}).Error
+	id, err := strconv.ParseUint(ruleID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid rule id: %w", err)
+	}
+	return s.DB.WithContext(ctx).Delete(&models.Rule{}, uint(id)).Error
 }
 
-// EnableRule enables or disables a rule
 func (s *DbRuleStore) EnableRule(ctx context.Context, ruleID string, enabled bool) error {
-	return s.DB.Model(&gen_models.DbRule{}).
-		Where("id = ?", ruleID).
+	id, err := strconv.ParseUint(ruleID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("invalid rule id: %w", err)
+	}
+	return s.DB.WithContext(ctx).Model(&models.Rule{}).
+		Where("id = ?", uint(id)).
 		Update("enabled", enabled).Error
 }
 
-// ListAllRules returns all rules in the system
 func (s *DbRuleStore) ListAllRules(ctx context.Context) ([]Rulev2, error) {
-	var dbRules []gen_models.DbRule
-	err := s.DB.Find(&dbRules).Error
-	if err != nil {
+	var rows []models.Rule
+	if err := s.DB.WithContext(ctx).Order("id ASC").Find(&rows).Error; err != nil {
 		return nil, err
 	}
-
-	var rules []Rulev2
-	for _, dbRule := range dbRules {
-		var rule Rulev2
-		if err := json.Unmarshal([]byte(dbRule.Body), &rule); err != nil {
-			log.Printf("Failed to unmarshal rule %s: %v", dbRule.ID, err)
+	out := make([]Rulev2, 0, len(rows))
+	for _, r := range rows {
+		var spec Rulev2
+		if err := json.Unmarshal(r.Spec, &spec); err != nil {
+			log.Printf("Failed to unmarshal rule id=%d: %v", r.ID, err)
 			continue
 		}
-		rules = append(rules, rule)
+		out = append(out, spec)
 	}
-
-	return rules, nil
+	return out, nil
 }
 
-// GetRuleStats returns statistics about rules in the system
 func (s *DbRuleStore) GetRuleStats(ctx context.Context) (map[string]interface{}, error) {
-	var totalRules int64
-	var enabledRules int64
-	var rulesByType []struct {
-		Type  string
-		Count int64
+	var total int64
+	var enabled int64
+	type byType struct {
+		TriggerType string
+		Count       int64
 	}
 
-	// Count total rules
-	if err := s.DB.Model(&gen_models.DbRule{}).Count(&totalRules).Error; err != nil {
+	if err := s.DB.WithContext(ctx).Model(&models.Rule{}).Count(&total).Error; err != nil {
 		return nil, err
 	}
-
-	// Count enabled rules
-	if err := s.DB.Model(&gen_models.DbRule{}).Where("enabled = ?", true).Count(&enabledRules).Error; err != nil {
+	if err := s.DB.WithContext(ctx).Model(&models.Rule{}).
+		Where("enabled = ?", true).
+		Count(&enabled).Error; err != nil {
 		return nil, err
 	}
-
-	// Count rules by type
-	if err := s.DB.Model(&gen_models.DbRule{}).
-		Select("type, count(*) as count").
-		Group("type").
-		Scan(&rulesByType).Error; err != nil {
+	var rows []byType
+	if err := s.DB.WithContext(ctx).Model(&models.Rule{}).
+		Select("trigger_type, COUNT(*) as count").
+		Group("trigger_type").
+		Scan(&rows).Error; err != nil {
 		return nil, err
 	}
 
 	return map[string]interface{}{
-		"total_rules":    totalRules,
-		"enabled_rules":  enabledRules,
-		"disabled_rules": totalRules - enabledRules,
-		"rules_by_type":  rulesByType,
+		"total_rules":    total,
+		"enabled_rules":  enabled,
+		"disabled_rules": total - enabled,
+		"rules_by_type":  rows,
 	}, nil
+}
+
+// New trigger entrypoints for DispatchEvent
+
+func (s *RuleBackEndService) OnJobPosition(ctx context.Context, operation string, jobPosition any) error {
+	data := map[string]any{
+		"trigger": map[string]any{
+			"type":      "job_position",
+			"operation": operation,
+		},
+	}
+	if jobPosition != nil {
+		data["jobPosition"] = jobPosition
+	}
+	return DispatchEvent(ctx, s.Engine, s.Store, "job_position", data)
+}
+
+func (s *RuleBackEndService) OnCompetencyType(ctx context.Context, operation string, competencyType any) error {
+	data := map[string]any{
+		"trigger": map[string]any{
+			"type":      "competency_type",
+			"operation": operation,
+		},
+	}
+	if competencyType != nil {
+		data["competencyType"] = competencyType
+	}
+	return DispatchEvent(ctx, s.Engine, s.Store, "competency_type", data)
+}
+
+func (s *RuleBackEndService) OnCompetency(ctx context.Context, operation string, competency any) error {
+	data := map[string]any{
+		"trigger": map[string]any{
+			"type":      "competency",
+			"operation": operation,
+		},
+	}
+	if competency != nil {
+		data["competency"] = competency
+	}
+	return DispatchEvent(ctx, s.Engine, s.Store, "competency", data)
+}
+
+func (s *RuleBackEndService) OnEventDefinition(ctx context.Context, operation string, eventDefinition any) error {
+	data := map[string]any{
+		"trigger": map[string]any{
+			"type":      "event_definition",
+			"operation": operation,
+		},
+	}
+	if eventDefinition != nil {
+		data["eventDefinition"] = eventDefinition
+	}
+	return DispatchEvent(ctx, s.Engine, s.Store, "event_definition", data)
+}
+
+func (s *RuleBackEndService) OnScheduledEvent(ctx context.Context, operation, updateField string, scheduledEvent any) error {
+	data := map[string]any{
+		"trigger": map[string]any{
+			"type":        "scheduled_event",
+			"operation":   operation,
+			"updateField": updateField,
+		},
+	}
+	if scheduledEvent != nil {
+		data["scheduledEvent"] = scheduledEvent
+	}
+	return DispatchEvent(ctx, s.Engine, s.Store, "scheduled_event", data)
+}
+
+func (s *RuleBackEndService) OnRoles(ctx context.Context, operation, updateKind string, role any) error {
+	data := map[string]any{
+		"trigger": map[string]any{
+			"type":       "roles",
+			"operation":  operation,
+			"updateKind": updateKind,
+		},
+	}
+	if role != nil {
+		data["role"] = role
+	}
+	return DispatchEvent(ctx, s.Engine, s.Store, "roles", data)
+}
+
+func (s *RuleBackEndService) OnLinkJobToCompetency(ctx context.Context, operation string, link any, jobPosition any, competency any) error {
+	data := map[string]any{
+		"trigger": map[string]any{
+			"type":      "link_job_to_competency",
+			"operation": operation,
+		},
+	}
+	if link != nil {
+		data["link"] = link
+	}
+	if jobPosition != nil {
+		data["jobPosition"] = jobPosition
+	}
+	if competency != nil {
+		data["competency"] = competency
+	}
+	return DispatchEvent(ctx, s.Engine, s.Store, "link_job_to_competency", data)
+}
+
+func (s *RuleBackEndService) OnCompetencyPrerequisite(ctx context.Context, operation string, prerequisite any, competency any) error {
+	data := map[string]any{
+		"trigger": map[string]any{
+			"type":      "competency_prerequisite",
+			"operation": operation,
+		},
+	}
+	if prerequisite != nil {
+		data["prerequisite"] = prerequisite
+	}
+	if competency != nil {
+		data["competency"] = competency
+	}
+	return DispatchEvent(ctx, s.Engine, s.Store, "competency_prerequisite", data)
 }

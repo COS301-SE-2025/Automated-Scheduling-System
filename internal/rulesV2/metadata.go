@@ -7,6 +7,9 @@ type Parameter struct {
 	Required    bool   `json:"required"`
 	Description string `json:"description"`
 	Example     any    `json:"example,omitempty"`
+	// Options is an optional fixed set of allowed values.
+	// Frontend can render a dropdown if present.
+	Options []any `json:"options,omitempty"`
 }
 
 // TriggerMetadata represents metadata about a trigger type
@@ -31,6 +34,9 @@ type FactMetadata struct {
 	Type        string   `json:"type"`
 	Description string   `json:"description"`
 	Operators   []string `json:"operators"`
+	// Triggers indicates which triggers supply this fact in their context.
+	// A fact may be available for multiple triggers.
+	Triggers []string `json:"triggers,omitempty"`
 }
 
 // OperatorMetadata represents metadata about available operators
@@ -63,52 +69,150 @@ func GetRulesMetadata() RulesMetadata {
 func getTriggerMetadata() []TriggerMetadata {
 	return []TriggerMetadata{
 		{
-			Type:        "job_matrix_update",
-			Name:        "Job Matrix Update",
-			Description: "Triggered when job matrix entries are created, updated, or deleted",
+			Type:        "job_position",
+			Name:        "Job Position",
+			Description: "Events related to job position lifecycle",
 			Parameters: []Parameter{
 				{
-					Name:        "employee_id",
+					Name:        "operation",
 					Type:        "string",
 					Required:    true,
-					Description: "Employee number/ID",
-					Example:     "EMP001",
+					Description: "Operation on the job position",
+					Options:     []any{"create", "update", "deactivate", "reactivate"},
+					Example:     "update",
 				},
+			},
+		},
+		{
+			Type:        "competency_type",
+			Name:        "Competency Type",
+			Description: "Events related to competency type lifecycle",
+			Parameters: []Parameter{
 				{
-					Name:        "competency_id",
-					Type:        "number",
+					Name:        "operation",
+					Type:        "string",
 					Required:    true,
-					Description: "Competency definition ID",
-					Example:     123,
+					Description: "Operation on the competency type",
+					Options:     []any{"create", "update", "deactivate", "reactivate"},
+					Example:     "create",
+				},
+			},
+		},
+		{
+			Type:        "competency",
+			Name:        "Competency",
+			Description: "Events related to competencies",
+			Parameters: []Parameter{
+				{
+					Name:        "operation",
+					Type:        "string",
+					Required:    true,
+					Description: "Competency operation",
+					Options:     []any{"create", "update", "deactivate", "reactivate"},
+					Example:     "update",
+				},
+			},
+		},
+		{
+			Type:        "event_definition",
+			Name:        "Event Definition",
+			Description: "Create/update/delete event definitions",
+			Parameters: []Parameter{
+				{
+					Name:        "operation",
+					Type:        "string",
+					Required:    true,
+					Description: "Operation on the event definition",
+					Options:     []any{"create", "update", "delete"},
+					Example:     "update",
+				},
+			},
+		},
+		{
+			Type:        "scheduled_event",
+			Name:        "Scheduled Event",
+			Description: "Create/update/delete scheduled events",
+			Parameters: []Parameter{
+				{
+					Name:        "operation",
+					Type:        "string",
+					Required:    true,
+					Description: "Operation on the scheduled event",
+					Options:     []any{"create", "update", "delete"},
+					Example:     "update",
 				},
 				{
-					Name:        "action",
+					Name:        "update_field",
 					Type:        "string",
 					Required:    false,
-					Description: "Action performed (created, updated, deleted)",
-					Example:     "created",
+					Description: "When operation=update, specify which field changed",
+					Options: []any{
+						"title",
+						"event_start_date",
+						"event_end_date",
+						"room_name",
+						"maximum_attendees",
+						"minimum_attendees",
+						"status_name",
+						"facilitator",
+						"color",
+						"other",
+					},
 				},
 			},
 		},
 		{
-			Type:        "new_hire",
-			Name:        "New Hire",
-			Description: "Triggered when a new employee is hired",
+			Type:        "roles",
+			Name:        "Roles",
+			Description: "Role lifecycle and permission changes (no delete)",
 			Parameters: []Parameter{
 				{
-					Name:        "employee_id",
+					Name:        "operation",
 					Type:        "string",
 					Required:    true,
-					Description: "Employee number/ID of the new hire",
-					Example:     "EMP001",
+					Description: "Role operation",
+					Options:     []any{"create", "update"},
+					Example:     "update",
+				},
+				{
+					Name:        "update_kind",
+					Type:        "string",
+					Required:    false,
+					Description: "When operation=update, choose specific change",
+					Options:     []any{"general", "permission_added", "permission_removed"},
+					Example:     "permission_added",
 				},
 			},
 		},
 		{
-			Type:        "scheduled_competency_check",
-			Name:        "Scheduled Competency Check",
-			Description: "Triggered on scheduled intervals to check competency compliance",
-			Parameters:  []Parameter{}, // No external parameters - runs on schedule
+			Type:        "link_job_to_competency",
+			Name:        "Link Job to Competency",
+			Description: "Add or remove a link between a job position and a competency",
+			Parameters: []Parameter{
+				{
+					Name:        "operation",
+					Type:        "string",
+					Required:    true,
+					Description: "Link operation",
+					Options:     []any{"add", "remove"},
+					Example:     "add",
+				},
+			},
+		},
+		{
+			Type:        "competency_prerequisite",
+			Name:        "Competency Prerequisite",
+			Description: "Add or remove a prerequisite relationship between competencies",
+			Parameters: []Parameter{
+				{
+					Name:        "operation",
+					Type:        "string",
+					Required:    true,
+					Description: "Change to prerequisite relationship",
+					Options:     []any{"add", "remove"},
+					Example:     "add",
+				},
+			},
 		},
 	}
 }
@@ -145,30 +249,72 @@ func getActionMetadata() []ActionMetadata {
 			},
 		},
 		{
-			Type:        "schedule_training",
-			Name:        "Schedule Training",
-			Description: "Create a training event in the calendar system",
+			Type:        "create_event",
+			Name:        "Schedule Event",
+			Description: "Create an event in the calendar system",
 			Parameters: []Parameter{
 				{
-					Name:        "employeeNumber",
+					Name:        "title",
 					Type:        "string",
 					Required:    true,
-					Description: "Employee number/ID who needs training",
-					Example:     "EMP001",
+					Description: "Name of event",
+					Example:     "Safety Training Session",
 				},
 				{
-					Name:        "eventType",
+					Name:        "customEventID",
+					Type:        "number",
+					Required:    true,
+					Description: "Event definition ID that this schedule is based on",
+					Example:     2,
+				},
+				{
+					Name:        "startTime",
 					Type:        "string",
 					Required:    true,
-					Description: "Type of training event",
-					Example:     "safety_training",
+					Description: "Event start date and time (YYYY-MM-DD HH:MM format)",
+					Example:     "2025-08-25 09:00",
 				},
 				{
-					Name:        "scheduledDate",
-					Type:        "date",
+					Name:        "endTime",
+					Type:        "string",
 					Required:    false,
-					Description: "Preferred date for training (YYYY-MM-DD format). If not provided, defaults to next week",
-					Example:     "2025-09-01",
+					Description: "Event end date and time (YYYY-MM-DD HH:MM format). Defaults to 2 hours after start time if not provided",
+					Example:     "2025-08-25 11:00",
+				},
+				{
+					Name:        "employeeNumbers",
+					Type:        "array",
+					Required:    false,
+					Description: "List of employee numbers to directly invite to the event",
+					Example:     []string{"EMP001", "EMP002"},
+				},
+				{
+					Name:        "positionCodes",
+					Type:        "array",
+					Required:    false,
+					Description: "List of position codes to target (all employees in these positions will be invited)",
+					Example:     []string{"MGR", "DEV"},
+				},
+				{
+					Name:        "roomName",
+					Type:        "string",
+					Required:    false,
+					Description: "Room or location name for the event",
+					Example:     "Conference Room A",
+				},
+				{
+					Name:        "maxAttendees",
+					Type:        "number",
+					Required:    false,
+					Description: "Maximum number of attendees for the event",
+					Example:     20,
+				},
+				{
+					Name:        "minAttendees",
+					Type:        "number",
+					Required:    false,
+					Description: "Minimum number of attendees required for the event",
+					Example:     5,
 				},
 			},
 		},
@@ -261,72 +407,259 @@ func getActionMetadata() []ActionMetadata {
 
 // getFactMetadata returns metadata for all available facts in conditions
 func getFactMetadata() []FactMetadata {
+	const (
+		trJobPos      = "job_position"
+		trCompType    = "competency_type"
+		trCompetency  = "competency"
+		trEventDef    = "event_definition"
+		trSchedEvent  = "scheduled_event"
+		trRoles       = "roles"
+		trLinkJobComp = "link_job_to_competency"
+		trCompPrereq  = "competency_prerequisite"
+	)
+
+	strOps := []string{"equals", "notEquals", "contains"}
+	numOps := []string{"equals", "notEquals", "greaterThan", "lessThan", "greaterThanEqual", "lessThanEqual"}
+	boolOps := []string{"isTrue", "isFalse"}
+	dateOps := []string{"before", "after", "equals"}
+
 	return []FactMetadata{
+		// {
+		// 	Name:        "event.Operation",
+		// 	Type:        "string",
+		// 	Description: "Operation specified by the triggering event",
+		// 	Operators:   strOps,
+		// 	Triggers:    []string{trJobPos, trCompType, trCompetency, trEventDef, trSchedEvent, trRoles, trLinkJobComp, trCompPrereq},
+		// },
+		// {
+		// 	Name:        "event.UpdateKind",
+		// 	Type:        "string",
+		// 	Description: "Specific update kind if provided by the event (e.g., permissions changed)",
+		// 	Operators:   strOps,
+		// 	Triggers:    []string{trRoles},
+		// },
+
+		//competency facts
 		{
-			Name:        "employee.Employeestatus",
-			Type:        "string",
-			Description: "Current status of the employee",
-			Operators:   []string{"equals", "notEquals", "in", "notIn"},
-		},
-		{
-			Name:        "employee.Firstname",
-			Type:        "string",
-			Description: "Employee's first name",
-			Operators:   []string{"equals", "notEquals", "contains", "startsWith", "endsWith"},
-		},
-		{
-			Name:        "employee.Lastname",
-			Type:        "string",
-			Description: "Employee's last name",
-			Operators:   []string{"equals", "notEquals", "contains", "startsWith", "endsWith"},
-		},
-		{
-			Name:        "employee.Useraccountemail",
-			Type:        "string",
-			Description: "Employee's email address",
-			Operators:   []string{"equals", "notEquals", "contains", "endsWith"},
+			Name:        "competency.CompetencyID",
+			Type:        "number",
+			Description: "Competency definition ID",
+			Operators:   append([]string{"equals", "notEquals"}, []string{"in", "notIn"}...),
+			Triggers:    []string{trCompetency, trLinkJobComp, trCompPrereq},
 		},
 		{
 			Name:        "competency.CompetencyName",
 			Type:        "string",
 			Description: "Name of the competency",
 			Operators:   []string{"equals", "notEquals", "contains", "in", "notIn"},
+			Triggers:    []string{trCompetency, trLinkJobComp, trCompPrereq},
+		},
+		{
+			Name:        "competency.CompetencyTypeName",
+			Type:        "string",
+			Description: "Type/category of the competency",
+			Operators:   []string{"equals", "notEquals", "in", "notIn"},
+			Triggers:    []string{trCompetency, trLinkJobComp, trCompPrereq},
 		},
 		{
 			Name:        "competency.IsActive",
 			Type:        "boolean",
 			Description: "Whether the competency is currently active",
-			Operators:   []string{"isTrue", "isFalse"},
+			Operators:   boolOps,
+			Triggers:    []string{trCompetency, trLinkJobComp},
 		},
 		{
 			Name:        "competency.Source",
 			Type:        "string",
 			Description: "Source of the competency (Internal, External, etc.)",
 			Operators:   []string{"equals", "notEquals", "in", "notIn"},
+			Triggers:    []string{trCompetency},
 		},
 		{
-			Name:        "jobMatrix.RequiredLevel",
+			Name:        "competency.ExpiryPeriodMonths",
 			Type:        "number",
-			Description: "Required competency level for the job",
-			Operators:   []string{"equals", "notEquals", "greaterThan", "lessThan", "greaterThanEqual", "lessThanEqual"},
+			Description: "Expiry period in months for the competency",
+			Operators:   numOps,
+			Triggers:    []string{trCompetency},
 		},
+
+		// Competency type facts
+		{
+			Name:        "competencyType.TypeName",
+			Type:        "string",
+			Description: "Competency type name",
+			Operators:   []string{"equals", "notEquals", "in", "notIn"},
+			Triggers:    []string{trCompType},
+		},
+		{
+			Name:        "competencyType.IsActive",
+			Type:        "boolean",
+			Description: "Whether the competency type is active",
+			Operators:   boolOps,
+			Triggers:    []string{trCompType},
+		},
+
+		// Job position facts
+		{
+			Name:        "jobPosition.PositionMatrixCode",
+			Type:        "string",
+			Description: "Position matrix code",
+			Operators:   strOps,
+			Triggers:    []string{trJobPos, trLinkJobComp},
+		},
+		{
+			Name:        "jobPosition.JobTitle",
+			Type:        "string",
+			Description: "Job title for the position",
+			Operators:   strOps,
+			Triggers:    []string{trJobPos, trLinkJobComp},
+		},
+		{
+			Name:        "jobPosition.IsActive",
+			Type:        "boolean",
+			Description: "Whether the job position is active",
+			Operators:   boolOps,
+			Triggers:    []string{trJobPos, trLinkJobComp},
+		},
+
+		// Job matrix facts
 		{
 			Name:        "jobMatrix.CurrentLevel",
 			Type:        "number",
 			Description: "Employee's current competency level",
-			Operators:   []string{"equals", "notEquals", "greaterThan", "lessThan", "greaterThanEqual", "lessThanEqual"},
+			Operators:   numOps,
+			Triggers:    []string{},
+		},
+
+		// Link job to competency facts
+		{
+			Name:        "link.State",
+			Type:        "string",
+			Description: "Link state between job position and competency (e.g., active/inactive)",
+			Operators:   strOps,
+			Triggers:    []string{trLinkJobComp},
+		},
+
+		// Competency prerequisite facts
+		{
+			Name:        "prerequisite.ParentCompetencyID",
+			Type:        "number",
+			Description: "Competency that has a prerequisite",
+			Operators:   append([]string{"equals", "notEquals"}, []string{"in", "notIn"}...),
+			Triggers:    []string{trCompPrereq},
 		},
 		{
-			Name:        "days_since_training",
+			Name:        "prerequisite.RequiredCompetencyID",
 			Type:        "number",
-			Description: "Number of days since last training",
-			Operators:   []string{"greaterThan", "lessThan", "greaterThanEqual", "lessThanEqual", "equals"},
+			Description: "Competency required as a prerequisite",
+			Operators:   append([]string{"equals", "notEquals"}, []string{"in", "notIn"}...),
+			Triggers:    []string{trCompPrereq},
 		},
+
+		// Event definition facts
+		{
+			Name:        "eventDef.EventName",
+			Type:        "string",
+			Description: "Event definition name",
+			Operators:   strOps,
+			Triggers:    []string{trEventDef},
+		},
+		{
+			Name:        "eventDef.Facilitator",
+			Type:        "string",
+			Description: "Default facilitator for the event definition",
+			Operators:   strOps,
+			Triggers:    []string{trEventDef},
+		},
+		{
+			Name:        "eventDef.GrantsCertificateID",
+			Type:        "number",
+			Description: "Certificate ID granted on completion (if applicable)",
+			Operators:   numOps,
+			Triggers:    []string{trEventDef},
+		},
+
+		// Scheduled event facts
+		{
+			Name:        "scheduledEvent.Title",
+			Type:        "string",
+			Description: "Scheduled event title",
+			Operators:   strOps,
+			Triggers:    []string{trSchedEvent},
+		},
+		{
+			Name:        "scheduledEvent.StatusName",
+			Type:        "string",
+			Description: "Status of the scheduled event",
+			Operators:   strOps,
+			Triggers:    []string{trSchedEvent},
+		},
+		{
+			Name:        "scheduledEvent.RoomName",
+			Type:        "string",
+			Description: "Room or location name",
+			Operators:   strOps,
+			Triggers:    []string{trSchedEvent},
+		},
+		{
+			Name:        "scheduledEvent.EventStartDate",
+			Type:        "date",
+			Description: "Scheduled start time",
+			Operators:   dateOps,
+			Triggers:    []string{trSchedEvent},
+		},
+		{
+			Name:        "scheduledEvent.EventEndDate",
+			Type:        "date",
+			Description: "Scheduled end time",
+			Operators:   dateOps,
+			Triggers:    []string{trSchedEvent},
+		},
+		{
+			Name:        "scheduledEvent.MaximumAttendees",
+			Type:        "number",
+			Description: "Maximum attendees",
+			Operators:   numOps,
+			Triggers:    []string{trSchedEvent},
+		},
+		{
+			Name:        "scheduledEvent.MinimumAttendees",
+			Type:        "number",
+			Description: "Minimum attendees",
+			Operators:   numOps,
+			Triggers:    []string{trSchedEvent},
+		},
+		{
+			Name:        "scheduledEvent.Color",
+			Type:        "string",
+			Description: "Event color",
+			Operators:   strOps,
+			Triggers:    []string{trSchedEvent},
+		},
+
+		// Roles facts
+		{
+			Name:        "role.RoleName", // was: role.Name
+			Type:        "string",
+			Description: "Role name",
+			Operators:   strOps,
+			Triggers:    []string{trRoles},
+		},
+		{
+			Name:        "role.Description",
+			Type:        "string",
+			Description: "Role description",
+			Operators:   strOps,
+			Triggers:    []string{trRoles},
+		},
+
+		// Temporal/global facts
 		{
 			Name:        "current_time",
 			Type:        "date",
 			Description: "Current date and time",
 			Operators:   []string{"before", "after", "equals"},
+			Triggers:    []string{trSchedEvent},
 		},
 	}
 }
@@ -375,30 +708,6 @@ func getOperatorMetadata() []OperatorMetadata {
 			Symbol:      "contains",
 			Description: "String contains substring",
 			Types:       []string{"string"},
-		},
-		{
-			Name:        "startsWith",
-			Symbol:      "startsWith",
-			Description: "String starts with substring",
-			Types:       []string{"string"},
-		},
-		{
-			Name:        "endsWith",
-			Symbol:      "endsWith",
-			Description: "String ends with substring",
-			Types:       []string{"string"},
-		},
-		{
-			Name:        "in",
-			Symbol:      "in",
-			Description: "Value is in the provided array",
-			Types:       []string{"string", "number"},
-		},
-		{
-			Name:        "notIn",
-			Symbol:      "notIn",
-			Description: "Value is not in the provided array",
-			Types:       []string{"string", "number"},
 		},
 		{
 			Name:        "isTrue",

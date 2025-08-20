@@ -1,7 +1,7 @@
 package main
 
 import (
-	"context"
+	// "context"
 	"log"
 	"time"
 
@@ -14,7 +14,7 @@ import (
 
 	This seeds two rulesv2 examples:
 	- EVENT_STATUS_CHANGED → logs when a schedule becomes Completed
-	- DAILY_COMPETENCY_EXPIRY_CHECK → logs when a required competency expires in ≤ 7 days
+	- DAILY_COMPETENCY_EXPIRY_CHECK → logs when a required competency expires in <= 7 days
 */
 
 func main() {
@@ -36,55 +36,57 @@ func main() {
 
 	// Register a simple console action so we can see results without email/webhooks
 	reg.UseAction("CONSOLE", consoleAction{})
+	reg.UseAction("create_event", &rules.CreateEventAction{DB: DB})
+	reg.UseAction("notification", &rules.NotificationAction{DB: DB})
 
 	// 4) Create the store
-	store := rules.DBRuleStore{DB: DB}
+	// store := rules.DBRuleStore{DB: DB}
 
-	// 5) Seed rules
-	ctx := context.Background()
+	// // 5) Seed rules
+	// ctx := context.Background()
 
-	// Rule A: When an event schedule hits "Completed" → log
-	ruleEventCompleted := rules.Rulev2{
-		Name:    "Event Completed → Console Log",
-		Trigger: rules.TriggerSpec{Type: "EVENT_STATUS_CHANGED"},
-		Conditions: []rules.Condition{
-			{Fact: "eventSchedule.StatusName", Operator: "equals", Value: "Completed"},
-		},
-		Actions: []rules.ActionSpec{
-			{
-				Type: "CONSOLE",
-				Parameters: map[string]any{
-					"msg": "Event {{.eventSchedule.ID}} completed by {{.employee.EmployeeNumber}}",
-				},
-			},
-		},
-	}
+	// // Rule A: When an event schedule hits "Completed" → log
+	// ruleEventCompleted := rules.Rulev2{
+	// 	Name:    "Event Completed → Console Log",
+	// 	Trigger: rules.TriggerSpec{Type: "EVENT_STATUS_CHANGED"},
+	// 	Conditions: []rules.Condition{
+	// 		{Fact: "eventSchedule.StatusName", Operator: "equals", Value: "Completed"},
+	// 	},
+	// 	Actions: []rules.ActionSpec{
+	// 		{
+	// 			Type: "CONSOLE",
+	// 			Parameters: map[string]any{
+	// 				"msg": "Event {{.eventSchedule.ID}} completed by {{.employee.EmployeeNumber}}",
+	// 			},
+	// 		},
+	// 	},
+	// }
 
-	// Rule B: 7-day critical competency expiry (Active + required + ≤7 days)
-	ruleExpiry := rules.Rulev2{
-		Name:    "7-Day Critical Competency Expiry Alert (Console)",
-		Trigger: rules.TriggerSpec{Type: "DAILY_COMPETENCY_EXPIRY_CHECK", Parameters: map[string]any{"daysBefore": 7}},
-		Conditions: []rules.Condition{
-			{Fact: "employee.EmployeeStatus", Operator: "equals", Value: "Active"},
-			{Fact: "competency.IsRequiredForCurrentJob", Operator: "isTrue"},
-			{Fact: "competency.DaysUntilExpiry", Operator: "lessThanOrEqual", Value: 7},
-		},
-		Actions: []rules.ActionSpec{
-			{
-				Type: "CONSOLE",
-				Parameters: map[string]any{
-					"msg": "Competency {{.competency.ID}} expires in {{.competency.DaysUntilExpiry}} days (emp={{.employee.EmployeeNumber}})",
-				},
-			},
-		},
-	}
+	// // Rule B: 7-day critical competency expiry (Active + required + ≤7 days)
+	// ruleExpiry := rules.Rulev2{
+	// 	Name:    "7-Day Critical Competency Expiry Alert (Console)",
+	// 	Trigger: rules.TriggerSpec{Type: "DAILY_COMPETENCY_EXPIRY_CHECK", Parameters: map[string]any{"daysBefore": 7}},
+	// 	Conditions: []rules.Condition{
+	// 		{Fact: "employee.EmployeeStatus", Operator: "equals", Value: "Active"},
+	// 		{Fact: "competency.IsRequiredForCurrentJob", Operator: "isTrue"},
+	// 		{Fact: "competency.DaysUntilExpiry", Operator: "lessThanOrEqual", Value: 7},
+	// 	},
+	// 	Actions: []rules.ActionSpec{
+	// 		{
+	// 			Type: "CONSOLE",
+	// 			Parameters: map[string]any{
+	// 				"msg": "Competency {{.competency.ID}} expires in {{.competency.DaysUntilExpiry}} days (emp={{.employee.EmployeeNumber}})",
+	// 			},
+	// 		},
+	// 	},
+	// }
 
-	if _, err := store.Seed(ctx, reg, ruleEventCompleted, true); err != nil {
-		log.Fatalf("seed rule A: %v", err)
-	}
-	if _, err := store.Seed(ctx, reg, ruleExpiry, true); err != nil {
-		log.Fatalf("seed rule B: %v", err)
-	}
+	// if _, err := store.Seed(ctx, reg, ruleEventCompleted, true); err != nil {
+	// 	log.Fatalf("seed rule A: %v", err)
+	// }
+	// if _, err := store.Seed(ctx, reg, ruleExpiry, true); err != nil {
+	// 	log.Fatalf("seed rule B: %v", err)
+	// }
 
 	log.Println("Rule seeding complete")
 }
@@ -101,4 +103,3 @@ func (consoleAction) Execute(ctx rules.EvalContext, params map[string]any) error
 	log.Printf("[CONSOLE] now=%s msg=%q params=%v", ctx.Now.Format(time.RFC3339), msg, params)
 	return nil
 }
-

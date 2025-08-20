@@ -165,40 +165,39 @@ describe('JobPositionManagementModal', () => {
     });
 
     it('deactivates an active position after confirm', async () => {
-        vi.spyOn(window, 'confirm').mockReturnValue(true);
         onToggleStatus.mockResolvedValueOnce({});
 
         renderModal();
 
-        // Button with title "Deactivate" belongs to active item
-        const deactivateBtn = screen.getByTitle('Deactivate');
-        // Click
-        fireEvent.click(deactivateBtn);
+        // Open confirm
+        fireEvent.click(screen.getByTitle('Deactivate'));
+        // Confirm action in modal
+        const confirmBtn = await screen.findByRole('button', { name: /Confirm/i });
+        fireEvent.click(confirmBtn);
 
-        expect(onToggleStatus).toHaveBeenCalledWith('DEV', false);
+        await waitFor(() => expect(onToggleStatus).toHaveBeenCalledWith('DEV', false));
     });
 
     it('reactivates an inactive position after confirm', async () => {
-        vi.spyOn(window, 'confirm').mockReturnValue(true);
         onToggleStatus.mockResolvedValueOnce({});
 
         renderModal();
 
-        const reactivateBtn = screen.getByTitle('Reactivate');
-        fireEvent.click(reactivateBtn);
+        fireEvent.click(screen.getByTitle('Reactivate'));
+        const confirmBtn = await screen.findByRole('button', { name: /Confirm/i });
+        fireEvent.click(confirmBtn);
 
-        expect(onToggleStatus).toHaveBeenCalledWith('OPS', true);
+        await waitFor(() => expect(onToggleStatus).toHaveBeenCalledWith('OPS', true));
     });
 
-    it('does not toggle status when confirm is cancelled', () => {
-        vi.spyOn(window, 'confirm').mockReturnValue(false);
-
+    it('does not toggle status when confirm is cancelled', async () => {
         renderModal();
 
-        const deactivateBtn = screen.getByTitle('Deactivate');
-        fireEvent.click(deactivateBtn);
+        fireEvent.click(screen.getByTitle('Deactivate'));
+        const cancelBtn = await screen.findByRole('button', { name: /Cancel/i });
+        fireEvent.click(cancelBtn);
 
-        expect(onToggleStatus).not.toHaveBeenCalled();
+        await waitFor(() => expect(onToggleStatus).not.toHaveBeenCalled());
     });
 
     it('shows API error message when add fails', async () => {

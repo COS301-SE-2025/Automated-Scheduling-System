@@ -3,13 +3,34 @@ package competency_type
 
 import (
 	"Automated-Scheduling-Project/internal/database/models"
+	rulesv2 "Automated-Scheduling-Project/internal/rulesV2" // added
+	"context"                                               // added
+	"log"
 	"net/http"
+	"time" // added
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 var DB *gorm.DB
+
+// added: rules service wiring
+var RulesSvc *rulesv2.RuleBackEndService
+
+func SetRulesService(s *rulesv2.RuleBackEndService) { RulesSvc = s }
+
+func fireCompetencyTypeTrigger(c *gin.Context, operation string, ct models.CompetencyType) {
+	if RulesSvc == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := RulesSvc.OnCompetencyType(ctx, operation, ct); err != nil {
+		log.Printf("Failed to fire competency type trigger (operation=%s, competencyType:%v): %v",
+			operation, ct, err)
+	}
+}
 
 // struct for creating/updating a type
 type TypeRequest struct {
@@ -49,6 +70,10 @@ func CreateCompetencyTypeHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create competency type. It may already exist."})
 		return
 	}
+
+	// fire trigger: competency_type create
+	fireCompetencyTypeTrigger(c, "create", newType)
+
 	c.JSON(http.StatusCreated, newType)
 }
 
@@ -74,6 +99,10 @@ func UpdateCompetencyTypeHandler(c *gin.Context) {
 
 	var updatedType models.CompetencyType
 	DB.First(&updatedType, "type_name = ?", typeName)
+
+	// fire trigger: competency_type update
+	fireCompetencyTypeTrigger(c, "update", updatedType)
+
 	c.JSON(http.StatusOK, updatedType)
 }
 
@@ -98,5 +127,13 @@ func UpdateTypeStatusHandler(c *gin.Context) {
 
 	var updatedType models.CompetencyType
 	DB.First(&updatedType, "type_name = ?", typeName)
+
+	// fire trigger: competency_type deactivate/reactivate
+	if req.IsActive != nil && *req.IsActive {
+		fireCompetencyTypeTrigger(c, "reactivate", updatedType)
+	} else {
+		fireCompetencyTypeTrigger(c, "deactivate", updatedType)
+	}
+
 	c.JSON(http.StatusOK, updatedType)
 }

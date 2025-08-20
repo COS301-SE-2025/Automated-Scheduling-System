@@ -2,11 +2,14 @@ package rulesv2
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"net/http"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // GetRulesMetadataHandler returns metadata about all available triggers, actions, facts, and operators
@@ -78,64 +81,7 @@ func ValidateRuleHandler(c *gin.Context) {
 	})
 }
 
-// TriggerJobMatrixUpdate triggers rules when job matrix is updated
-func TriggerJobMatrixUpdate(c *gin.Context, service *RuleBackEndService) {
-	var request struct {
-		EmployeeNumber string `json:"employeeNumber" binding:"required"`
-		CompetencyID   int32  `json:"competencyID" binding:"required"`
-		Action         string `json:"action" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	if err := service.OnJobMatrixUpdate(ctx, request.EmployeeNumber, request.CompetencyID, request.Action); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Job matrix update processed"})
-}
-
-// TriggerNewHire triggers rules for new employee
-func TriggerNewHire(c *gin.Context, service *RuleBackEndService) {
-	var request struct {
-		EmployeeNumber string `json:"employeeNumber" binding:"required"`
-	}
-
-	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	if err := service.OnNewHire(ctx, request.EmployeeNumber); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "New hire processing completed"})
-}
-
-// TriggerScheduledCheck runs scheduled competency checks
-func TriggerScheduledCheck(c *gin.Context, service *RuleBackEndService) {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	if err := service.RunScheduledChecks(ctx); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"status": "success", "message": "Scheduled checks completed"})
-}
+// Removed legacy new_hire and scheduled_competency_check handlers
 
 // GetRulesStatus returns system status and statistics
 func GetRulesStatus(c *gin.Context, service *RuleBackEndService) {
@@ -160,19 +106,31 @@ func ListRules(c *gin.Context, service *RuleBackEndService) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	rules, err := service.Store.ListAllRules(ctx)
+	// Fetch raw DB rows so we have id, name, trigger_type, enabled, spec
+	rows, err := service.Store.ListAllRuleRows(ctx)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"rules": rules})
+	// Return the exact shape the frontend normalizer expects
+	out := make([]map[string]any, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, map[string]any{
+			"id":          r.ID,
+			"name":        r.Name,
+			"triggerType": r.TriggerType,
+			"enabled":     r.Enabled,
+			"spec":        r.Spec, // datatypes.JSON marshals as raw JSON
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"rules": out})
 }
 
-// CreateRule creates a new rule
+// CreateRule creates a new rule and returns the DB id
 func CreateRule(c *gin.Context, service *RuleBackEndService) {
 	var rule Rulev2
-
 	if err := c.ShouldBindJSON(&rule); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -181,15 +139,13 @@ func CreateRule(c *gin.Context, service *RuleBackEndService) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// Generate rule ID
-	ruleID := "rule_" + strconv.FormatInt(time.Now().Unix(), 10)
-
-	if err := service.Store.CreateRule(ctx, rule, ruleID); err != nil {
+	newID, err := service.Store.CreateRule(ctx, rule)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": ruleID, "message": "Rule created successfully"})
+	c.JSON(http.StatusCreated, gin.H{"id": newID, "message": "Rule created successfully"})
 }
 
 // GetRule returns a specific rule by ID
@@ -208,6 +164,21 @@ func GetRule(c *gin.Context, service *RuleBackEndService) {
 	c.JSON(http.StatusOK, gin.H{"rule": rule})
 }
 
+// helper to map store errors to HTTP codes
+func httpStatusForStoreErr(err error) int {
+	if err == nil {
+		return http.StatusOK
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, sql.ErrNoRows) {
+		return http.StatusNotFound
+	}
+	// best-effort string check if store wraps its own error with "not found"
+	if strings.Contains(strings.ToLower(err.Error()), "not found") {
+		return http.StatusNotFound
+	}
+	return http.StatusInternalServerError
+}
+
 // UpdateRule updates an existing rule
 func UpdateRule(c *gin.Context, service *RuleBackEndService) {
 	ruleID := c.Param("id")
@@ -222,7 +193,7 @@ func UpdateRule(c *gin.Context, service *RuleBackEndService) {
 	defer cancel()
 
 	if err := service.Store.UpdateRule(ctx, ruleID, rule); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(httpStatusForStoreErr(err), gin.H{"error": err.Error()})
 		return
 	}
 
@@ -237,7 +208,7 @@ func DeleteRule(c *gin.Context, service *RuleBackEndService) {
 	defer cancel()
 
 	if err := service.Store.DeleteRule(ctx, ruleID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(httpStatusForStoreErr(err), gin.H{"error": err.Error()})
 		return
 	}
 
@@ -252,7 +223,7 @@ func EnableRule(c *gin.Context, service *RuleBackEndService) {
 	defer cancel()
 
 	if err := service.Store.EnableRule(ctx, ruleID, true); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(httpStatusForStoreErr(err), gin.H{"error": err.Error()})
 		return
 	}
 
@@ -267,9 +238,161 @@ func DisableRule(c *gin.Context, service *RuleBackEndService) {
 	defer cancel()
 
 	if err := service.Store.EnableRule(ctx, ruleID, false); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(httpStatusForStoreErr(err), gin.H{"error": err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Rule disabled successfully"})
+}
+
+// Trigger handlers (updated payloads, plus two new)
+
+func TriggerJobPosition(c *gin.Context, service *RuleBackEndService) {
+	var req struct {
+		Operation   string         `json:"operation" binding:"required"` // create|update|deactivate|reactivate
+		JobPosition map[string]any `json:"jobPosition"`                  // optional payload
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := service.OnJobPosition(ctx, req.Operation, req.JobPosition); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func TriggerCompetencyType(c *gin.Context, service *RuleBackEndService) {
+	var req struct {
+		Operation      string         `json:"operation" binding:"required"`
+		CompetencyType map[string]any `json:"competencyType"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := service.OnCompetencyType(ctx, req.Operation, req.CompetencyType); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func TriggerCompetency(c *gin.Context, service *RuleBackEndService) {
+	var req struct {
+		Operation  string         `json:"operation" binding:"required"`
+		Competency map[string]any `json:"competency"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := service.OnCompetency(ctx, req.Operation, req.Competency); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func TriggerEventDefinition(c *gin.Context, service *RuleBackEndService) {
+	var req struct {
+		Operation       string         `json:"operation" binding:"required"`
+		EventDefinition map[string]any `json:"eventDefinition"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := service.OnEventDefinition(ctx, req.Operation, req.EventDefinition); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func TriggerScheduledEvent(c *gin.Context, service *RuleBackEndService) {
+	var req struct {
+		Operation      string         `json:"operation" binding:"required"`
+		UpdateField    string         `json:"update_field"`
+		ScheduledEvent map[string]any `json:"scheduledEvent"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := service.OnScheduledEvent(ctx, req.Operation, req.UpdateField, req.ScheduledEvent); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func TriggerRoles(c *gin.Context, service *RuleBackEndService) {
+	var req struct {
+		Operation  string         `json:"operation" binding:"required"`
+		UpdateKind string         `json:"update_kind"`
+		Role       map[string]any `json:"role"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := service.OnRoles(ctx, req.Operation, req.UpdateKind, req.Role); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func TriggerLinkJobToCompetency(c *gin.Context, service *RuleBackEndService) {
+	var req struct {
+		Operation   string         `json:"operation" binding:"required"` // add|remove
+		Link        map[string]any `json:"link"`
+		JobPosition map[string]any `json:"jobPosition"`
+		Competency  map[string]any `json:"competency"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := service.OnLinkJobToCompetency(ctx, req.Operation, req.Link, req.JobPosition, req.Competency); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}
+
+func TriggerCompetencyPrerequisite(c *gin.Context, service *RuleBackEndService) {
+	var req struct {
+		Operation    string         `json:"operation" binding:"required"` // add|remove
+		Prerequisite map[string]any `json:"prerequisite"`
+		Competency   map[string]any `json:"competency"` // parent competency (optional)
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if err := service.OnCompetencyPrerequisite(ctx, req.Operation, req.Prerequisite, req.Competency); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
 }

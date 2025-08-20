@@ -63,11 +63,14 @@ func main() {
 	// Initialize RulesV2 Backend Service
 	rulesService := rulesv2.NewRuleBackEndService(dbConnection)
 
-	// Create sample rules for demonstration (optional - remove in production)
-	ctx := context.Background()
-	if err := rulesService.CreateSampleRules(ctx); err != nil {
-		log.Printf("Warning: Failed to create sample rules: %v", err)
-	}
+	// Inject rules service into domain handlers that should fire triggers
+	event.SetRulesService(rulesService)
+	competency.SetRulesService(rulesService)
+	jobposition.SetRulesService(rulesService)
+	competency_type.SetRulesService(rulesService)
+	matrix.SetRulesService(rulesService)
+	role.SetRulesService(rulesService)
+
 
 	server := server.NewServer(rulesService)
 

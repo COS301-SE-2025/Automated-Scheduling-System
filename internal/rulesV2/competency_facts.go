@@ -6,16 +6,17 @@ import (
 )
 
 // CompetencyFacts resolves fields under "competency." plus common derived flags:
-// - competency.IsRequiredForCurrentJob (bool) – expects context to provide:
-//   "competency": map[string]any{ "ID": "COMP_X", "ExpiryDate": "2025-01-31", ... }
-//   "jobRequiredCompetencyIDs": []string{"COMP_X","COMP_Y"}
-// - competency.DaysUntilExpiry (int) – derived from ExpiryDate
+//   - competency.IsRequiredForCurrentJob (bool) – expects context to provide:
+//     "competency": map[string]any{ "ID": "COMP_X", "ExpiryDate": "2025-01-31", ... }
+//     "jobRequiredCompetencyIDs": []string{"COMP_X","COMP_Y"}
+//   - competency.DaysUntilExpiry (int) – derived from ExpiryDate
 //
 // You can extend with more derived metrics as your UI/conditions need.
 type CompetencyFacts struct{}
 
 func (CompetencyFacts) Resolve(evCtx EvalContext, path string) (any, bool, error) {
-	if !strings.HasPrefix(path, "competency.") {
+	// Accept case-insensitive prefix so "Competency.*" also works
+	if !strings.HasPrefix(strings.ToLower(path), "competency.") {
 		return nil, false, nil
 	}
 
@@ -74,15 +75,18 @@ func competencyRequiredForJob(evCtx EvalContext) (any, bool, error) {
 func competencyDaysUntilExpiry(evCtx EvalContext) (any, bool, error) {
 	compTop, ok := fetchTop(evCtx, "competency")
 	if !ok {
-		return nil, true, nil
+		// No competency in context → this fact is not handled
+		return nil, false, nil
 	}
 	v, ok := resolveFromMapOrStruct(compTop, []string{"ExpiryDate"})
 	if !ok {
-		return nil, true, nil
+		// No ExpiryDate available on competency → not handled
+		return nil, false, nil
 	}
 	exp, ok := asTime(v)
 	if !ok {
-		return nil, true, nil
+		// ExpiryDate present but unparsable → not handled to avoid operator errors
+		return nil, false, nil
 	}
 	days := int(exp.Sub(evCtx.Now).Hours() / 24)
 	return days, true, nil

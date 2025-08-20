@@ -62,7 +62,7 @@ describe('Event Service', () => {
             },
         ];
 
-        const expectedCalendarEvents: CalendarEvent[] = [
+    const expectedCalendarEvents: CalendarEvent[] = [
             {
                 id: '1',
                 title: 'Team Meeting',
@@ -79,7 +79,9 @@ describe('Event Service', () => {
                     statusName: 'Scheduled',
                     creationDate: '2025-06-20T10:00:00Z',
                     facilitator: 'Admin',
-                    relevantParties: 'All',
+            relevantParties: 'Unassigned',
+            employees: [],
+            positions: [],
                     color: '#3788d8',
                 },
             },
@@ -99,7 +101,9 @@ describe('Event Service', () => {
                     statusName: 'Confirmed',
                     creationDate: '2025-06-21T10:00:00Z',
                     facilitator: 'Lead Dev',
-                    relevantParties: 'All',
+            relevantParties: 'Unassigned',
+            employees: [],
+            positions: [],
                     color: '#ff9f89',
                 },
             },
