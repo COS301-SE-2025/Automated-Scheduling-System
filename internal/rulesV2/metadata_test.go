@@ -31,7 +31,7 @@ func TestGetRulesMetadata(t *testing.T) {
 		actionTypes[action.Type] = true
 	}
 	assert.True(t, actionTypes["notification"])
-	assert.True(t, actionTypes["schedule_training"])
+	assert.True(t, actionTypes["create_event"]) // Changed from schedule_training to create_event
 	assert.True(t, actionTypes["competency_assignment"])
 	assert.True(t, actionTypes["webhook"])
 	assert.True(t, actionTypes["audit_log"])
