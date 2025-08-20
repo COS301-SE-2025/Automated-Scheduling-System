@@ -36,7 +36,7 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 		UseTrigger("link_job_to_competency", &LinkJobToCompetencyTrigger{DB: db}).
 		UseTrigger("competency_prerequisite", &CompetencyPrerequisiteTrigger{DB: db}).
 		UseAction("notification", &NotificationAction{DB: db}).
-		UseAction("schedule_training", &ScheduleTrainingAction{DB: db}).
+		// UseAction("schedule_training", &ScheduleTrainingAction{DB: db}).
 		UseAction("competency_assignment", &CompetencyAssignmentAction{DB: db}).
 		UseAction("webhook", &WebhookAction{}).
 		UseAction("audit_log", &AuditLogAction{DB: db}).

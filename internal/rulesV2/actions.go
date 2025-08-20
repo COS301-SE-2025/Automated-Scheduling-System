@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"Automated-Scheduling-Project/internal/database/gen_models"
+	"Automated-Scheduling-Project/internal/database/models"
 	"Automated-Scheduling-Project/internal/email"
 	"Automated-Scheduling-Project/internal/sms"
 
@@ -95,126 +97,170 @@ type CreateEventAction struct {
 
 func (a *CreateEventAction) Execute(ctx EvalContext, params map[string]any) error {
 	title, _ := params["title"].(string)
-	eventType, _ := params["eventType"].(string)
 	startTime, _ := params["startTime"].(string)
 	endTime, _ := params["endTime"].(string)
-	relevantParties, _ := params["relevantParties"].(string)
+	employeeNumbers, _ := params["employeeNumbers"].([]string)
+	positionCodes, _ := params["positionCodes"].([]string)
+	roomName, _ := params["roomName"].(string)
 	color, _ := params["color"].(string)
-	allDay, _ := params["allDay"].(bool)
+	statusName, _ := params["statusName"].(string)
+	maxAttendees, _ := params["maxAttendees"].(int)
+	minAttendees, _ := params["minAttendees"].(int)
+	var createdByUserID *int64 = nil
 
-	if title == "" || eventType == "" || startTime == "" || relevantParties == "" {
-		return fmt.Errorf("create_event requires title, eventType, startTime, and relevantParties")
+	// Convert string to int
+	customEventID := 0
+
+	if parsed, err := strconv.Atoi(params["customEventID"].(string)); err == nil {
+		customEventID = parsed
 	}
-	if color == "" {
-		color = "#007bff" // Default color if not provided
+
+	// Required fields validation
+	if title == "" || customEventID == 0 || startTime == "" {
+		return fmt.Errorf("create_event requires title, customEventID, and startTime")
 	}
 
 	// Parse start time
-	var startDateTime time.Time
-	if startTime != "" {
-		var err error
-		startDateTime, err = time.Parse("2006-01-02 15:04", startTime)
+	startDateTime, err := time.Parse("2006-01-02 15:04", startTime)
+	if err != nil {
+		// Try alternative format
+		startDateTime, err = time.Parse(time.RFC3339, startTime)
 		if err != nil {
 			return fmt.Errorf("invalid startTime format: %w", err)
 		}
-	} else {
-		startDateTime = time.Now() // Default to now if not provided
 	}
 
 	// Parse end time
 	var endDateTime time.Time
 	if endTime != "" {
-		var err error
 		endDateTime, err = time.Parse("2006-01-02 15:04", endTime)
 		if err != nil {
-			return fmt.Errorf("invalid endTime format: %w", err)
+			// Try alternative format
+			endDateTime, err = time.Parse(time.RFC3339, endTime)
+			if err != nil {
+				return fmt.Errorf("invalid endTime format: %w", err)
+			}
 		}
 	} else {
 		endDateTime = startDateTime.Add(2 * time.Hour) // Default to 2 hours later
 	}
 
-	if eventType == "" {
-		eventType = "general"
-	}
-
+	// Set defaults
 	if color == "" {
 		color = "#007bff"
 	}
+	if statusName == "" {
+		statusName = "Scheduled"
+	}
 
-	if relevantParties == "" {
-		if employee, ok := ctx.Data["employee"].(gen_models.Employee); ok {
-			relevantParties = employee.Employeenumber
-		} else {
-			return fmt.Errorf("relevantParties is required")
+	// Validate customEventID exists
+	var count int64
+	if err := a.DB.Model(&models.CustomEventDefinition{}).Where("custom_event_id = ?", customEventID).Count(&count).Error; err != nil {
+		return fmt.Errorf("database error while checking for event definition: %w", err)
+	}
+	if count == 0 {
+		return fmt.Errorf("event definition with ID %d not found", customEventID)
+	}
+
+	// Create the schedule
+	schedule := models.CustomEventSchedule{
+		CustomEventID:    customEventID,
+		Title:            title,
+		EventStartDate:   startDateTime,
+		EventEndDate:     endDateTime,
+		RoomName:         roomName,
+		MaximumAttendees: maxAttendees,
+		MinimumAttendees: minAttendees,
+		StatusName:       statusName,
+		Color:            color,
+		CreatedByUserID:  createdByUserID,
+	}
+
+	// Janky to omit like this, but nothing else worked for some reason
+	if err := a.DB.Omit("created_by_user_id").Create(&schedule).Error; err != nil {
+		return fmt.Errorf("failed to create event schedule: %w", err)
+	}
+
+	// Create employee links
+	for _, empNum := range employeeNumbers {
+		if empNum != "" {
+			empLink := models.EventScheduleEmployee{
+				CustomEventScheduleID: schedule.CustomEventScheduleID,
+				EmployeeNumber:        empNum,
+				Role:                  "Attendee",
+			}
+			if err := a.DB.Create(&empLink).Error; err != nil {
+				log.Printf("Failed to create employee link for %s: %v", empNum, err)
+			}
 		}
 	}
 
-	event := gen_models.Event{
-		Title:           title,
-		EventType:       eventType,
-		RelevantParties: relevantParties,
-		StartTime:       startDateTime,
-		EndTime:         endDateTime,
-		AllDay:          allDay,
-		Color:           color,
+	// Create position target links
+	for _, posCode := range positionCodes {
+		if posCode != "" {
+			posTarget := models.EventSchedulePositionTarget{
+				CustomEventScheduleID: schedule.CustomEventScheduleID,
+				PositionMatrixCode:    posCode,
+			}
+			if err := a.DB.Create(&posTarget).Error; err != nil {
+				log.Printf("Failed to create position target for %s: %v", posCode, err)
+			}
+		}
 	}
 
-	if err := a.DB.Create(&event).Error; err != nil {
-		return fmt.Errorf("failed to create event: %w", err)
-	}
-	log.Printf("EVENT CREATED: ID=%d, Title=%s, Type=%s, Start=%s, Parties=%s",
-		event.ID, title, eventType, startDateTime.Format("2006-01-02 15:04"), relevantParties)
+	log.Printf("EVENT SCHEDULE CREATED: ID=%d, Title=%s, CustomEventID=%d, Start=%s",
+		schedule.CustomEventScheduleID, title, customEventID, startDateTime.Format("2006-01-02 15:04"))
 
 	return nil
 }
 
 // ScheduleTrainingAction schedules training events
-type ScheduleTrainingAction struct {
-	DB *gorm.DB
-}
+// type ScheduleTrainingAction struct {
+// 	DB *gorm.DB
+// }
 
-func (a *ScheduleTrainingAction) Execute(ctx EvalContext, params map[string]any) error {
-	employeeNumber, _ := params["employeeNumber"].(string)
-	eventType, _ := params["eventType"].(string)
-	scheduledDate, _ := params["scheduledDate"].(string)
+// func (a *ScheduleTrainingAction) Execute(ctx EvalContext, params map[string]any) error {
+// 	employeeNumber, _ := params["employeeNumber"].(string)
+// 	eventType, _ := params["eventType"].(string)
+// 	scheduledDate, _ := params["scheduledDate"].(string)
 
-	if employeeNumber == "" || eventType == "" {
-		return fmt.Errorf("schedule_training requires employeeNumber and eventType")
-	}
+// 	if employeeNumber == "" || eventType == "" {
+// 		return fmt.Errorf("schedule_training requires employeeNumber and eventType")
+// 	}
 
-	// Parse scheduled date
-	var scheduledTime time.Time
-	if scheduledDate != "" {
-		var err error
-		scheduledTime, err = time.Parse("2006-01-02", scheduledDate)
-		if err != nil {
-			scheduledTime, err = time.Parse(time.RFC3339, scheduledDate)
-			if err != nil {
-				scheduledTime = time.Now().AddDate(0, 0, 7) // Default to next week
-			}
-		}
-	} else {
-		scheduledTime = time.Now().AddDate(0, 0, 7) // Default to next week
-	}
+// 	// Parse scheduled date
+// 	var scheduledTime time.Time
+// 	if scheduledDate != "" {
+// 		var err error
+// 		scheduledTime, err = time.Parse("2006-01-02", scheduledDate)
+// 		if err != nil {
+// 			scheduledTime, err = time.Parse(time.RFC3339, scheduledDate)
+// 			if err != nil {
+// 				scheduledTime = time.Now().AddDate(0, 0, 7) // Default to next week
+// 			}
+// 		}
+// 	} else {
+// 		scheduledTime = time.Now().AddDate(0, 0, 7) // Default to next week
+// 	}
 
-	// Create training event
-	event := gen_models.Event{
-		Title:           fmt.Sprintf("%s Training for %s", eventType, employeeNumber),
-		EventType:       eventType,
-		RelevantParties: employeeNumber,
-		StartTime:       scheduledTime,
-		EndTime:         scheduledTime.Add(2 * time.Hour), // Default 2-hour duration
-		AllDay:          false,
-		Color:           "#007bff", // Blue color for training events
-	}
+// 	// Create training event
+// 	event := gen_models.Event{
+// 		Title:           fmt.Sprintf("%s Training for %s", eventType, employeeNumber),
+// 		EventType:       eventType,
+// 		RelevantParties: employeeNumber,
+// 		StartTime:       scheduledTime,
+// 		EndTime:         scheduledTime.Add(2 * time.Hour), // Default 2-hour duration
+// 		AllDay:          false,
+// 		Color:           "#007bff", // Blue color for training events
+// 	}
 
-	if err := a.DB.Create(&event).Error; err != nil {
-		return fmt.Errorf("failed to schedule training: %w", err)
-	}
+// 	if err := a.DB.Create(&event).Error; err != nil {
+// 		return fmt.Errorf("failed to schedule training: %w", err)
+// 	}
 
-	log.Printf("TRAINING SCHEDULED: Employee=%s, Type=%s, Date=%s", employeeNumber, eventType, scheduledTime.Format("2006-01-02"))
-	return nil
-}
+// 	log.Printf("TRAINING SCHEDULED: Employee=%s, Type=%s, Date=%s", employeeNumber, eventType, scheduledTime.Format("2006-01-02"))
+// 	return nil
+// }
 
 // CompetencyAssignmentAction manages competency assignments
 type CompetencyAssignmentAction struct {

@@ -26,20 +26,20 @@ type CustomEventDefinition struct {
 type CustomEventSchedule struct {
 	CustomEventScheduleID int `gorm:"primaryKey;autoIncrement"`
 	CustomEventID         int // Foreign key to CustomEventDefinition
-	Title                 string    
+	Title                 string
 	EventStartDate        time.Time
 	EventEndDate          time.Time
 	RoomName              string
 	MaximumAttendees      int
 	MinimumAttendees      int
 	StatusName            string
-	Color                 string    `json:"color"`
-	CreationDate          time.Time `gorm:"autoCreateTime"`
+	Color                 string                `json:"color"`
+	CreationDate          time.Time             `gorm:"autoCreateTime"`
 	CustomEventDefinition CustomEventDefinition `gorm:"foreignKey:CustomEventID;references:CustomEventID"`
-	CreatedByUserID       int64
+	CreatedByUserID       *int64                `gorm:"default:null"`
 	// Associations
-	Employees             []EventScheduleEmployee        `gorm:"foreignKey:CustomEventScheduleID"`
-	Positions             []EventSchedulePositionTarget  `gorm:"foreignKey:CustomEventScheduleID"`
+	Employees []EventScheduleEmployee       `gorm:"foreignKey:CustomEventScheduleID"`
+	Positions []EventSchedulePositionTarget `gorm:"foreignKey:CustomEventScheduleID"`
 }
 
 // =====================================================================
@@ -84,31 +84,31 @@ type EventScheduleResponse struct {
 
 // Linking tables for schedule targets
 type EventScheduleEmployee struct {
-	ScheduleEmployeeID     int    `gorm:"primaryKey;autoIncrement"`
-	CustomEventScheduleID  int    `gorm:"column:custom_event_schedule_id"`
-	EmployeeNumber         string `gorm:"column:employee_number"`
-	Role                   string `gorm:"column:role"`
+	ScheduleEmployeeID    int    `gorm:"primaryKey;autoIncrement"`
+	CustomEventScheduleID int    `gorm:"column:custom_event_schedule_id"`
+	EmployeeNumber        string `gorm:"column:employee_number"`
+	Role                  string `gorm:"column:role"`
 }
 
 func (EventScheduleEmployee) TableName() string { return "event_schedule_employees" }
 
 type EventSchedulePositionTarget struct {
-	SchedulePositionID     int    `gorm:"primaryKey;autoIncrement"`
-	CustomEventScheduleID  int    `gorm:"column:custom_event_schedule_id"`
-	PositionMatrixCode     string `gorm:"column:position_matrix_code"`
+	SchedulePositionID    int    `gorm:"primaryKey;autoIncrement"`
+	CustomEventScheduleID int    `gorm:"column:custom_event_schedule_id"`
+	PositionMatrixCode    string `gorm:"column:position_matrix_code"`
 }
 
 func (EventSchedulePositionTarget) TableName() string { return "event_schedule_position_targets" }
 
 type EventAttendance struct {
-	ID                    int       `gorm:"primaryKey;autoIncrement" json:"id"`
-	CustomEventScheduleID int       `gorm:"column:custom_event_schedule_id;index" json:"customEventScheduleId"`
-	EmployeeNumber        string    `gorm:"column:employee_number;index" json:"employeeNumber"`
+	ID                    int    `gorm:"primaryKey;autoIncrement" json:"id"`
+	CustomEventScheduleID int    `gorm:"column:custom_event_schedule_id;index" json:"customEventScheduleId"`
+	EmployeeNumber        string `gorm:"column:employee_number;index" json:"employeeNumber"`
 	// NOTE: Do NOT set a GORM default here; we must be able to persist explicit false values.
-	Attended              bool      `gorm:"column:attended" json:"attended"`
-	CheckInTime           *time.Time `gorm:"column:check_in_time" json:"checkInTime"`
-	CheckOutTime          *time.Time `gorm:"column:check_out_time" json:"checkOutTime"`
-	CreatedAt             time.Time `gorm:"autoCreateTime" json:"createdAt"`
+	Attended     bool       `gorm:"column:attended" json:"attended"`
+	CheckInTime  *time.Time `gorm:"column:check_in_time" json:"checkInTime"`
+	CheckOutTime *time.Time `gorm:"column:check_out_time" json:"checkOutTime"`
+	CreatedAt    time.Time  `gorm:"autoCreateTime" json:"createdAt"`
 }
 
 func (EventAttendance) TableName() string { return "event_attendance" }
