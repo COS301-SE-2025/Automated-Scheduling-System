@@ -7,8 +7,8 @@ import (
 	rulesv2 "Automated-Scheduling-Project/internal/rulesV2"
 	"log"
 
-	//"log"
 	"context"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -247,9 +247,114 @@ func DeleteEventDefinitionHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Event definition deleted successfully"})
 }
 
-// ================================================================
-// Event Schedule Handlers (for managing calendar instances)
-// ================================================================
+// CreateEventScheduleParams holds the parameters needed to create an event schedule
+type CreateEventScheduleParams struct {
+	Request         models.CreateEventScheduleRequest
+	CurrentUser     *gen_models.User
+	CurrentEmployee *gen_models.Employee
+	IsAdmin         bool
+	IsHR            bool
+}
+
+// CreateEventScheduleResult holds the result of creating an event schedule
+type CreateEventScheduleResult struct {
+	Schedule     models.CustomEventSchedule
+	AllSchedules []models.CustomEventSchedule
+}
+
+// CreateEventSchedule creates a new scheduled instance of an event definition.
+// This function contains the core business logic and can be called from anywhere in the project.
+func CreateEventSchedule(params CreateEventScheduleParams) (*CreateEventScheduleResult, error) {
+	req := params.Request
+	currentUser := params.CurrentUser
+	currentEmployee := params.CurrentEmployee
+	isAdmin := params.IsAdmin
+	isHR := params.IsHR
+
+	// Enforce create constraints for generic users
+	if !isAdmin && !isHR {
+		// Generic users cannot target other employees or positions
+		if len(req.PositionCodes) > 0 {
+			return nil, fmt.Errorf("you cannot target job positions")
+		}
+		if len(req.EmployeeNumbers) > 0 {
+			// Only themselves permitted
+			if !(len(req.EmployeeNumbers) == 1 && req.EmployeeNumbers[0] == currentEmployee.Employeenumber) {
+				return nil, fmt.Errorf("you can only schedule for yourself")
+			}
+		}
+	}
+
+	// Check if the referenced CustomEventID exists before creating a schedule for it.
+	var count int64
+	if err := DB.Model(&models.CustomEventDefinition{}).Where("custom_event_id = ?", req.CustomEventID).Count(&count).Error; err != nil {
+		return nil, fmt.Errorf("database error while checking for event definition: %w", err)
+	}
+	if count == 0 {
+		return nil, fmt.Errorf("event definition with the specified ID not found")
+	}
+
+	// Only set the foreign key `CustomEventID`.
+	schedule := models.CustomEventSchedule{
+		CustomEventID:    req.CustomEventID, // FK
+		Title:            req.Title,
+		EventStartDate:   req.EventStartDate,
+		EventEndDate:     req.EventEndDate,
+		RoomName:         req.RoomName,
+		MaximumAttendees: req.MaximumAttendees,
+		MinimumAttendees: req.MinimumAttendees,
+		StatusName:       "Scheduled",
+		Color:            req.Color,
+	}
+	if currentUser != nil {
+		schedule.CreatedByUserID = &currentUser.ID
+	}
+
+	if req.StatusName != "" {
+		schedule.StatusName = req.StatusName
+	}
+
+	// GORM will now only insert into the `custom_event_schedules` table.
+	if err := DB.Create(&schedule).Error; err != nil {
+		return nil, fmt.Errorf("failed to create event schedule: %w", err)
+	}
+
+	// Write target links if any
+	if len(req.EmployeeNumbers) == 0 && !isAdmin && !isHR {
+		// For generic user with no explicit employeeNumbers, attach themselves
+		if err := DB.Create(&models.EventScheduleEmployee{CustomEventScheduleID: schedule.CustomEventScheduleID, EmployeeNumber: currentEmployee.Employeenumber, Role: "Attendee"}).Error; err != nil {
+			return nil, fmt.Errorf("failed to create employee link: %w", err)
+		}
+	} else {
+		for _, emp := range req.EmployeeNumbers {
+			if err := DB.Create(&models.EventScheduleEmployee{CustomEventScheduleID: schedule.CustomEventScheduleID, EmployeeNumber: emp, Role: "Attendee"}).Error; err != nil {
+				return nil, fmt.Errorf("failed to create employee link for %s: %w", emp, err)
+			}
+		}
+	}
+	for _, pos := range req.PositionCodes {
+		if err := DB.Create(&models.EventSchedulePositionTarget{CustomEventScheduleID: schedule.CustomEventScheduleID, PositionMatrixCode: pos}).Error; err != nil {
+			return nil, fmt.Errorf("failed to create position target for %s: %w", pos, err)
+		}
+	}
+
+	// After creating, fetch and return the entire updated list of schedules.
+	// This ensures the frontend state is always consistent.
+	var allSchedules []models.CustomEventSchedule
+	if err := DB.Preload("CustomEventDefinition").Preload("Employees").Preload("Positions").Order("event_start_date asc").Find(&allSchedules).Error; err != nil {
+		// The creation succeeded, but we can't return the list.
+		// Return the single created item as a fallback.
+		return &CreateEventScheduleResult{
+			Schedule:     schedule,
+			AllSchedules: []models.CustomEventSchedule{schedule},
+		}, nil
+	}
+
+	return &CreateEventScheduleResult{
+		Schedule:     schedule,
+		AllSchedules: allSchedules,
+	}, nil
+}
 
 // CreateEventScheduleHandler creates a new scheduled instance of an event definition.
 func CreateEventScheduleHandler(c *gin.Context) {
@@ -266,84 +371,35 @@ func CreateEventScheduleHandler(c *gin.Context) {
 		return
 	}
 
-	// Enforce create constraints for generic users
-	if !isAdmin && !isHR {
-		// Generic users cannot target other employees or positions
-		if len(req.PositionCodes) > 0 {
-			c.JSON(http.StatusForbidden, gin.H{"error": "You cannot target job positions"})
-			return
+	// Call the extracted business logic function
+	params := CreateEventScheduleParams{
+		Request:         req,
+		CurrentUser:     currentUser,
+		CurrentEmployee: currentEmployee,
+		IsAdmin:         isAdmin,
+		IsHR:            isHR,
+	}
+
+	result, err := CreateEventSchedule(params)
+	if err != nil {
+		// Determine appropriate HTTP status based on error message
+		status := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "not found") {
+			status = http.StatusNotFound
+		} else if strings.Contains(err.Error(), "cannot target") || strings.Contains(err.Error(), "can only schedule") {
+			status = http.StatusForbidden
+		} else if strings.Contains(err.Error(), "database error") {
+			status = http.StatusInternalServerError
 		}
-		if len(req.EmployeeNumbers) > 0 {
-			// Only themselves permitted
-			if !(len(req.EmployeeNumbers) == 1 && req.EmployeeNumbers[0] == currentEmployee.Employeenumber) {
-				c.JSON(http.StatusForbidden, gin.H{"error": "You can only schedule for yourself"})
-				return
-			}
-		}
-	}
 
-	// Check if the referenced CustomEventID exists before creating a schedule for it.
-	var count int64
-	if err := DB.Model(&models.CustomEventDefinition{}).Where("custom_event_id = ?", req.CustomEventID).Count(&count).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error while checking for event definition"})
-		return
-	}
-	if count == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Event definition with the specified ID not found"})
-		return
-	}
-
-	// Only set the foreign key `CustomEventID`.
-	schedule := models.CustomEventSchedule{
-		CustomEventID:    req.CustomEventID, // FK
-		Title:            req.Title,
-		EventStartDate:   req.EventStartDate,
-		EventEndDate:     req.EventEndDate,
-		RoomName:         req.RoomName,
-		MaximumAttendees: req.MaximumAttendees,
-		MinimumAttendees: req.MinimumAttendees,
-		StatusName:       "Scheduled",
-		Color:            req.Color,
-		CreatedByUserID:  currentUser.ID,
-	}
-
-	if req.StatusName != "" {
-		schedule.StatusName = req.StatusName
-	}
-
-	// GORM will now only insert into the `custom_event_schedules` table.
-	if err := DB.Create(&schedule).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create event schedule"})
-		return
-	}
-
-	// Write target links if any
-	if len(req.EmployeeNumbers) == 0 && !isAdmin && !isHR {
-		// For generic user with no explicit employeeNumbers, attach themselves
-		_ = DB.Create(&models.EventScheduleEmployee{CustomEventScheduleID: schedule.CustomEventScheduleID, EmployeeNumber: currentEmployee.Employeenumber, Role: "Attendee"}).Error
-	} else {
-		for _, emp := range req.EmployeeNumbers {
-			_ = DB.Create(&models.EventScheduleEmployee{CustomEventScheduleID: schedule.CustomEventScheduleID, EmployeeNumber: emp, Role: "Attendee"}).Error
-		}
-	}
-	for _, pos := range req.PositionCodes {
-		_ = DB.Create(&models.EventSchedulePositionTarget{CustomEventScheduleID: schedule.CustomEventScheduleID, PositionMatrixCode: pos}).Error
-	}
-
-	// After creating, fetch and return the entire updated list of schedules.
-	// This ensures the frontend state is always consistent.
-	var allSchedules []models.CustomEventSchedule
-	if err := DB.Preload("CustomEventDefinition").Preload("Employees").Preload("Positions").Order("event_start_date asc").Find(&allSchedules).Error; err != nil {
-		// The creation succeeded, but we can't return the list.
-		// Return the single created item as a fallback.
-		c.JSON(http.StatusCreated, schedule)
+		c.JSON(status, gin.H{"error": err.Error()})
 		return
 	}
 
 	// fire rules trigger
-	fireScheduledEventTrigger(c, "create", "", schedule)
+	fireScheduledEventTrigger(c, "create", "", result.Schedule)
 
-	c.JSON(http.StatusCreated, allSchedules)
+	c.JSON(http.StatusCreated, result.AllSchedules)
 }
 
 // GetEventSchedulesHandler fetches all scheduled events, suitable for a calendar view.
@@ -412,10 +468,10 @@ func UpdateEventScheduleHandler(c *gin.Context) {
 		// Ensure the user is the creator or is directly linked; and cannot add others
 		var linkCount int64
 		_ = DB.Model(&models.EventScheduleEmployee{}).Where("custom_event_schedule_id = ? AND employee_number = ?", scheduleToUpdate.CustomEventScheduleID, currentEmployee.Employeenumber).Count(&linkCount)
-		if scheduleToUpdate.CreatedByUserID == 0 || (scheduleToUpdate.CreatedByUserID != 0 && linkCount == 0) {
+		if scheduleToUpdate.CreatedByUserID == nil || (scheduleToUpdate.CreatedByUserID != nil && linkCount == 0) {
 			// load creator to be safe
 		}
-		if scheduleToUpdate.CreatedByUserID != 0 && linkCount == 0 {
+		if scheduleToUpdate.CreatedByUserID != nil && linkCount == 0 {
 			c.JSON(http.StatusForbidden, gin.H{"error": "You are not permitted to modify this event"})
 			return
 		}

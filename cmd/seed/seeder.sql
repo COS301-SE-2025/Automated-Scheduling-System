@@ -123,7 +123,7 @@ CREATE TABLE custom_event_schedules (
     status_name VARCHAR(50) DEFAULT 'Scheduled', -- e.g., 'Scheduled', 'Cancelled', 'Full'
     color VARCHAR(7) DEFAULT '#3788d8',
     creation_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-    created_by_user_id BIGINT NOT NULL REFERENCES users(id)
+    created_by_user_id BIGINT NULL DEFAULT NULL REFERENCES users(id)
 );
 
 -- Link scheduled events to employees and job positions
