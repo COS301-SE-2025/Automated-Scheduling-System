@@ -3,8 +3,9 @@ package role
 import (
 	"Automated-Scheduling-Project/internal/database/gen_models"
 	"Automated-Scheduling-Project/internal/database/models"
-	"Automated-Scheduling-Project/internal/rulesV2" // added
-	"context"                                       // added
+	rulesv2 "Automated-Scheduling-Project/internal/rulesV2" // added
+	"context"                                               // added
+	"log"
 	"net/http"
 	"strconv"
 	"time" // added
@@ -17,13 +18,19 @@ var DB *gorm.DB
 
 // added: rules service wiring
 var RulesSvc *rulesv2.RuleBackEndService
+
 func SetRulesService(s *rulesv2.RuleBackEndService) { RulesSvc = s }
 
 func fireRolesTrigger(c *gin.Context, operation, updateKind string, roleObj models.Role) {
-    if RulesSvc == nil { return }
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-    defer cancel()
-    _ = RulesSvc.OnRoles(ctx, operation, updateKind, roleObj)
+	if RulesSvc == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := RulesSvc.OnRoles(ctx, operation, updateKind, roleObj); err != nil {
+		log.Printf("Failed to fire roles trigger (operation=%s, updateKind=%s, roleID=%d): %v",
+			operation, updateKind, roleObj.RoleID, err)
+	}
 }
 
 // Helpers
@@ -154,15 +161,15 @@ func UpdateRoleHandler(c *gin.Context) {
 	// fire trigger: roles update
 	// emit specific kinds if we detected permission changes; otherwise general
 	switch {
-    case added && removed:
-        fireRolesTrigger(c, "update", "permission_added", role)
-        fireRolesTrigger(c, "update", "permission_removed", role)
-    case added:
-        fireRolesTrigger(c, "update", "permission_added", role)
-    case removed:
-        fireRolesTrigger(c, "update", "permission_removed", role)
-    default:
-        fireRolesTrigger(c, "update", "general", role)
+	case added && removed:
+		fireRolesTrigger(c, "update", "permission_added", role)
+		fireRolesTrigger(c, "update", "permission_removed", role)
+	case added:
+		fireRolesTrigger(c, "update", "permission_added", role)
+	case removed:
+		fireRolesTrigger(c, "update", "permission_removed", role)
+	default:
+		fireRolesTrigger(c, "update", "general", role)
 	}
 
 	var perms []models.RolePermission
@@ -337,7 +344,9 @@ func UserHasRoleName(userID int64, roleName string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if c.C > 0 { return true, nil }
+	if c.C > 0 {
+		return true, nil
+	}
 	// Fallback to legacy users table
 	var u gen_models.User
 	if err := DB.First(&u, userID).Error; err == nil && u.Role == roleName {

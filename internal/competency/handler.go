@@ -2,9 +2,10 @@ package competency
 
 import (
 	"Automated-Scheduling-Project/internal/database/models"
-	"Automated-Scheduling-Project/internal/rulesV2" // add
+	rulesv2 "Automated-Scheduling-Project/internal/rulesV2" // add
 	"context"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -23,24 +24,34 @@ func SetRulesService(s *rulesv2.RuleBackEndService) { RulesSvc = s }
 
 // fireCompetencyTrigger is a non-blocking helper to dispatch the trigger
 func fireCompetencyTrigger(c *gin.Context, operation string, comp models.CompetencyDefinition) {
-    if RulesSvc == nil { return }
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-    defer cancel()
-    _ = RulesSvc.OnCompetency(ctx, operation, comp)
+	if RulesSvc == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := RulesSvc.OnCompetency(ctx, operation, comp); err != nil {
+		log.Printf("Failed to fire competency trigger (operation=%s, competency:%v): %v",
+			operation, comp, err)
+	}
 }
 func fireCompetencyPrereq(c *gin.Context, operation string, parentID, requiredID int) {
-    if RulesSvc == nil { return }
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-    defer cancel()
-    // Match metadata field names for facts: ParentCompetencyID, RequiredCompetencyID
-    prereq := map[string]any{
-        "ParentCompetencyID":   parentID,
-        "RequiredCompetencyID": requiredID,
-    }
-    // Also include parent competency under "competency" so competency.* facts can be used with this trigger
-    var parent models.CompetencyDefinition
-    _ = DB.First(&parent, parentID).Error
-    _ = RulesSvc.OnCompetencyPrerequisite(ctx, operation, prereq, parent)
+	if RulesSvc == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	// Match metadata field names for facts: ParentCompetencyID, RequiredCompetencyID
+	prereq := map[string]any{
+		"ParentCompetencyID":   parentID,
+		"RequiredCompetencyID": requiredID,
+	}
+	// Also include parent competency under "competency" so competency.* facts can be used with this trigger
+	var parent models.CompetencyDefinition
+	_ = DB.First(&parent, parentID).Error
+	if err := RulesSvc.OnCompetencyPrerequisite(ctx, operation, prereq, parent); err != nil {
+		log.Printf("Failed to fire competency prerequisite trigger (operation=%s, prerequisite:%v, competency:%v): %v",
+			operation, prereq, parent, err)
+	}
 }
 
 // Handles creating a new competency.
@@ -199,8 +210,8 @@ func AddPrerequisiteHandler(c *gin.Context) {
 	}
 
 	prereq := models.CompetencyPrerequisite{
-		CompetencyID:            competencyID,
-        PrerequisiteCompetencyID: req.PrerequisiteCompetencyID,
+		CompetencyID:             competencyID,
+		PrerequisiteCompetencyID: req.PrerequisiteCompetencyID,
 	}
 
 	if err := DB.FirstOrCreate(&prereq).Error; err != nil {
