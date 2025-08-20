@@ -468,9 +468,6 @@ func UpdateEventScheduleHandler(c *gin.Context) {
 		// Ensure the user is the creator or is directly linked; and cannot add others
 		var linkCount int64
 		_ = DB.Model(&models.EventScheduleEmployee{}).Where("custom_event_schedule_id = ? AND employee_number = ?", scheduleToUpdate.CustomEventScheduleID, currentEmployee.Employeenumber).Count(&linkCount)
-		if scheduleToUpdate.CreatedByUserID == nil || (scheduleToUpdate.CreatedByUserID != nil && linkCount == 0) {
-			// load creator to be safe
-		}
 		if scheduleToUpdate.CreatedByUserID != nil && linkCount == 0 {
 			c.JSON(http.StatusForbidden, gin.H{"error": "You are not permitted to modify this event"})
 			return
