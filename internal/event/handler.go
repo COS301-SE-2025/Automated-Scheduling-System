@@ -4,36 +4,50 @@ import (
 	"Automated-Scheduling-Project/internal/database/gen_models"
 	"Automated-Scheduling-Project/internal/database/models"
 	"Automated-Scheduling-Project/internal/role"
-	"Automated-Scheduling-Project/internal/rulesV2"
+	rulesv2 "Automated-Scheduling-Project/internal/rulesV2"
+	"log"
+
 	//"log"
 	"context"
 	"net/http"
 	"strconv"
-	"time"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 var DB *gorm.DB
+
 // Allow tests to stub the current user/role resolution logic.
 var currentUserContextFn = currentUserContext
 
 // Rules service wiring: mirror jobposition pattern
 var RulesSvc *rulesv2.RuleBackEndService
+
 func SetRulesService(s *rulesv2.RuleBackEndService) { RulesSvc = s }
 func fireEventDefinitionTrigger(c *gin.Context, operation string, def any) {
-	if RulesSvc == nil { return }
+	if RulesSvc == nil {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_ = RulesSvc.OnEventDefinition(ctx, operation, def)
+	if err := RulesSvc.OnEventDefinition(ctx, operation, def); err != nil {
+		log.Printf("Failed to fire event definition trigger (operation=%s, eventDefinition:%v): %v",
+			operation, def, err)
+	}
 }
 func fireScheduledEventTrigger(c *gin.Context, operation, updateField string, sched any) {
-	if RulesSvc == nil { return }
+	if RulesSvc == nil {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_ = RulesSvc.OnScheduledEvent(ctx, operation, updateField, sched)
+	if err := RulesSvc.OnScheduledEvent(ctx, operation, updateField, sched); err != nil {
+		log.Printf("Failed to fire scheduled event trigger (operation=%s, updateField:%s scheduledEvent:%v): %v",
+			operation, updateField, sched, err)
+	}
 }
 
 // ================================================================
@@ -122,18 +136,18 @@ func GetEventDefinitionsHandler(c *gin.Context) {
 
 // UpdateEventDefinitionHandler updates an existing event definition.
 func UpdateEventDefinitionHandler(c *gin.Context) {
-    definitionIDStr := c.Param("definitionID")
-    definitionID, err := strconv.Atoi(definitionIDStr)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Definition ID format"})
-        return
-    }
+	definitionIDStr := c.Param("definitionID")
+	definitionID, err := strconv.Atoi(definitionIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Definition ID format"})
+		return
+	}
 
-    var req models.CreateEventDefinitionRequest // Reuse create request struct for updates
-    if err := c.ShouldBindJSON(&req); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data: " + err.Error()})
-        return
-    }
+	var req models.CreateEventDefinitionRequest // Reuse create request struct for updates
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data: " + err.Error()})
+		return
+	}
 
 	var definitionToUpdate models.CustomEventDefinition
 	if err := DB.First(&definitionToUpdate, definitionID).Error; err != nil {
@@ -173,24 +187,24 @@ func UpdateEventDefinitionHandler(c *gin.Context) {
 	definitionToUpdate.Facilitator = req.Facilitator
 
 	if err := DB.Save(&definitionToUpdate).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event definition"})
-        return
-    }
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event definition"})
+		return
+	}
 
 	// fire rules trigger
 	fireEventDefinitionTrigger(c, "update", definitionToUpdate)
 
-    c.JSON(http.StatusOK, definitionToUpdate)
+	c.JSON(http.StatusOK, definitionToUpdate)
 }
 
 // DeleteEventDefinitionHandler deletes an event definition.
 func DeleteEventDefinitionHandler(c *gin.Context) {
-    definitionIDStr := c.Param("definitionID")
-    definitionID, err := strconv.Atoi(definitionIDStr)
-    if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Definition ID format"})
-        return
-    }
+	definitionIDStr := c.Param("definitionID")
+	definitionID, err := strconv.Atoi(definitionIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Definition ID format"})
+		return
+	}
 
 	// Load the definition to check ownership/permissions
 	var def models.CustomEventDefinition
@@ -208,7 +222,9 @@ func DeleteEventDefinitionHandler(c *gin.Context) {
 	if !(isAdmin || isHR) {
 		emailVal, _ := c.Get("email")
 		email := ""
-		if emailVal != nil { email = emailVal.(string) }
+		if emailVal != nil {
+			email = emailVal.(string)
+		}
 		if def.CreatedBy != email {
 			c.JSON(http.StatusForbidden, gin.H{"error": "You are not permitted to delete this event definition"})
 			return
@@ -287,7 +303,7 @@ func CreateEventScheduleHandler(c *gin.Context) {
 		MaximumAttendees: req.MaximumAttendees,
 		MinimumAttendees: req.MinimumAttendees,
 		StatusName:       "Scheduled",
-		Color:            req.Color, 
+		Color:            req.Color,
 		CreatedByUserID:  currentUser.ID,
 	}
 
@@ -314,15 +330,15 @@ func CreateEventScheduleHandler(c *gin.Context) {
 		_ = DB.Create(&models.EventSchedulePositionTarget{CustomEventScheduleID: schedule.CustomEventScheduleID, PositionMatrixCode: pos}).Error
 	}
 
-    // After creating, fetch and return the entire updated list of schedules.
-    // This ensures the frontend state is always consistent.
-    var allSchedules []models.CustomEventSchedule
+	// After creating, fetch and return the entire updated list of schedules.
+	// This ensures the frontend state is always consistent.
+	var allSchedules []models.CustomEventSchedule
 	if err := DB.Preload("CustomEventDefinition").Preload("Employees").Preload("Positions").Order("event_start_date asc").Find(&allSchedules).Error; err != nil {
-        // The creation succeeded, but we can't return the list.
-        // Return the single created item as a fallback.
-        c.JSON(http.StatusCreated, schedule)
-        return
-    }
+		// The creation succeeded, but we can't return the list.
+		// Return the single created item as a fallback.
+		c.JSON(http.StatusCreated, schedule)
+		return
+	}
 
 	// fire rules trigger
 	fireScheduledEventTrigger(c, "create", "", schedule)
@@ -374,7 +390,7 @@ func UpdateEventScheduleHandler(c *gin.Context) {
 		return
 	}
 
-	var req models.CreateEventScheduleRequest 
+	var req models.CreateEventScheduleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request data: " + err.Error()})
 		return
@@ -426,9 +442,9 @@ func UpdateEventScheduleHandler(c *gin.Context) {
 	scheduleToUpdate.Color = req.Color
 
 	if err := DB.Save(&scheduleToUpdate).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event schedule in database"})
-        return
-    }
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event schedule in database"})
+		return
+	}
 
 	// Update links: replace sets if provided
 	if req.EmployeeNumbers != nil {
@@ -450,13 +466,13 @@ func UpdateEventScheduleHandler(c *gin.Context) {
 	}
 
 	// FIX: After updating, fetch and return the entire updated list of schedules.
-    var allSchedules []models.CustomEventSchedule
+	var allSchedules []models.CustomEventSchedule
 	if err := DB.Preload("CustomEventDefinition").Preload("Employees").Preload("Positions").Order("event_start_date asc").Find(&allSchedules).Error; err != nil {
-        // The update succeeded, but we can't return the list.
-        // Return the single updated item as a fallback.
-        c.JSON(http.StatusOK, scheduleToUpdate)
-        return
-    } 
+		// The update succeeded, but we can't return the list.
+		// Return the single updated item as a fallback.
+		c.JSON(http.StatusOK, scheduleToUpdate)
+		return
+	}
 
 	// fire rules trigger (generic field for now)
 	fireScheduledEventTrigger(c, "update", "other", scheduleToUpdate)
@@ -501,23 +517,29 @@ func DeleteEventScheduleHandler(c *gin.Context) {
 func currentUserContext(c *gin.Context) (*gen_models.User, *gen_models.Employee, bool, bool, error) {
 	emailVal, ok := c.Get("email")
 	if !ok {
-		return nil, nil, false, false,  gin.Error{Err:  http.ErrNoCookie}
+		return nil, nil, false, false, gin.Error{Err: http.ErrNoCookie}
 	}
 	email := emailVal.(string)
 
 	var ext models.ExtendedEmployee
 	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("Useraccountemail = ?", email).First(&ext).Error; err != nil || ext.User == nil {
-		return nil, nil, false, false,  gin.Error{Err:  http.ErrNoCookie}
+		return nil, nil, false, false, gin.Error{Err: http.ErrNoCookie}
 	}
 
 	// Determine role by page permissions: check if user has Admin role by name, and HR by role mapping
 	isAdmin := false
 	isHR := false
 	// Legacy user table role
-	if ext.User.Role == "Admin" { isAdmin = true }
+	if ext.User.Role == "Admin" {
+		isAdmin = true
+	}
 	// Check mapped roles
-	if allowed, _ := role.UserHasRoleName(ext.User.ID, "Admin"); allowed { isAdmin = true }
-	if allowed, _ := role.UserHasRoleName(ext.User.ID, "HR"); allowed { isHR = true }
+	if allowed, _ := role.UserHasRoleName(ext.User.ID, "Admin"); allowed {
+		isAdmin = true
+	}
+	if allowed, _ := role.UserHasRoleName(ext.User.ID, "HR"); allowed {
+		isHR = true
+	}
 
 	return ext.User, &ext.Employee, isAdmin, isHR, nil
 }
@@ -538,20 +560,40 @@ type AttendancePayload struct {
 func SetAttendanceHandler(c *gin.Context) {
 	scheduleIDStr := c.Param("scheduleID")
 	scheduleID, err := strconv.Atoi(scheduleIDStr)
-	if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID"}); return }
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID"})
+		return
+	}
 
 	_, _, isAdmin, isHR, err := currentUserContextFn(c)
-	if err != nil { c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()}); return }
-	if !isAdmin && !isHR { c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"}); return }
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+	if !isAdmin && !isHR {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+		return
+	}
 
 	var payload AttendancePayload
-	if err := c.ShouldBindJSON(&payload); err != nil { c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"}); return }
+	if err := c.ShouldBindJSON(&payload); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"})
+		return
+	}
 
 	now := time.Now()
 	// Build the full candidate set from provided arrays and map keys
 	candidateSet := map[string]struct{}{}
-	for _, e := range payload.EmployeeNumbers { if e != "" { candidateSet[e] = struct{}{} } }
-	for e := range payload.Attendance { if e != "" { candidateSet[e] = struct{}{} } }
+	for _, e := range payload.EmployeeNumbers {
+		if e != "" {
+			candidateSet[e] = struct{}{}
+		}
+	}
+	for e := range payload.Attendance {
+		if e != "" {
+			candidateSet[e] = struct{}{}
+		}
+	}
 
 	// If nothing provided, treat as bad request
 	if len(candidateSet) == 0 {
@@ -565,11 +607,15 @@ func SetAttendanceHandler(c *gin.Context) {
 	// Insert fresh rows: default to not attended unless explicitly true in map
 	for e := range candidateSet {
 		attended, ok := payload.Attendance[e]
-		if !ok { attended = false }
+		if !ok {
+			attended = false
+		}
 		var checkIn *time.Time
-		if attended { checkIn = &now }
-	// Important: explicitly persist Attended=false for non-attendees.
-	att := models.EventAttendance{ CustomEventScheduleID: scheduleID, EmployeeNumber: e, Attended: attended, CheckInTime: checkIn }
+		if attended {
+			checkIn = &now
+		}
+		// Important: explicitly persist Attended=false for non-attendees.
+		att := models.EventAttendance{CustomEventScheduleID: scheduleID, EmployeeNumber: e, Attended: attended, CheckInTime: checkIn}
 		_ = DB.Create(&att).Error
 	}
 
@@ -588,7 +634,10 @@ func SetAttendanceHandler(c *gin.Context) {
 func GetAttendanceHandler(c *gin.Context) {
 	scheduleIDStr := c.Param("scheduleID")
 	scheduleID, err := strconv.Atoi(scheduleIDStr)
-	if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID"}); return }
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID"})
+		return
+	}
 
 	var rows []models.EventAttendance
 	if err := DB.Where("custom_event_schedule_id = ?", scheduleID).Find(&rows).Error; err != nil {
@@ -604,13 +653,18 @@ func GetAttendanceHandler(c *gin.Context) {
 func GetAttendanceCandidates(c *gin.Context) {
 	scheduleIDStr := c.Param("scheduleID")
 	scheduleID, err := strconv.Atoi(scheduleIDStr)
-	if err != nil { c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID"}); return }
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID"})
+		return
+	}
 
 	// Load explicit employee links
 	var empLinks []models.EventScheduleEmployee
 	_ = DB.Where("custom_event_schedule_id = ?", scheduleID).Find(&empLinks).Error
 	empSet := map[string]struct{}{}
-	for _, l := range empLinks { empSet[l.EmployeeNumber] = struct{}{} }
+	for _, l := range empLinks {
+		empSet[l.EmployeeNumber] = struct{}{}
+	}
 
 	// Load employees from position targets
 	var posTargets []models.EventSchedulePositionTarget
@@ -621,19 +675,26 @@ func GetAttendanceCandidates(c *gin.Context) {
 			Select("employee_number").
 			Where("position_matrix_code = ? AND (end_date IS NULL OR end_date > NOW())", t.PositionMatrixCode).
 			Scan(&rows)
-		for _, r := range rows { empSet[r.EmployeeNumber] = struct{}{} }
+		for _, r := range rows {
+			empSet[r.EmployeeNumber] = struct{}{}
+		}
 	}
 
 	// Fetch basic identity for the set
 	empNums := make([]string, 0, len(empSet))
-	for k := range empSet { empNums = append(empNums, k) }
-	type dto struct { EmployeeNumber string `json:"employeeNumber"`; Name string `json:"name"` }
+	for k := range empSet {
+		empNums = append(empNums, k)
+	}
+	type dto struct {
+		EmployeeNumber string `json:"employeeNumber"`
+		Name           string `json:"name"`
+	}
 	var out []dto
 	if len(empNums) == 0 {
 		c.JSON(http.StatusOK, out)
 		return
 	}
-	
+
 	DB.Table("employee AS e").
 		Select("e.employeenumber AS employee_number, (e.firstname || ' ' || e.lastname) AS name").
 		Where("e.employeenumber IN ?", empNums).
@@ -646,15 +707,21 @@ func GetAttendanceCandidates(c *gin.Context) {
 func grantCompetenciesForCompletedSchedule(scheduleID int) {
 	// Load schedule with definition and targets
 	var schedule models.CustomEventSchedule
-	if err := DB.Preload("CustomEventDefinition").First(&schedule, scheduleID).Error; err != nil { return }
-	if schedule.CustomEventDefinition.GrantsCertificateID == nil { return }
+	if err := DB.Preload("CustomEventDefinition").First(&schedule, scheduleID).Error; err != nil {
+		return
+	}
+	if schedule.CustomEventDefinition.GrantsCertificateID == nil {
+		return
+	}
 	compID := *schedule.CustomEventDefinition.GrantsCertificateID
 
 	// Build set of employee numbers from explicit attendance rows (attended=true) only
 	var attendance []models.EventAttendance
 	_ = DB.Where("custom_event_schedule_id = ? AND attended = ?", scheduleID, true).Find(&attendance).Error
 	empSet := map[string]struct{}{}
-	for _, a := range attendance { empSet[a.EmployeeNumber] = struct{}{} }
+	for _, a := range attendance {
+		empSet[a.EmployeeNumber] = struct{}{}
+	}
 
 	// Remove grants for employees no longer marked attended for this schedule
 	// then insert grants for currently attended employees (idempotent behavior)
@@ -662,7 +729,9 @@ func grantCompetenciesForCompletedSchedule(scheduleID int) {
 	if len(empSet) > 0 {
 		// Build slice for NOT IN clause
 		empList := make([]string, 0, len(empSet))
-		for e := range empSet { empList = append(empList, e) }
+		for e := range empSet {
+			empList = append(empList, e)
+		}
 		DB.Exec("DELETE FROM employee_competencies WHERE granted_by_schedule_id = ? AND employee_number NOT IN ?", scheduleID, empList)
 	} else {
 		// If no attendees, remove any existing grants from this schedule
@@ -688,10 +757,20 @@ func grantCompetenciesForCompletedSchedule(scheduleID int) {
 // Query param: codes=A,B,C
 func GetEmployeesByPositions(c *gin.Context) {
 	codesParam := c.Query("codes")
-	if codesParam == "" { c.JSON(http.StatusBadRequest, gin.H{"error": "codes query parameter required"}); return }
+	if codesParam == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "codes query parameter required"})
+		return
+	}
 	codes := []string{}
-	for _, s := range strings.Split(codesParam, ",") { if t := strings.TrimSpace(s); t != "" { codes = append(codes, t) } }
-	if len(codes) == 0 { c.JSON(http.StatusOK, []string{}); return }
+	for _, s := range strings.Split(codesParam, ",") {
+		if t := strings.TrimSpace(s); t != "" {
+			codes = append(codes, t)
+		}
+	}
+	if len(codes) == 0 {
+		c.JSON(http.StatusOK, []string{})
+		return
+	}
 	rows := []struct{ EmployeeNumber string }{}
 	DB.Table("employment_history").
 		Select("employee_number").
@@ -699,16 +778,28 @@ func GetEmployeesByPositions(c *gin.Context) {
 		Group("employee_number").
 		Scan(&rows)
 	out := make([]string, 0, len(rows))
-	for _, r := range rows { out = append(out, r.EmployeeNumber) }
+	for _, r := range rows {
+		out = append(out, r.EmployeeNumber)
+	}
 	c.JSON(http.StatusOK, out)
 }
 
-type checkCompetencyReq struct { CompetencyID int `json:"competencyId"`; EmployeeNumbers []string `json:"employeeNumbers"` }
+type checkCompetencyReq struct {
+	CompetencyID    int      `json:"competencyId"`
+	EmployeeNumbers []string `json:"employeeNumbers"`
+}
+
 // CheckEmployeesHaveCompetency returns a map of employeeNumber->bool indicating if the employee has the competency.
 func CheckEmployeesHaveCompetency(c *gin.Context) {
 	var req checkCompetencyReq
-	if err := c.ShouldBindJSON(&req); err != nil || req.CompetencyID == 0 { c.JSON(http.StatusBadRequest, gin.H{"error": "competencyId and employeeNumbers required"}); return }
-	if len(req.EmployeeNumbers) == 0 { c.JSON(http.StatusOK, gin.H{"result": map[string]bool{}}); return }
+	if err := c.ShouldBindJSON(&req); err != nil || req.CompetencyID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "competencyId and employeeNumbers required"})
+		return
+	}
+	if len(req.EmployeeNumbers) == 0 {
+		c.JSON(http.StatusOK, gin.H{"result": map[string]bool{}})
+		return
+	}
 	rows := []struct{ EmployeeNumber string }{}
 	DB.Table("employee_competencies").
 		Select("employee_number").
@@ -716,7 +807,11 @@ func CheckEmployeesHaveCompetency(c *gin.Context) {
 		Group("employee_number").
 		Scan(&rows)
 	m := map[string]bool{}
-	for _, e := range req.EmployeeNumbers { m[e] = false }
-	for _, r := range rows { m[r.EmployeeNumber] = true }
+	for _, e := range req.EmployeeNumbers {
+		m[e] = false
+	}
+	for _, r := range rows {
+		m[r.EmployeeNumber] = true
+	}
 	c.JSON(http.StatusOK, gin.H{"result": m})
 }

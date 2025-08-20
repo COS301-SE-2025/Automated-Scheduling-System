@@ -3,8 +3,9 @@ package competency_type
 
 import (
 	"Automated-Scheduling-Project/internal/database/models"
-	"Automated-Scheduling-Project/internal/rulesV2" // added
-	"context"                                       // added
+	rulesv2 "Automated-Scheduling-Project/internal/rulesV2" // added
+	"context"                                               // added
+	"log"
 	"net/http"
 	"time" // added
 
@@ -16,13 +17,19 @@ var DB *gorm.DB
 
 // added: rules service wiring
 var RulesSvc *rulesv2.RuleBackEndService
+
 func SetRulesService(s *rulesv2.RuleBackEndService) { RulesSvc = s }
 
 func fireCompetencyTypeTrigger(c *gin.Context, operation string, ct models.CompetencyType) {
-    if RulesSvc == nil { return }
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-    defer cancel()
-    _ = RulesSvc.OnCompetencyType(ctx, operation, ct)
+	if RulesSvc == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := RulesSvc.OnCompetencyType(ctx, operation, ct); err != nil {
+		log.Printf("Failed to fire competency type trigger (operation=%s, competencyType:%v): %v",
+			operation, ct, err)
+	}
 }
 
 // struct for creating/updating a type

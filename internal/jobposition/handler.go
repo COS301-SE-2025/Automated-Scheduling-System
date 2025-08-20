@@ -2,8 +2,9 @@ package jobposition
 
 import (
 	"Automated-Scheduling-Project/internal/database/models"
-	"Automated-Scheduling-Project/internal/rulesV2" // added
-	"context"                                       // added
+	rulesv2 "Automated-Scheduling-Project/internal/rulesV2" // added
+	"context"                                               // added
+	"log"
 	"net/http"
 	"time" // added
 
@@ -15,13 +16,19 @@ var DB *gorm.DB
 
 // added: rules service wiring
 var RulesSvc *rulesv2.RuleBackEndService
+
 func SetRulesService(s *rulesv2.RuleBackEndService) { RulesSvc = s }
 
 func fireJobPositionTrigger(c *gin.Context, operation string, pos models.JobPosition) {
-    if RulesSvc == nil { return }
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-    defer cancel()
-    _ = RulesSvc.OnJobPosition(ctx, operation, pos)
+	if RulesSvc == nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := RulesSvc.OnJobPosition(ctx, operation, pos); err != nil {
+		log.Printf("Failed to fire job position trigger (operation=%s, jobPosition=%v): %v",
+			operation, pos, err)
+	}
 }
 
 type CreateJobPositionRequest struct {
@@ -67,8 +74,8 @@ func CreateJobPositionHandler(c *gin.Context) {
 		return
 	}
 
-    // fire trigger: job_position create (with object)
-    fireJobPositionTrigger(c, "create", newPosition)
+	// fire trigger: job_position create (with object)
+	fireJobPositionTrigger(c, "create", newPosition)
 
 	c.JSON(http.StatusCreated, newPosition)
 }
@@ -92,8 +99,8 @@ func UpdateJobPositionHandler(c *gin.Context) {
 	var updatedPos models.JobPosition
 	DB.First(&updatedPos, "position_matrix_code = ?", code)
 
-    // fire trigger: job_position update (with object)
-    fireJobPositionTrigger(c, "update", updatedPos)
+	// fire trigger: job_position update (with object)
+	fireJobPositionTrigger(c, "update", updatedPos)
 
 	c.JSON(http.StatusOK, updatedPos)
 }
@@ -116,12 +123,12 @@ func UpdateJobPositionStatusHandler(c *gin.Context) {
 	var updatedPos models.JobPosition
 	DB.First(&updatedPos, "position_matrix_code = ?", code)
 
-    // fire trigger: job_position deactivate/reactivate (with object)
-    if req.IsActive != nil && *req.IsActive {
-        fireJobPositionTrigger(c, "reactivate", updatedPos)
-    } else {
-        fireJobPositionTrigger(c, "deactivate", updatedPos)
-    }
+	// fire trigger: job_position deactivate/reactivate (with object)
+	if req.IsActive != nil && *req.IsActive {
+		fireJobPositionTrigger(c, "reactivate", updatedPos)
+	} else {
+		fireJobPositionTrigger(c, "deactivate", updatedPos)
+	}
 
 	c.JSON(http.StatusOK, updatedPos)
 }
