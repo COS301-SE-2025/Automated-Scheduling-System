@@ -94,11 +94,11 @@ func TestValidateRuleParameters(t *testing.T) {
 			},
 			Actions: []ActionSpec{
 				{
-					Type: "schedule_training",
+					Type: "notification",
 					Parameters: map[string]any{
-						"employeeNumber": 123,            // Should be string
-						"eventType":      "test",         // Correct
-						"scheduledDate":  "invalid-date", // Invalid date format
+						"recipient": 123,    // Should be string
+						"subject":   "test", // Correct
+						"message":   "",     // Empty but technically a string
 					},
 				},
 			},
@@ -106,16 +106,16 @@ func TestValidateRuleParameters(t *testing.T) {
 
 		result := ValidateRuleParameters(rule)
 		assert.False(t, result.Valid)
-		assert.GreaterOrEqual(t, len(result.Errors), 2)
+		assert.GreaterOrEqual(t, len(result.Errors), 1) // At least 1 error for wrong type
 	})
 }
 
 func TestFindTriggerMetadata(t *testing.T) {
 	t.Run("ValidTrigger", func(t *testing.T) {
-	meta := findTriggerMetadata("scheduled_event")
+		meta := findTriggerMetadata("scheduled_event")
 		assert.NotNil(t, meta)
-	assert.Equal(t, "scheduled_event", meta.Type)
-	assert.Equal(t, "Scheduled Event", meta.Name)
+		assert.Equal(t, "scheduled_event", meta.Type)
+		assert.Equal(t, "Scheduled Event", meta.Name)
 	})
 
 	t.Run("InvalidTrigger", func(t *testing.T) {

@@ -6,12 +6,10 @@ import (
 	gomail "gopkg.in/mail.v2"
 )
 
-var (
-	fromAddress  = os.Getenv("MAIL_FROM")
-	mailPassword = os.Getenv("MAIL_PASSWORD")
-)
-
 func SendEmail(to, subject, body string) error {
+	fromAddress := os.Getenv("MAIL_FROM")
+	mailPassword := os.Getenv("MAIL_PASSWORD")
+
 	dialer := gomail.NewDialer(
 		"smtp.gmail.com",
 		587,
@@ -20,12 +18,12 @@ func SendEmail(to, subject, body string) error {
 	)
 
 	// Use the helper function to send the email
-	return SendEmailWithDialer(dialer, to, subject, body)
+	return SendEmailWithDialer(dialer, to, subject, body, fromAddress, mailPassword)
 }
 
 func SendEmailWithDialer(dialer interface {
 	DialAndSend(...*gomail.Message) error
-}, to, subject, body string) error {
+}, to, subject, body, fromAddress, mailPassword string) error {
 	message := gomail.NewMessage()
 
 	// Set email headers
