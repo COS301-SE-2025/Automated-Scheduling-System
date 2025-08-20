@@ -69,16 +69,24 @@ const (
 	testUserEmail = "test.user@example.com"
 )
 
+// helper to stub current user/role flags dynamically for a test scope
+func stubCurrentUser(t *testing.T, userID int, empNo, email string, isAdmin, isHR bool) {
+	prev := currentUserContextFn
+	currentUserContextFn = func(c *gin.Context) (*gen_models.User, *gen_models.Employee, bool, bool, error) {
+	return &gen_models.User{ID: int64(userID), Username: "unit-user", Role: func() string { if isAdmin { return "Admin" }; return "User" }(), EmployeeNumber: empNo},
+			&gen_models.Employee{Employeenumber: empNo, Useraccountemail: email}, isAdmin, isHR, nil
+	}
+	t.Cleanup(func() { currentUserContextFn = prev })
+}
+
 // --- Event Definition Unit Tests ---
 
 func TestCreateEventDefinitionHandler_Unit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db, mock := newMockDB(t)
-
 	req := models.CreateEventDefinitionRequest{
 		EventName: "Unit Test Event",
 	}
-
 	mock.ExpectBegin()
 	mock.ExpectQuery(regexp.QuoteMeta(
 	`INSERT INTO "custom_event_definitions" ("event_name","activity_description","standard_duration","grants_certificate_id","facilitator","created_by","creation_date") VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING "custom_event_id"`)).
@@ -114,6 +122,26 @@ func TestGetEventDefinitionsHandler_Unit(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestGetEventDefinitionsHandler_NonAdmin_FilteredByCreator_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+
+	// Use a non-admin context
+	c, rec := ctxWithJSON(t, db, "GET", "/event-definitions", nil)
+	stubCurrentUser(t, 2, "E001", testUserEmail, false, false)
+
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT * FROM "custom_event_definitions" WHERE created_by = $1`)).
+		WithArgs(testUserEmail).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_id", "event_name", "created_by"}).
+			AddRow(7, "Mine", testUserEmail))
+
+	GetEventDefinitionsHandler(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestUpdateEventDefinitionHandler_Unit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db, mock := newMockDB(t)
@@ -132,6 +160,58 @@ func TestUpdateEventDefinitionHandler_Unit(t *testing.T) {
 	mock.ExpectCommit()
 
 	c, rec := ctxWithJSON(t, db, "PATCH", fmt.Sprintf("/event-definitions/%d", defID), req)
+	c.Params = gin.Params{gin.Param{Key: "definitionID", Value: fmt.Sprint(defID)}}
+	UpdateEventDefinitionHandler(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUpdateEventDefinitionHandler_PermissionDenied_NotOwner_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+	defID := 10
+	// Non-admin trying to update someone else's def
+
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT * FROM "custom_event_definitions" WHERE "custom_event_definitions"."custom_event_id" = $1 ORDER BY "custom_event_definitions"."custom_event_id" LIMIT $2`)).
+		WithArgs(defID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_id", "event_name", "created_by"}).
+			AddRow(defID, "Other's", "other@example.com"))
+
+	c, rec := ctxWithJSON(t, db, "PUT", fmt.Sprintf("/event-definitions/%d", defID), models.CreateEventDefinitionRequest{EventName: "X"})
+	// Ensure non-admin context is applied after ctx setup
+	stubCurrentUser(t, 2, "E001", testUserEmail, false, false)
+	c.Params = gin.Params{gin.Param{Key: "definitionID", Value: fmt.Sprint(defID)}}
+	UpdateEventDefinitionHandler(c)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUpdateEventDefinitionHandler_NonAdmin_GrantsCleared_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+	defID := 11
+	stubCurrentUser(t, 2, "E001", testUserEmail, false, false)
+
+	// Load existing owned definition
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT * FROM "custom_event_definitions" WHERE "custom_event_definitions"."custom_event_id" = $1 ORDER BY "custom_event_definitions"."custom_event_id" LIMIT $2`)).
+		WithArgs(defID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_id", "event_name", "created_by", "grants_certificate_id"}).
+			AddRow(defID, "Mine", testUserEmail, 5))
+
+	mock.ExpectBegin()
+	// Accept any SET clause; we care that the handler attempts an update
+	mock.ExpectExec(`UPDATE "custom_event_definitions" SET .* WHERE "custom_event_id" = \$[0-9]+`).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectCommit()
+
+	// Send a payload with GrantsCertificateID set; non-admin path should nullify it server-side
+	gi := 123
+	req := models.CreateEventDefinitionRequest{EventName: "New", GrantsCertificateID: &gi}
+	c, rec := ctxWithJSON(t, db, "PUT", fmt.Sprintf("/event-definitions/%d", defID), req)
 	c.Params = gin.Params{gin.Param{Key: "definitionID", Value: fmt.Sprint(defID)}}
 	UpdateEventDefinitionHandler(c)
 
@@ -162,6 +242,27 @@ func TestDeleteEventDefinitionHandler_Unit(t *testing.T) {
 	DeleteEventDefinitionHandler(c)
 
 	require.Equal(t, http.StatusOK, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestDeleteEventDefinitionHandler_PermissionDenied_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+	defID := 12
+
+	// Load, owned by someone else
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT * FROM "custom_event_definitions" WHERE "custom_event_definitions"."custom_event_id" = $1 ORDER BY "custom_event_definitions"."custom_event_id" LIMIT $2`)).
+		WithArgs(defID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_id", "created_by"}).AddRow(defID, "other@example.com"))
+
+	c, rec := ctxWithJSON(t, db, "DELETE", fmt.Sprintf("/event-definitions/%d", defID), nil)
+	// Ensure non-admin context is applied after ctx setup
+	stubCurrentUser(t, 2, "E001", testUserEmail, false, false)
+	c.Params = gin.Params{gin.Param{Key: "definitionID", Value: fmt.Sprint(defID)}}
+	DeleteEventDefinitionHandler(c)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -214,6 +315,82 @@ func TestCreateEventScheduleHandler_Unit(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestCreateEventScheduleHandler_GenericUser_CannotTargetPositions_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, _ := newMockDB(t)
+
+	req := models.CreateEventScheduleRequest{CustomEventID: 1, Title: "X", EventStartDate: time.Now(), EventEndDate: time.Now().Add(time.Hour), PositionCodes: []string{"POS1"}}
+	c, rec := ctxWithJSON(t, db, "POST", "/event-schedules", req)
+	stubCurrentUser(t, 2, "E001", testUserEmail, false, false)
+	CreateEventScheduleHandler(c)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+}
+
+func TestCreateEventScheduleHandler_GenericUser_CanOnlyScheduleSelf_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, _ := newMockDB(t)
+
+	req := models.CreateEventScheduleRequest{CustomEventID: 1, Title: "X", EventStartDate: time.Now(), EventEndDate: time.Now().Add(time.Hour), EmployeeNumbers: []string{"E002"}}
+	c, rec := ctxWithJSON(t, db, "POST", "/event-schedules", req)
+	stubCurrentUser(t, 2, "E001", testUserEmail, false, false)
+	CreateEventScheduleHandler(c)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+}
+
+func TestCreateEventScheduleHandler_GenericUser_AttachSelfWhenNoEmployees_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+
+	start := time.Now()
+	end := start.Add(1 * time.Hour)
+	req := models.CreateEventScheduleRequest{CustomEventID: 99, Title: "Mine", EventStartDate: start, EventEndDate: end}
+
+	// Count definition exists
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT count(*) FROM "custom_event_definitions" WHERE custom_event_id = $1`)).
+		WithArgs(req.CustomEventID).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+
+	// Insert schedule
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`INSERT INTO "custom_event_schedules" ("custom_event_id","title","event_start_date","event_end_date","room_name","maximum_attendees","minimum_attendees","status_name","color","creation_date","created_by_user_id") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING "custom_event_schedule_id"`)).
+		WithArgs(req.CustomEventID, req.Title, sqlmock.AnyArg(), sqlmock.AnyArg(), req.RoomName, req.MaximumAttendees, req.MinimumAttendees, "Scheduled", req.Color, sqlmock.AnyArg(), 2).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id"}).AddRow(123))
+	mock.ExpectCommit()
+
+	// Auto-link self as attendee
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`INSERT INTO "event_schedule_employees" ("custom_event_schedule_id","employee_number","role") VALUES ($1,$2,$3) RETURNING "schedule_employee_id"`)).
+		WithArgs(123, "E001", "Attendee").
+		WillReturnRows(sqlmock.NewRows([]string{"schedule_employee_id"}).AddRow(1))
+	mock.ExpectCommit()
+
+	// Fetch all schedules
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "custom_event_schedules" ORDER BY event_start_date asc`)).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "custom_event_id"}).AddRow(123, req.CustomEventID))
+	// Preloads
+	mock.ExpectQuery(`SELECT \* FROM "custom_event_definitions" WHERE "custom_event_definitions"\."custom_event_id" (IN \(.+\)|= \$1)`).
+		WithArgs(req.CustomEventID).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_id"}).AddRow(req.CustomEventID))
+	mock.ExpectQuery(`SELECT \* FROM "event_schedule_employees" WHERE "event_schedule_employees"\."custom_event_schedule_id" (IN \(.+\)|= \$1)`).
+		WithArgs(123).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "employee_number", "role"}).AddRow(123, "E001", "Attendee"))
+	mock.ExpectQuery(`SELECT \* FROM "event_schedule_position_targets" WHERE "event_schedule_position_targets"\."custom_event_schedule_id" (IN \(.+\)|= \$1)`).
+		WithArgs(123).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "position_matrix_code"}))
+
+	c, rec := ctxWithJSON(t, db, "POST", "/event-schedules", req)
+	// ensure non-admin user id=2 is used for created_by_user_id and self-link
+	stubCurrentUser(t, 2, "E001", testUserEmail, false, false)
+	CreateEventScheduleHandler(c)
+
+	require.Equal(t, http.StatusCreated, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestGetEventSchedulesHandler_Unit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db, mock := newMockDB(t)
@@ -249,6 +426,35 @@ func TestGetEventSchedulesHandler_Unit(t *testing.T) {
 	err := json.Unmarshal(rec.Body.Bytes(), &schedules)
 	require.NoError(t, err)
 	require.Len(t, schedules, 2)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestGetEventSchedulesHandler_NonAdmin_Filter_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+	// Non-admin, employee E001, user ID 2
+
+	// Expect a SELECT with joins and OR conditions on employee number, position subquery, and created_by_user_id + GROUP BY
+	mock.ExpectQuery(`SELECT .*FROM "custom_event_schedules".*LEFT JOIN event_schedule_employees.*LEFT JOIN event_schedule_position_targets.*WHERE .*ese\.employee_number = \$1 .*OR .*espt\.position_matrix_code IN \(SELECT position_matrix_code FROM "employment_history" WHERE employee_number = \$2 .*?\) .*OR .*custom_event_schedules\.created_by_user_id = \$3 .*GROUP BY .*"custom_event_schedules"\."custom_event_schedule_id"`).
+		WithArgs("E001", "E001", 2).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "custom_event_id"}).AddRow(5, 42))
+
+	// Preloads for the one schedule
+	mock.ExpectQuery(`SELECT \* FROM "custom_event_definitions" WHERE "custom_event_definitions"\."custom_event_id" (IN \(.+\)|= \$1)`).
+		WithArgs(42).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_id"}).AddRow(42))
+	mock.ExpectQuery(`SELECT \* FROM "event_schedule_employees" WHERE "event_schedule_employees"\."custom_event_schedule_id" (IN \(.+\)|= \$1)`).
+		WithArgs(5).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "employee_number", "role"}))
+	mock.ExpectQuery(`SELECT \* FROM "event_schedule_position_targets" WHERE "event_schedule_position_targets"\."custom_event_schedule_id" (IN \(.+\)|= \$1)`).
+		WithArgs(5).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "position_matrix_code"}))
+
+	c, rec := ctxWithJSON(t, db, "GET", "/event-schedules", nil)
+	stubCurrentUser(t, 2, "E001", testUserEmail, false, false)
+	GetEventSchedulesHandler(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -297,6 +503,153 @@ func TestUpdateEventScheduleHandler_Unit(t *testing.T) {
 	UpdateEventScheduleHandler(c)
 
 	require.Equal(t, http.StatusOK, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUpdateEventScheduleHandler_NonAdmin_NotLinked_Forbidden_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+
+	scheduleID := 9
+	// Load schedule (created_by_user_id present)
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT * FROM "custom_event_schedules" WHERE "custom_event_schedules"."custom_event_schedule_id" = $1 ORDER BY "custom_event_schedules"."custom_event_schedule_id" LIMIT $2`)).
+		WithArgs(scheduleID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "title", "created_by_user_id"}).AddRow(scheduleID, "T", 1))
+	// Check link count (0)
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT count(*) FROM "event_schedule_employees" WHERE custom_event_schedule_id = $1 AND employee_number = $2`)).
+		WithArgs(scheduleID, "E001").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+
+	c, rec := ctxWithJSON(t, db, "PUT", fmt.Sprintf("/event-schedules/%d", scheduleID), models.CreateEventScheduleRequest{Title: "X", CustomEventID: 1, EventStartDate: time.Now(), EventEndDate: time.Now().Add(time.Hour)})
+	stubCurrentUser(t, 2, "E001", testUserEmail, false, false)
+	c.Params = gin.Params{gin.Param{Key: "scheduleID", Value: fmt.Sprint(scheduleID)}}
+	UpdateEventScheduleHandler(c)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUpdateEventScheduleHandler_NonAdmin_CannotAddOthersOrPositions_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+
+	scheduleID := 10
+	// Load schedule
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT * FROM "custom_event_schedules" WHERE "custom_event_schedules"."custom_event_schedule_id" = $1 ORDER BY "custom_event_schedules"."custom_event_schedule_id" LIMIT $2`)).
+		WithArgs(scheduleID, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "title", "created_by_user_id"}).AddRow(scheduleID, "T", 1))
+	// Check link count (1) to get past the first permission check
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT count(*) FROM "event_schedule_employees" WHERE custom_event_schedule_id = $1 AND employee_number = $2`)).
+		WithArgs(scheduleID, "E001").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+
+	// Attempt to add a different employee
+	req := models.CreateEventScheduleRequest{Title: "T2", CustomEventID: 1, EventStartDate: time.Now(), EventEndDate: time.Now().Add(time.Hour), EmployeeNumbers: []string{"E999"}}
+	c, rec := ctxWithJSON(t, db, "PUT", fmt.Sprintf("/event-schedules/%d", scheduleID), req)
+	stubCurrentUser(t, 2, "E001", testUserEmail, false, false)
+	c.Params = gin.Params{gin.Param{Key: "scheduleID", Value: fmt.Sprint(scheduleID)}}
+	UpdateEventScheduleHandler(c)
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestGetAttendanceHandler_Simple_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+	scheduleID := 55
+
+	mock.ExpectQuery(`SELECT \* FROM "event_attendance[s]?" WHERE custom_event_schedule_id = \$1`).
+		WithArgs(scheduleID).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "employee_number", "attended"}).
+			AddRow(scheduleID, "E001", true))
+
+	c, rec := ctxWithJSON(t, db, "GET", fmt.Sprintf("/event-schedules/%d/attendance", scheduleID), nil)
+	c.Params = gin.Params{gin.Param{Key: "scheduleID", Value: fmt.Sprint(scheduleID)}}
+	GetAttendanceHandler(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestGetEmployeesByPositions_NoCodes_BadRequest_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, _ := newMockDB(t)
+	c, rec := ctxWithJSON(t, db, "GET", "/employees-by-positions", nil)
+	GetEmployeesByPositions(c)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestGetEmployeesByPositions_Ok_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+
+	// Expect employment_history scan
+	mock.ExpectQuery(`SELECT .*employee_number.*FROM "employment_history" WHERE position_matrix_code IN \(\$1,\$2\) AND \(end_date IS NULL OR end_date > NOW\(\)\) GROUP BY .*employee_number.*`).
+		WithArgs("POS1", "POS2").
+		WillReturnRows(sqlmock.NewRows([]string{"employee_number"}).AddRow("E001").AddRow("E002"))
+
+	// Build request with codes query
+	req, _ := http.NewRequest("GET", "/employees-by-positions?codes=POS1,POS2", nil)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	DB = db
+	c.Set("email", testUserEmail)
+
+	GetEmployeesByPositions(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestCheckEmployeesHaveCompetency_BadRequest_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, _ := newMockDB(t)
+	c, rec := ctxWithJSON(t, db, "POST", "/competency-check", map[string]any{"employeeNumbers": []string{"E001"}})
+	CheckEmployeesHaveCompetency(c)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestCheckEmployeesHaveCompetency_EmptyEmployees_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, _ := newMockDB(t)
+	c, rec := ctxWithJSON(t, db, "POST", "/competency-check", map[string]any{"competencyId": 1, "employeeNumbers": []string{}})
+	CheckEmployeesHaveCompetency(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestCheckEmployeesHaveCompetency_Ok_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+	// DB returns only E002 has competency
+	mock.ExpectQuery(`SELECT .*employee_number.*FROM "employee_competencies" WHERE competency_id = \$1 AND employee_number IN \(\$2,\$3\) GROUP BY .*employee_number.*`).
+		WithArgs(5, "E001", "E002").
+		WillReturnRows(sqlmock.NewRows([]string{"employee_number"}).AddRow("E002"))
+
+	c, rec := ctxWithJSON(t, db, "POST", "/competency-check", map[string]any{"competencyId": 5, "employeeNumbers": []string{"E001", "E002"}})
+	CheckEmployeesHaveCompetency(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestSetAttendanceHandler_NonAdmin_Forbidden_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, _ := newMockDB(t)
+	c, rec := ctxWithJSON(t, db, "POST", "/event-schedules/7/attendance", map[string]any{"employeeNumbers": []string{"E001"}})
+	stubCurrentUser(t, 2, "E001", testUserEmail, false, false)
+	c.Params = gin.Params{gin.Param{Key: "scheduleID", Value: "7"}}
+	SetAttendanceHandler(c)
+	require.Equal(t, http.StatusForbidden, rec.Code)
+}
+
+func TestSetAttendanceHandler_Admin_NoEmployees_BadRequest_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+	c, rec := ctxWithJSON(t, db, "POST", "/event-schedules/7/attendance", map[string]any{"employeeNumbers": []string{}})
+	c.Params = gin.Params{gin.Param{Key: "scheduleID", Value: "7"}}
+	SetAttendanceHandler(c)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
