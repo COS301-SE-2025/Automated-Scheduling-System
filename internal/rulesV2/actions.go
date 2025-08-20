@@ -52,7 +52,13 @@ func (a *NotificationAction) Execute(ctx EvalContext, params map[string]any) err
 	}
 
 	// Logs notification if it didn't return early(error didn't occur)
-	a.logSuccessfulNotification(recipient, subject, message, notificationType)
+	err := a.logSuccessfulNotification(recipient, subject, message, notificationType)
+
+	if err != nil {
+		log.Printf("Failed to log notification: %v", err)
+		return fmt.Errorf("failed to log notification: %w", err)
+
+	}
 
 	return nil
 }
