@@ -22,14 +22,14 @@ func (m *MockDialer) DialAndSend(msg ...*gomail.Message) error {
 
 func TestSendEmailWithDialer_Success(t *testing.T) {
 	// Mock environment variables
-	fromAddress = "test@example.com"
-	mailPassword = "password"
+	fromAddress := "test@example.com"
+	mailPassword := "password"
 
 	// Mock the dialer
 	mockDialer := &MockDialer{ShouldFail: false}
 
 	// Call the helper function
-	err := SendEmailWithDialer(mockDialer, "recipient@example.com", "Test Subject", "Test Body")
+	err := SendEmailWithDialer(mockDialer, "recipient@example.com", "Test Subject", "Test Body", fromAddress, mailPassword)
 	if err != nil {
 		t.Errorf("expected no error, got %v", err)
 	}
@@ -37,14 +37,14 @@ func TestSendEmailWithDialer_Success(t *testing.T) {
 
 func TestSendEmailWithDialer_Failure(t *testing.T) {
 	// Mock environment variables
-	fromAddress = "test@example.com"
-	mailPassword = "password"
+	fromAddress := "test@example.com"
+	mailPassword := "password"
 
 	// Mock the dialer
 	mockDialer := &MockDialer{ShouldFail: true}
 
 	// Call the helper function
-	err := SendEmailWithDialer(mockDialer, "recipient@example.com", "Test Subject", "Test Body")
+	err := SendEmailWithDialer(mockDialer, "recipient@example.com", "Test Subject", "Test Body", fromAddress, mailPassword)
 	if err == nil {
 		t.Errorf("expected error, got nil")
 	}
