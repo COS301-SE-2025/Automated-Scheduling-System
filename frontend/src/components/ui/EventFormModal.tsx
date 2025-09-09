@@ -5,13 +5,14 @@ import { z } from 'zod';
 import * as eventService from '../../services/eventService';
 import MessageBox from './MessageBox';
 import { HexColorPicker } from 'react-colorful';
-import { MultiSelect } from 'primereact/multiselect';
+// Removed MultiSelect combo boxes in favor of modal-based selection
 import Button from './Button';
 import { useAuth } from '../../hooks/useAuth';
 import { getAllUsers } from '../../services/userService';
 import { getAllJobPositions, type JobPosition } from '../../services/jobPositionService';
 import { getAllJobRequirements } from '../../services/jobRequirementService';
 import type { User } from '../../types/user';
+import EventEmployeeFilterModal from './EventEmployeeFilterModal';
 
 const scheduleSchema = z.object({
     title: z.string().min(1, "Title is required."),
@@ -87,9 +88,9 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
     });
     const watchPositions = watch('positionCodes');
     const watchCustomEventId = watch('customEventId');
-    const filteredEmployees = useMemo(() => {
-        return users;
-    }, [users]);
+    // Selector modal visibility
+    const [showEmployeeSelector, setShowEmployeeSelector] = useState(false);
+    const [showPositionSelector, setShowPositionSelector] = useState(false);
 
     const showNoDefinitionsMessage = isOpen && !isEditMode && eventDefinitions.length === 0;
 
@@ -298,46 +299,67 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                             </div>
                         </div>
 
-                        {/* Row 2: Employees + Positions */}
+                        {/* Row 2: Employees + Positions (modal-based selection) */}
                         {isElevated && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Employees (optional)</label>
-                                    <Controller
-                                        name="employeeNumbers"
-                                        control={control}
-                                        render={({ field }) => {
-                        const options = filteredEmployees.map(u => ({ label: `${u.name} (${u.employeeNumber})${(watchPositions?.length ?? 0) > 0 && employeesInPositions.includes(u.employeeNumber) ? ' • via position' : ''}`.trim(), value: u.employeeNumber, disabled: (watchPositions?.length ?? 0) > 0 && employeesInPositions.includes(u.employeeNumber) }));
-                                            return (
-                                                <MultiSelect
-                                                    value={field.value || []}
-                                                    onChange={(e) => field.onChange(e.value)}
-                                                    options={options}
-                                                    optionDisabled="disabled"
-                                                    display="chip"
-                                                    className="w-full"
-                                                    placeholder={watchPositions && watchPositions.length > 0 ? "Employees (positions selected)" : "Select employees"}
-                                                />
-                                            );
-                                        }}
-                                    />
+                                    <div className="flex items-center gap-2">
+                                        <Button type="button" variant="outline" onClick={() => setShowEmployeeSelector(true)}>Select Employees</Button>
+                                        <span
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => setShowEmployeeSelector(true)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') setShowEmployeeSelector(true); }}
+                                            className="text-sm text-gray-600 dark:text-gray-300 cursor-pointer hover:underline"
+                                        >
+                                            {(watch('employeeNumbers')?.length || 0) > 0
+                                                ? `${watch('employeeNumbers')!.length} employee${watch('employeeNumbers')!.length === 1 ? '' : 's'} selected`
+                                                : 'No employees selected'}
+                                        </span>
+                                        {(watch('employeeNumbers')?.length || 0) > 0 && (
+                                            <button
+                                                type="button"
+                                                aria-label="Clear employee selections"
+                                                title="Clear selections"
+                                                onClick={() => setValue('employeeNumbers', [], { shouldDirty: true, shouldValidate: true })}
+                                                className="ml-1 text-gray-400 hover:text-red-600"
+                                            >
+                                                ×
+                                            </button>
+                                        )}
+                                    </div>
+                                    {watchPositions && watchPositions.length > 0 && (
+                                        <p className="text-xs text-gray-500 mt-1">Employees covered by selected positions are automatically included.</p>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Job Positions (optional)</label>
-                                    <Controller
-                                        name="positionCodes"
-                                        control={control}
-                                        render={({ field }) => (
-                                            <MultiSelect
-                                                value={field.value || []}
-                                                onChange={(e) => field.onChange(e.value)}
-                                                options={positions.map(p => ({ label: `${p.jobTitle} (${p.positionMatrixCode})`, value: p.positionMatrixCode }))}
-                                                display="chip"
-                                                className="w-full"
-                                                placeholder="Select positions"
-                                            />
+                                    <div className="flex items-center gap-2">
+                                        <Button type="button" variant="outline" onClick={() => setShowPositionSelector(true)}>Select by Job Position</Button>
+                                        <span
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => setShowPositionSelector(true)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') setShowPositionSelector(true); }}
+                                            className="text-sm text-gray-600 dark:text-gray-300 cursor-pointer hover:underline"
+                                        >
+                                            {(watch('positionCodes')?.length || 0) > 0
+                                                ? `${watch('positionCodes')!.length} position${watch('positionCodes')!.length === 1 ? '' : 's'} selected`
+                                                : 'No positions selected'}
+                                        </span>
+                                        {(watch('positionCodes')?.length || 0) > 0 && (
+                                            <button
+                                                type="button"
+                                                aria-label="Clear position selections"
+                                                title="Clear selections"
+                                                onClick={() => setValue('positionCodes', [], { shouldDirty: true, shouldValidate: true })}
+                                                className="ml-1 text-gray-400 hover:text-red-600"
+                                            >
+                                                ×
+                                            </button>
                                         )}
-                                    />
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -486,6 +508,28 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                         scheduleId={initialData?.id}
                         competencyId={grantedCompetencyId}
                     />
+                )}
+                {/* Selection modals */}
+                {isElevated && (
+                    <>
+                        <EventEmployeeFilterModal
+                            isOpen={showEmployeeSelector}
+                            mode="employees"
+                            users={users}
+                            disabledIds={employeesInPositions}
+                            initialSelected={watch('employeeNumbers') || []}
+                            onClose={() => setShowEmployeeSelector(false)}
+                            onConfirm={(ids) => { setValue('employeeNumbers', ids, { shouldDirty: true, shouldValidate: true }); setShowEmployeeSelector(false); }}
+                        />
+                        <EventEmployeeFilterModal
+                            isOpen={showPositionSelector}
+                            mode="positions"
+                            positions={positions}
+                            initialSelected={watch('positionCodes') || []}
+                            onClose={() => setShowPositionSelector(false)}
+                            onConfirm={(ids) => { setValue('positionCodes', ids, { shouldDirty: true, shouldValidate: true }); setShowPositionSelector(false); }}
+                        />
+                    </>
                 )}
             </div>
         </div>
