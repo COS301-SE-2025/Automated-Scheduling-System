@@ -401,7 +401,7 @@ const CalendarPage: React.FC = () => {
         <MainLayout pageTitle='Calendar'>
             <div>
                 <div className="flex justify-between items-center mb-4">
-                    <h1 className="text-2xl font-semibold text-custom-text dark:text-dark-text">Calendar</h1>
+                    <h1 className="text-2xl font-semibold text-custom-text dark:text-dark-text">View Events On Your Calendar</h1>
                     <div className="flex space-x-2">
                         <Button type="button" variant="outline" onClick={handleOpenDefinitionModal}>
                             <Settings size={20} className="inline-block mr-2" />

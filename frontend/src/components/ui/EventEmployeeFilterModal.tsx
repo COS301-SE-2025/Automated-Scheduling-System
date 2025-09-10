@@ -133,7 +133,7 @@ const EventEmployeeFilterModal: React.FC<EventEmployeeFilterModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-600 bg-opacity-50 p-4">
-      <div className="relative w-full max-w-4xl mx-auto bg-white dark:bg-dark-div rounded-lg shadow-xl">
+  <div className="relative w-full max-w-4xl mx-auto bg-white dark:bg-dark-div rounded-lg shadow-xl h-[80vh] max-h-[80vh] overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
           <h3 className="text-lg font-semibold text-custom-text dark:text-dark-text">{headerTitle}</h3>
           <button type="button" onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Close">
@@ -141,7 +141,7 @@ const EventEmployeeFilterModal: React.FC<EventEmployeeFilterModalProps> = ({
           </button>
         </div>
 
-        <div className="p-4 space-y-4">
+  <div className="p-4 space-y-4 overflow-y-auto" style={{ maxHeight: 'calc(80vh - 140px)' }}>
           <div className="flex flex-col md:flex-row md:items-center gap-3">
             <input
               type="text"
@@ -167,9 +167,10 @@ const EventEmployeeFilterModal: React.FC<EventEmployeeFilterModalProps> = ({
           </div>
 
           {/* Table */}
-          <div className="border rounded-md overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-800">
+          <div className="border rounded-md overflow-hidden max-h-[48vh]">
+            <div className="overflow-y-auto" style={{ maxHeight: '48vh' }}>
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-800 sticky top-0 z-10">
                 <tr>
                   <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     <input type="checkbox" checked={isAllPageSelected} onChange={toggleAllOnPage} aria-label="Select all on page" />
@@ -230,7 +231,8 @@ const EventEmployeeFilterModal: React.FC<EventEmployeeFilterModalProps> = ({
                   </tr>
                 )}
               </tbody>
-            </table>
+              </table>
+            </div>
           </div>
 
           {/* Pagination */}

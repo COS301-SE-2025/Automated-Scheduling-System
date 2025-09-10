@@ -7,6 +7,7 @@ import ResetPasswordPage from '../pages/ResetPasswordPage';
 import NotFoundPage from '../pages/NotFoundPage';
 import UsersPage from '../pages/UsersPage';
 import DashboardPage from '../pages/DashboardPage';
+import EmployeeProfilePage from '../pages/EmployeeProfilePage';
 import CalendarPage from '../pages/CalendarPage';
 import CompetencyPage from '../pages/CompetencyPage';
 import EventsPage from '../pages/EventsPage';
@@ -94,6 +95,7 @@ const AppRoutes: React.FC = () => {
             {/* Protected Routes */}
             <Route element={<ProtectedRouteElement />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/profile" element={<EmployeeProfilePage />} />
                 {/* <Route path="/users" element={<UsersPage />} /> */}
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/events" element={<EventsPage />} />
