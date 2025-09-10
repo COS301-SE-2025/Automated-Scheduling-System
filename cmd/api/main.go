@@ -16,6 +16,7 @@ import (
 	"Automated-Scheduling-Project/internal/event"
 	"Automated-Scheduling-Project/internal/jobposition"
 	"Automated-Scheduling-Project/internal/matrix"
+	"Automated-Scheduling-Project/internal/profile"
 	"Automated-Scheduling-Project/internal/role"
 	rulesv2 "Automated-Scheduling-Project/internal/rulesV2"
 	"Automated-Scheduling-Project/internal/server"
@@ -59,6 +60,7 @@ func main() {
 	competency_type.DB = dbConnection
 	jobposition.DB = dbConnection
 	role.DB = dbConnection
+	profile.DB = dbConnection
 
 	// Initialize RulesV2 Backend Service
 	rulesService := rulesv2.NewRuleBackEndService(dbConnection)

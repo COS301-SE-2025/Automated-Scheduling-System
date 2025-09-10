@@ -13,13 +13,15 @@ import {
     FileText,
     Gavel,
     GraduationCap,
-    HelpCircle
-    , Shield
+    HelpCircle,
+    Shield,
+    User
 } from 'lucide-react';
 
 
 const baseNavItems: NavItem[] = [
     { path: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+    { path: '/profile', label: 'Profile', icon: <User size={20} /> },
     { path: '/users', label: 'Users', icon: <Users size={20} /> },
     { path: '/roles', label: 'Roles', icon: <Shield size={20} /> },
     { path: '/calendar', label: 'Calendar', icon: <Calendar size={20} /> },
@@ -59,7 +61,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, helpText }
         if (!allowedPages) return baseNavItems; 
         return baseNavItems.filter(item => {
             const key = item.path.replace('/', '') || 'dashboard';
-            if (key === 'dashboard' || key === 'main-help') return true; 
+            if (key === 'dashboard' || key === 'main-help' || key === 'profile') return true; 
             return allowedPages.includes(key);
         });
     }, [allowedPages]);
@@ -81,6 +83,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, helpText }
         'events': 'Browse, create, and update scheduled events.',
         'rules': 'Centralize and maintain organizational rules and policies.',
         'competencies': 'Manage competency requirements and job position mappings.',
+    'profile': 'Review your competency status and explore training opportunities.',
         'main-help': 'Guidance and FAQs about using the system.',
     };
     const effectiveHelpText = helpText ?? defaultHelpByTitle[pageTitle.toLowerCase()];

@@ -20,8 +20,8 @@ const scheduleSchema = z.object({
     start: z.string().min(1, "Start date is required."),
     end: z.string().min(1, "End date is required."),
     roomName: z.string().optional(),
-    maximumAttendees: z.number().optional().nullable(),
-    minimumAttendees: z.number().optional().nullable(),
+    maximumAttendees: z.number().min(0, "Maximum attendees must be 0 or greater").optional().nullable(),
+    minimumAttendees: z.number().min(0, "Minimum attendees must be 0 or greater").optional().nullable(),
     statusName: z.string().optional(),
     color: z.string().optional(),
     employeeNumbers: z.array(z.string()).optional(),
@@ -401,17 +401,18 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                                 <p className="text-xs text-gray-500 mt-1">Set to Completed and save to grant any linked competency to marked attendees.</p>
                             </div>
                         </div>
-
+                        
+                        {/* Remove negative values being input into the min attendees spn edit */}
                         {/* Row 5: Min + Max */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label htmlFor="minimumAttendees" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Min Attendees (Optional)</label>
-                                <input id="minimumAttendees" type="number" {...register('minimumAttendees', { valueAsNumber: true })} className="w-full p-2 border rounded-md dark:bg-dark-input" />
+                                <input id="minimumAttendees" type="number" min={0} step={1} {...register('minimumAttendees', { valueAsNumber: true })} className="w-full p-2 border rounded-md dark:bg-dark-input" />
                                 {errors.minimumAttendees && <p className="text-red-500 text-xs mt-1">{errors.minimumAttendees.message}</p>}
                             </div>
                             <div>
                                 <label htmlFor="maximumAttendees" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Max Attendees (Optional)</label>
-                                <input id="maximumAttendees" type="number" {...register('maximumAttendees', { valueAsNumber: true })} className="w-full p-2 border rounded-md dark:bg-dark-input" />
+                                <input id="maximumAttendees" type="number" min={0} step={1} {...register('maximumAttendees', { valueAsNumber: true })} className="w-full p-2 border rounded-md dark:bg-dark-input" />
                                 {errors.maximumAttendees && <p className="text-red-500 text-xs mt-1">{errors.maximumAttendees.message}</p>}
                             </div>
                         </div>
