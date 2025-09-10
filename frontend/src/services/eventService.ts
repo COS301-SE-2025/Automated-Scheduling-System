@@ -48,6 +48,11 @@ export interface CalendarEvent extends EventInput {
     employees?: string[]; // employee numbers linked to this schedule
     positions?: string[]; // position codes targeted by this schedule
         color: string;
+    // Client-only props for multi-day visualization
+    seriesStart?: string;
+    seriesEnd?: string;
+    seriesId?: string;
+    instanceDate?: string; // YYYY-MM-DD
     };
 }
 
