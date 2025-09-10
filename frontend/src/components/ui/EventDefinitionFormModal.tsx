@@ -173,7 +173,7 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
 
                     {showGrantField && (
                         <div>
-                            <label htmlFor="GrantsCertificateID" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Grants Certificate (Optional)</label>
+                            <label htmlFor="GrantsCertificateID" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Grants Competency (Optional)</label>
                             {providedCompetencies.length === 0 ? (
                                 <select id="GrantsCertificateID" className="w-full p-2 border rounded-md dark:bg-dark-input" disabled>
                                     <option value="">No competencies available</option>
