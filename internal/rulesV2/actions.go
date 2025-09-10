@@ -38,11 +38,13 @@ func (a *NotificationAction) Execute(ctx EvalContext, params map[string]any) err
 
 	switch notificationType {
 	case "email":
+		// TODO: Change later to loop over employee and pass email field
 		err := a.sendEmail(recipient, subject, message)
 		if err != nil {
 			return fmt.Errorf("failed to execute NotificationAction: %w", err)
 		}
 	case "sms":
+		// TODO: Change later to fetch all the employees phonenumbers
 		a.sendSMS(recipient, message)
 	case "push":
 		// TODO: Implement push notification logic here
