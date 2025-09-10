@@ -104,7 +104,7 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
         return true;
     };
 
-    const valueInput = (metaParamType?: string, value = '', onChange?: (v: string) => void) => {
+    const valueInput = (metaParamType?: string, value = '', onChange?: (v: string) => void, options?: any[]) => {
         const type = metaParamType || 'string';
         const stopAll = {
             onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
@@ -120,6 +120,24 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                 }
             },
         };
+
+        // Handle options dropdown (similar to TriggerNode)
+        if (options && options.length > 0) {
+            return (
+                <select
+                    className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
+                    value={value}
+                    onChange={(e) => onChange?.(e.target.value)}
+                    {...stopAll}
+                >
+                    <option value="">Select…</option>
+                    {options.map((opt, i) => {
+                        const val = String(opt);
+                        return <option key={`opt-${i}`} value={val}>{val}</option>;
+                    })}
+                </select>
+            );
+        }
 
         if (type === 'boolean') {
             return (
@@ -157,6 +175,18 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                     value={value}
                     onChange={(e) => onChange?.(e.target.value)}
                     {...stopAll}
+                />
+            );
+        }
+        if (type === 'text_area') {
+            return (
+                <textarea
+                    className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800 resize-y min-h-[60px]"
+                    placeholder="Enter text..."
+                    value={value}
+                    onChange={(e) => onChange?.(e.target.value)}
+                    {...stopAll}
+                    rows={3}
                 />
             );
         }
@@ -228,6 +258,7 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                                         {a.parameters.map((p, pIdx) => {
                                             const def = metaParamMap.get(p.key);
                                             const required = def?.required;
+                                            const options = (def as any)?.options as any[] | undefined;
                                             return (
                                                 <div key={`${p.key}-${pIdx}`} className="flex gap-1 items-center">
                                                     <input
@@ -238,7 +269,7 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                                                         disabled={!!def}
                                                         title={def ? 'Defined by action metadata' : 'Custom parameter key'}
                                                     />
-                                                    {valueInput(def?.type, p.value, (v) => setParam(aIdx, pIdx, { value: v }))}
+                                                    {valueInput(def?.type, p.value, (v) => setParam(aIdx, pIdx, { value: v }), options)}
                                                     <button
                                                         className="px-2 border rounded text-xs disabled:opacity-50"
                                                         onClick={() => removeParam(aIdx, pIdx)}
