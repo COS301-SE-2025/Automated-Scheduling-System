@@ -155,23 +155,75 @@ type CreateEventAction struct {
 }
 
 func (a *CreateEventAction) Execute(ctx EvalContext, params map[string]any) error {
+	// Extract parameters with proper type handling
 	title, _ := params["title"].(string)
 	startTime, _ := params["startTime"].(string)
 	endTime, _ := params["endTime"].(string)
-	employeeNumbers, _ := params["employeeNumbers"].([]string)
-	positionCodes, _ := params["positionCodes"].([]string)
 	roomName, _ := params["roomName"].(string)
 	color, _ := params["color"].(string)
 	statusName, _ := params["statusName"].(string)
 	maxAttendees, _ := params["maxAttendees"].(int)
 	minAttendees, _ := params["minAttendees"].(int)
-	var createdByUserID *int64 = nil
 
-	// Convert string to int
+	// Handle customEventID parameter
 	customEventID := 0
+	if customEventIDParam, ok := params["customEventID"]; ok {
+		switch v := customEventIDParam.(type) {
+		case string:
+			if parsed, err := strconv.Atoi(v); err == nil {
+				customEventID = parsed
+			}
+		case int:
+			customEventID = v
+		case float64:
+			customEventID = int(v)
+		}
+	}
 
-	if parsed, err := strconv.Atoi(params["customEventID"].(string)); err == nil {
-		customEventID = parsed
+	// Handle employee numbers - support both JSON string and array formats
+	var employeeNumbers []string
+	if empParam, ok := params["employeeNumbers"]; ok {
+		switch v := empParam.(type) {
+		case string:
+			// Parse JSON string format
+			if v != "" {
+				if err := json.Unmarshal([]byte(v), &employeeNumbers); err != nil {
+					log.Printf("Failed to parse employeeNumbers JSON: %v", err)
+					return fmt.Errorf("invalid employeeNumbers format: %w", err)
+				}
+			}
+		case []string:
+			employeeNumbers = v
+		case []interface{}:
+			for _, item := range v {
+				if str, ok := item.(string); ok {
+					employeeNumbers = append(employeeNumbers, str)
+				}
+			}
+		}
+	}
+
+	// Handle position codes - support both JSON string and array formats
+	var positionCodes []string
+	if posParam, ok := params["positionCodes"]; ok {
+		switch v := posParam.(type) {
+		case string:
+			// Parse JSON string format
+			if v != "" {
+				if err := json.Unmarshal([]byte(v), &positionCodes); err != nil {
+					log.Printf("Failed to parse positionCodes JSON: %v", err)
+					return fmt.Errorf("invalid positionCodes format: %w", err)
+				}
+			}
+		case []string:
+			positionCodes = v
+		case []interface{}:
+			for _, item := range v {
+				if str, ok := item.(string); ok {
+					positionCodes = append(positionCodes, str)
+				}
+			}
+		}
 	}
 
 	// Required fields validation
@@ -212,17 +264,8 @@ func (a *CreateEventAction) Execute(ctx EvalContext, params map[string]any) erro
 		statusName = "Scheduled"
 	}
 
-	// Validate customEventID exists
-	var count int64
-	if err := a.DB.Model(&models.CustomEventDefinition{}).Where("custom_event_id = ?", customEventID).Count(&count).Error; err != nil {
-		return fmt.Errorf("database error while checking for event definition: %w", err)
-	}
-	if count == 0 {
-		return fmt.Errorf("event definition with ID %d not found", customEventID)
-	}
-
-	// Create the schedule
-	schedule := models.CustomEventSchedule{
+	// Create request for event creation
+	request := models.CreateEventScheduleRequest{
 		CustomEventID:    customEventID,
 		Title:            title,
 		EventStartDate:   startDateTime,
@@ -232,45 +275,82 @@ func (a *CreateEventAction) Execute(ctx EvalContext, params map[string]any) erro
 		MinimumAttendees: minAttendees,
 		StatusName:       statusName,
 		Color:            color,
-		CreatedByUserID:  createdByUserID,
+		EmployeeNumbers:  employeeNumbers,
+		PositionCodes:    positionCodes,
 	}
 
-	// Janky to omit like this, but nothing else worked for some reason
-	if err := a.DB.Omit("created_by_user_id").Create(&schedule).Error; err != nil {
-		return fmt.Errorf("failed to create event schedule: %w", err)
-	}
-
-	// Create employee links
-	for _, empNum := range employeeNumbers {
-		if empNum != "" {
-			empLink := models.EventScheduleEmployee{
-				CustomEventScheduleID: schedule.CustomEventScheduleID,
-				EmployeeNumber:        empNum,
-				Role:                  "Attendee",
-			}
-			if err := a.DB.Create(&empLink).Error; err != nil {
-				log.Printf("Failed to create employee link for %s: %v", empNum, err)
-			}
-		}
-	}
-
-	// Create position target links
-	for _, posCode := range positionCodes {
-		if posCode != "" {
-			posTarget := models.EventSchedulePositionTarget{
-				CustomEventScheduleID: schedule.CustomEventScheduleID,
-				PositionMatrixCode:    posCode,
-			}
-			if err := a.DB.Create(&posTarget).Error; err != nil {
-				log.Printf("Failed to create position target for %s: %v", posCode, err)
-			}
-		}
+	// Call the reusable event creation logic
+	schedule, err := a.createEventSchedule(request)
+	if err != nil {
+		return err
 	}
 
 	log.Printf("EVENT SCHEDULE CREATED: ID=%d, Title=%s, CustomEventID=%d, Start=%s",
 		schedule.CustomEventScheduleID, title, customEventID, startDateTime.Format("2006-01-02 15:04"))
 
 	return nil
+}
+
+// createEventSchedule replicates the same logic as event.CreateEventSchedule
+// This avoids circular import issues while reusing the exact same business logic
+func (a *CreateEventAction) createEventSchedule(req models.CreateEventScheduleRequest) (*models.CustomEventSchedule, error) {
+	// Check if the referenced CustomEventID exists before creating a schedule for it.
+	var count int64
+	if err := a.DB.Model(&models.CustomEventDefinition{}).Where("custom_event_id = ?", req.CustomEventID).Count(&count).Error; err != nil {
+		return nil, fmt.Errorf("database error while checking for event definition: %w", err)
+	}
+	if count == 0 {
+		return nil, fmt.Errorf("event definition with the specified ID not found")
+	}
+
+	// Only set the foreign key `CustomEventID`.
+	schedule := models.CustomEventSchedule{
+		CustomEventID:    req.CustomEventID, // FK
+		Title:            req.Title,
+		EventStartDate:   req.EventStartDate,
+		EventEndDate:     req.EventEndDate,
+		RoomName:         req.RoomName,
+		MaximumAttendees: req.MaximumAttendees,
+		MinimumAttendees: req.MinimumAttendees,
+		StatusName:       "Scheduled",
+		Color:            req.Color,
+		CreatedByUserID:  nil, // Rules engine creates events without specific user context
+	}
+
+	if req.StatusName != "" {
+		schedule.StatusName = req.StatusName
+	}
+
+	// GORM will now only insert into the `custom_event_schedules` table.
+	if err := a.DB.Create(&schedule).Error; err != nil {
+		return nil, fmt.Errorf("failed to create event schedule: %w", err)
+	}
+
+	// Write target links if any - following the same pattern as CreateEventSchedule
+	for _, emp := range req.EmployeeNumbers {
+		if emp != "" {
+			if err := a.DB.Create(&models.EventScheduleEmployee{
+				CustomEventScheduleID: schedule.CustomEventScheduleID,
+				EmployeeNumber:        emp,
+				Role:                  "Attendee",
+			}).Error; err != nil {
+				return nil, fmt.Errorf("failed to create employee link for %s: %w", emp, err)
+			}
+		}
+	}
+
+	for _, pos := range req.PositionCodes {
+		if pos != "" {
+			if err := a.DB.Create(&models.EventSchedulePositionTarget{
+				CustomEventScheduleID: schedule.CustomEventScheduleID,
+				PositionMatrixCode:    pos,
+			}).Error; err != nil {
+				return nil, fmt.Errorf("failed to create position target for %s: %w", pos, err)
+			}
+		}
+	}
+
+	return &schedule, nil
 }
 
 // ScheduleTrainingAction schedules training events
