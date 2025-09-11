@@ -26,6 +26,7 @@ import { RulesMetadataProvider } from '../contexts/RulesMetadataContext';
 import EventEmployeeFilterModal from '../components/ui/EventEmployeeFilterModal';
 import GenericSelectModal from '../components/ui/GenericSelectModal';
 import { getAllUsers } from '../services/userService';
+import { getAllJobPositions, type JobPosition } from '../services/jobPositionService';
 import * as eventService from '../services/eventService';
 import type { User } from '../types/user';
 
@@ -48,6 +49,14 @@ const RulesPage: React.FC = () => {
         onChange: (value: string) => void;
     } | null>(null);
 
+    // Job position selector modal state
+    const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
+    const [showJobPositionSelector, setShowJobPositionSelector] = useState(false);
+    const [currentJobPositionSelection, setCurrentJobPositionSelection] = useState<{
+        currentValue: string[];
+        onChange: (value: string) => void;
+    } | null>(null);
+
     // Event type selector modal state
     const [eventDefinitions, setEventDefinitions] = useState<eventService.EventDefinition[]>([]);
     const [showEventTypeSelector, setShowEventTypeSelector] = useState(false);
@@ -62,21 +71,23 @@ const RulesPage: React.FC = () => {
     useEffect(() => { nodesRef.current = nodes; }, [nodes]);
     useEffect(() => { edgesRef.current = edges; }, [edges]);
 
-    // Load users for employee selector and event definitions for event type selector
+    // Load users for employee selector, job positions, and event definitions for event type selector
     useEffect(() => {
         let active = true;
         (async () => {
             try {
-                const [userList, eventDefs] = await Promise.all([
+                const [userList, eventDefs, positions] = await Promise.all([
                     getAllUsers(),
-                    eventService.getEventDefinitions()
+                    eventService.getEventDefinitions(),
+                    getAllJobPositions()
                 ]);
                 if (active) {
                     setUsers(userList);
                     setEventDefinitions(eventDefs);
+                    setJobPositions(positions.filter(p => p.isActive));
                 }
             } catch (error) {
-                console.error('Failed to load users or event definitions:', error);
+                console.error('Failed to load users, event definitions, or job positions:', error);
             }
         })();
         return () => { active = false; };
@@ -94,6 +105,21 @@ const RulesPage: React.FC = () => {
         
         return () => {
             window.removeEventListener('employees:open-selector', handleOpenEmployeeSelector as EventListener);
+        };
+    }, []);
+
+    // Listen for job position selector events from ActionsNode
+    useEffect(() => {
+        const handleOpenJobPositionSelector = (event: CustomEvent) => {
+            const { currentValue, onChange } = event.detail;
+            setCurrentJobPositionSelection({ currentValue, onChange });
+            setShowJobPositionSelector(true);
+        };
+
+        window.addEventListener('job-positions:open-selector', handleOpenJobPositionSelector as EventListener);
+        
+        return () => {
+            window.removeEventListener('job-positions:open-selector', handleOpenJobPositionSelector as EventListener);
         };
     }, []);
 
@@ -357,6 +383,25 @@ const RulesPage: React.FC = () => {
                     }
                     setShowEmployeeSelector(false);
                     setCurrentEmployeeSelection(null);
+                }}
+            />
+
+            {/* Job Position Selector Modal */}
+            <EventEmployeeFilterModal
+                isOpen={showJobPositionSelector}
+                mode="positions"
+                positions={jobPositions}
+                initialSelected={currentJobPositionSelection?.currentValue || []}
+                onClose={() => {
+                    setShowJobPositionSelector(false);
+                    setCurrentJobPositionSelection(null);
+                }}
+                onConfirm={(selectedPositionCodes) => {
+                    if (currentJobPositionSelection?.onChange) {
+                        currentJobPositionSelection.onChange(JSON.stringify(selectedPositionCodes));
+                    }
+                    setShowJobPositionSelector(false);
+                    setCurrentJobPositionSelection(null);
                 }}
             />
 

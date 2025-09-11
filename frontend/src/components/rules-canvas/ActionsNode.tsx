@@ -316,6 +316,69 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                 </div>
             );
         }
+        if (type === 'job_positions') {
+            // Parse the value as JSON array of position codes if possible, otherwise treat as empty
+            let selectedPositions: string[] = [];
+            try {
+                if (value && value.trim() !== '') {
+                    selectedPositions = JSON.parse(value);
+                }
+            } catch {
+                selectedPositions = [];
+            }
+
+            return (
+                <div className="w-1/2 flex items-center gap-2">
+                    <button
+                        type="button"
+                        className="px-3 py-1 border rounded bg-purple-50 hover:bg-purple-100 text-purple-700 text-sm"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            // Open job position selector modal with current value
+                            let currentPositionCodes: string[] = [];
+                            try {
+                                if (value && value.trim() !== '') {
+                                    currentPositionCodes = JSON.parse(value);
+                                }
+                            } catch {
+                                currentPositionCodes = [];
+                            }
+                            
+                            // Dispatch custom event to open modal at page level
+                            window.dispatchEvent(new CustomEvent('job-positions:open-selector', {
+                                detail: {
+                                    currentValue: currentPositionCodes,
+                                    onChange: onChange || (() => {})
+                                }
+                            }));
+                        }}
+                        {...stopAll}
+                    >
+                        Select Job Positions
+                    </button>
+                    <span className="text-sm text-gray-600 cursor-pointer hover:underline">
+                        {selectedPositions.length > 0
+                            ? `${selectedPositions.length} position${selectedPositions.length === 1 ? '' : 's'} selected`
+                            : 'No positions selected'}
+                    </span>
+                    {selectedPositions.length > 0 && (
+                        <button
+                            type="button"
+                            aria-label="Clear position selections"
+                            title="Clear selections"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onChange?.('[]');
+                            }}
+                            className="text-gray-400 hover:text-red-600"
+                            {...stopAll}
+                        >
+                            ×
+                        </button>
+                    )}
+                </div>
+            );
+        }
         return (
             <input
                 className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"

@@ -3,7 +3,7 @@ package rulesv2
 // Parameter represents a parameter definition for triggers and actions
 type Parameter struct {
 	Name        string `json:"name"`
-	Type        string `json:"type"` // "string", "text_area", "employees", "number", "boolean", "date", "array", "object"
+	Type        string `json:"type"` // "string", "text_area", "employees", "event_type", "job_positions", "number", "boolean", "date", "array", "object"
 	Required    bool   `json:"required"`
 	Description string `json:"description"`
 	Example     any    `json:"example,omitempty"`
@@ -291,14 +291,14 @@ func getActionMetadata() []ActionMetadata {
 				},
 				{
 					Name:        "employeeNumbers",
-					Type:        "array",
+					Type:        "employees",
 					Required:    false,
 					Description: "List of employee numbers to directly invite to the event",
 					Example:     []string{"EMP001", "EMP002"},
 				},
 				{
 					Name:        "positionCodes",
-					Type:        "array",
+					Type:        "job_positions",
 					Required:    false,
 					Description: "List of position codes to target (all employees in these positions will be invited)",
 					Example:     []string{"MGR", "DEV"},
@@ -311,14 +311,14 @@ func getActionMetadata() []ActionMetadata {
 					Example:     "Conference Room A",
 				},
 				{
-					Name:        "maxAttendees",
+					Name:        "minAttendees",
 					Type:        "number",
 					Required:    false,
 					Description: "Maximum number of attendees for the event",
 					Example:     20,
 				},
 				{
-					Name:        "minAttendees",
+					Name:        "maxAttendees",
 					Type:        "number",
 					Required:    false,
 					Description: "Minimum number of attendees required for the event",
