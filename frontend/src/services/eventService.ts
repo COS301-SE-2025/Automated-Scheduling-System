@@ -30,6 +30,9 @@ export interface BackendScheduledEvent {
     CustomEventDefinition: EventDefinition; // The nested definition object
     Employees?: { employee_number: string; role?: string }[];
     Positions?: { position_matrix_code: string }[];
+    canEdit?: boolean;
+    canDelete?: boolean;
+    creatorUserId?: number;
 }
 
 export interface CalendarEvent extends EventInput {
@@ -48,6 +51,9 @@ export interface CalendarEvent extends EventInput {
     employees?: string[]; // employee numbers linked to this schedule
     positions?: string[]; // position codes targeted by this schedule
         color: string;
+    canEdit?: boolean;
+    canDelete?: boolean;
+    creatorUserId?: number;
     // Client-only props for multi-day visualization
     seriesStart?: string;
     seriesEnd?: string;
@@ -117,6 +123,9 @@ export const getScheduledEvents = async (): Promise<CalendarEvent[]> => {
             employees: (event.Employees || []).map((e: any) => e.employee_number ?? e.EmployeeNumber),
             positions: (event.Positions || []).map((p: any) => p.position_matrix_code ?? p.PositionMatrixCode),
             color: event.color,
+            canEdit: event.canEdit,
+            canDelete: event.canDelete,
+            creatorUserId: event.creatorUserId,
         }
     }));
 };

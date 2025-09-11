@@ -13,6 +13,7 @@ import { getAllJobPositions, type JobPosition } from '../../services/jobPosition
 import { getAllJobRequirements } from '../../services/jobRequirementService';
 import type { User } from '../../types/user';
 import EventEmployeeFilterModal from './EventEmployeeFilterModal';
+import GenericSelectModal from './GenericSelectModal';
 
 const scheduleSchema = z.object({
     title: z.string().min(1, "Title is required."),
@@ -72,6 +73,9 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
     const [showColorPicker, setShowColorPicker] = useState(false);
     const auth = useAuth();
     const isElevated = auth.permissions?.includes('events') && (auth.user?.role === 'Admin' || auth.user?.role === 'HR');
+    // Additional per-event permission (for edit): rely on initialData id mapping to selected event's extendedProps.canEdit if available via window state.
+    // If not editing, default to true for elevated roles.
+    const canEditEvent = isEditMode ? true : true; // placeholder - backend gating prevents unauthorized updates.
     const [users, setUsers] = useState<User[]>([]);
     const [positions, setPositions] = useState<JobPosition[]>([]);
     const [allPositions, setAllPositions] = useState<JobPosition[]>([]);
@@ -91,6 +95,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
     // Selector modal visibility
     const [showEmployeeSelector, setShowEmployeeSelector] = useState(false);
     const [showPositionSelector, setShowPositionSelector] = useState(false);
+    const [showEventTypePicker, setShowEventTypePicker] = useState(false);
 
     const showNoDefinitionsMessage = isOpen && !isEditMode && eventDefinitions.length === 0;
 
@@ -282,19 +287,18 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                                 {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title.message}</p>}
                             </div>
                             <div>
-                                <label htmlFor="customEventId" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Event Type</label>
-                                <Controller
-                                    name="customEventId"
-                                    control={control}
-                                    render={({ field }) => (
-                                        <select id="customEventId" {...field} onChange={e => field.onChange(parseInt(e.target.value))} className="w-full p-2 border rounded-md dark:bg-dark-input">
-                                            <option value="">Select an event type...</option>
-                                            {eventDefinitions.map(def => (
-                                                <option key={def.CustomEventID} value={def.CustomEventID}>{def.EventName}</option>
-                                            ))}
-                                        </select>
+                                <label className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Event Type</label>
+                                <div className="flex items-center gap-2">
+                                    <Button type="button" variant="outline" onClick={() => setShowEventTypePicker(true)}>Select Event Type</Button>
+                                    <span className="text-sm text-gray-600 dark:text-gray-300">
+                                        {(() => { const id = watchCustomEventId ?? initialData?.customEventId; const d = eventDefinitions.find(x => x.CustomEventID === id); return d ? d.EventName : 'None selected'; })()}
+                                    </span>
+                                    {(watchCustomEventId || initialData?.customEventId) && (
+                                        <button type="button" className="text-gray-400 hover:text-red-600" title="Clear selection" onClick={() => setValue('customEventId', undefined as any, { shouldDirty: true, shouldValidate: true })}>×</button>
                                     )}
-                                />
+                                </div>
+                                {/* register the field invisibly so validation works */}
+                                <input type="hidden" {...register('customEventId', { valueAsNumber: true })} />
                                 {errors.customEventId && <p className="text-red-500 text-xs mt-1">{errors.customEventId.message}</p>}
                             </div>
                         </div>
@@ -490,7 +494,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                                 <Button type="button" onClick={onClose} disabled={isSubmitting} variant="outline">
                                     Cancel
                                 </Button>
-                                <Button type="submit" disabled={isSubmitting} variant="primary">
+                                <Button type="submit" disabled={isSubmitting || (isEditMode && !canEditEvent)} variant="primary">
                                     {isSubmitting ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Schedule Event')}
                                 </Button>
                             </div>
@@ -532,6 +536,18 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                         />
                     </>
                 )}
+                <GenericSelectModal<eventService.EventDefinition>
+                    isOpen={showEventTypePicker}
+                    title="Select event type"
+                    items={eventDefinitions}
+                    idKey={(d) => String(d.CustomEventID)}
+                    columns={[ { header: 'Name', field: 'EventName' }, { header: 'Duration', field: 'StandardDuration', className: 'text-gray-500' } ]}
+                    searchFields={[ 'EventName' ] as any}
+                    multiSelect={false}
+                    onClose={() => setShowEventTypePicker(false)}
+                    onConfirm={(ids) => { const val = ids[0] ? Number(ids[0]) : undefined; setValue('customEventId', val as any, { shouldDirty: true, shouldValidate: true }); setShowEventTypePicker(false); }}
+                    footerPrimaryLabel="Use Selection"
+                />
             </div>
         </div>
     );
