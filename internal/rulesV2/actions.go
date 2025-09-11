@@ -46,7 +46,10 @@ func (a *NotificationAction) Execute(ctx EvalContext, params map[string]any) err
 	case "sms":
 		// TODO: Change later to fetch all the employees phonenumbers
 		smsWithSubject := subject + "\n\n" + message
-		a.sendSMS(recipient, smsWithSubject)
+		err := a.sendSMS(recipient, smsWithSubject)
+		if err != nil {
+			return fmt.Errorf("failed to send SMS: %w", err)
+		}
 	case "push":
 		// TODO: Implement push notification logic here
 		log.Printf("PUSH NOTIFICATION SENT: To=%s, Subject=%s, Message=%s", recipient, subject, message)

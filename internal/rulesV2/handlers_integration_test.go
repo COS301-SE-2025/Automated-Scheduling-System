@@ -78,6 +78,7 @@ func TestRules_Validate_Integration(t *testing.T) {
 			"recipient": "test@example.com",
 			"subject":   "Hello",
 			"message":   "World",
+			"type":      "email",
 		}}},
 	}
 	rec := doJSONIT(t, router, http.MethodPost, "/api/rules/validate", valid)

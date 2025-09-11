@@ -48,7 +48,9 @@ func TestNotificationAction_Execute(t *testing.T) {
 
 		ctx := EvalContext{}
 		err := action.Execute(ctx, params)
-		assert.NoError(t, err)
+		// SMS will fail without API key in test environment, which is expected
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to send SMS")
 	})
 
 	t.Run("MissingRecipient", func(t *testing.T) {
@@ -267,7 +269,9 @@ func TestNotificationActionComprehensive_Execute(t *testing.T) {
 
 		ctx := EvalContext{}
 		err := action.Execute(ctx, params)
-		assert.NoError(t, err)
+		// SMS will fail without API key in test environment, which is expected
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to send SMS")
 	})
 
 	t.Run("PushNotificationSuccess", func(t *testing.T) {
@@ -321,8 +325,9 @@ func TestNotificationActionComprehensive_Execute(t *testing.T) {
 
 		ctx := EvalContext{}
 		err := action.Execute(ctx, params)
-		// SMS should succeed as it's just a log output
-		assert.NoError(t, err)
+		// SMS will fail without API key in test environment, which is expected
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to send SMS")
 	})
 
 	t.Run("MissingMessage", func(t *testing.T) {

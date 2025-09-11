@@ -3,7 +3,7 @@ package rulesv2
 // Parameter represents a parameter definition for triggers and actions
 type Parameter struct {
 	Name        string `json:"name"`
-	Type        string `json:"type"` // "string", "number", "boolean", "date", "array", "object"
+	Type        string `json:"type"` // "string", "text_area", "number", "boolean", "date", "array", "object"
 	Required    bool   `json:"required"`
 	Description string `json:"description"`
 	Example     any    `json:"example,omitempty"`
