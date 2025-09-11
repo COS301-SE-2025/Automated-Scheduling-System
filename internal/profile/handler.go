@@ -3,7 +3,6 @@ package profile
 import (
     "Automated-Scheduling-Project/internal/database/gen_models"
     "Automated-Scheduling-Project/internal/database/models"
-    // "Automated-Scheduling-Project/internal/role"
     "net/http"
     "sort"
     "time"
@@ -36,7 +35,6 @@ type EmployeeCompetencyProfile struct {
     } `json:"employee"`
     Completed []CompetencyBrief `json:"completed"`
     Required  []CompetencyBrief `json:"required"`
-    Explore   []CompetencyBrief `json:"explore"`
 }
 
 // GetEmployeeCompetencyProfile aggregates the competency profile for the current authenticated user
@@ -101,47 +99,46 @@ func GetEmployeeCompetencyProfile(c *gin.Context) {
     // Required: from custom_job_matrix for current position, active competencies, excluding completed
     completedSet := map[int]struct{}{}
     for _, ccc := range prof.Completed { completedSet[ccc.CompetencyID] = struct{}{} }
-    var reqRows []models.CustomJobMatrix
+    
     if curPos.Code != "" {
-        _ = DB.Preload("CompetencyDefinition.Prerequisites").Where("position_matrix_code = ?", curPos.Code).Find(&reqRows).Error
-    }
-    for _, r := range reqRows {
-        cdef := r.CompetencyDefinition
-        if !cdef.IsActive { continue }
-        if _, done := completedSet[cdef.CompetencyID]; done { continue }
-        // prerequisites IDs
-        prereqIDs := make([]int, 0, len(cdef.Prerequisites))
-        for _, p := range cdef.Prerequisites { prereqIDs = append(prereqIDs, p.CompetencyID) }
-        prof.Required = append(prof.Required, CompetencyBrief{
-            CompetencyID: cdef.CompetencyID,
-            CompetencyName: cdef.CompetencyName,
-            CompetencyTypeName: cdef.CompetencyTypeName,
-            Description: cdef.Description,
-            ExpiryPeriodMonths: cdef.ExpiryPeriodMonths,
-            IsActive: cdef.IsActive,
-            Prerequisites: prereqIDs,
-        })
+        // Use a raw SQL query to ensure we get the data correctly
+        reqRows := []struct {
+            CompetencyID       int    `gorm:"column:competency_id"`
+            CompetencyName     string `gorm:"column:competency_name"`
+            CompetencyTypeName string `gorm:"column:competency_type_name"`
+            Description        string `gorm:"column:description"`
+            ExpiryPeriodMonths *int   `gorm:"column:expiry_period_months"`
+            IsActive           bool   `gorm:"column:is_active"`
+        }{}
+        
+        DB.Table("custom_job_matrix cjm").
+            Select("cd.competency_id, cd.competency_name, cd.competency_type_name, cd.description, cd.expiry_period_months, cd.is_active").
+            Joins("JOIN competency_definitions cd ON cd.competency_id = cjm.competency_id").
+            Where("cjm.position_matrix_code = ? AND cjm.requirement_status = ? AND cd.is_active = ?", curPos.Code, "Required", true).
+            Scan(&reqRows)
+        
+        for _, r := range reqRows {
+            if _, done := completedSet[r.CompetencyID]; done { continue }
+            // Get prerequisites for this competency
+            var prereqIDs []int
+            DB.Table("competency_prerequisites cp").
+                Select("cp.prerequisite_competency_id").
+                Where("cp.competency_id = ?", r.CompetencyID).
+                Pluck("prerequisite_competency_id", &prereqIDs)
+            
+            prof.Required = append(prof.Required, CompetencyBrief{
+                CompetencyID: r.CompetencyID,
+                CompetencyName: r.CompetencyName,
+                CompetencyTypeName: r.CompetencyTypeName,
+                Description: r.Description,
+                ExpiryPeriodMonths: r.ExpiryPeriodMonths,
+                IsActive: r.IsActive,
+                Prerequisites: prereqIDs,
+            })
+        }
     }
     // sort: with no prerequisites first
     sort.SliceStable(prof.Required, func(i, j int) bool { return len(prof.Required[i].Prerequisites) < len(prof.Required[j].Prerequisites) })
-
-    // Explore: other active competencies not in completed or required
-    reqSet := map[int]struct{}{}
-    for _, r := range prof.Required { reqSet[r.CompetencyID] = struct{}{} }
-    var allActive []models.CompetencyDefinition
-    _ = DB.Where("is_active = ?", true).Preload("Prerequisites").Find(&allActive).Error
-    for _, cdef := range allActive {
-        if _, done := completedSet[cdef.CompetencyID]; done { continue }
-        if _, req := reqSet[cdef.CompetencyID]; req { continue }
-        prof.Explore = append(prof.Explore, CompetencyBrief{
-            CompetencyID: cdef.CompetencyID,
-            CompetencyName: cdef.CompetencyName,
-            CompetencyTypeName: cdef.CompetencyTypeName,
-            Description: cdef.Description,
-            ExpiryPeriodMonths: cdef.ExpiryPeriodMonths,
-            IsActive: cdef.IsActive,
-        })
-    }
 
     c.JSON(http.StatusOK, prof)
 }
