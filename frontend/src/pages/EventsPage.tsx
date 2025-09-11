@@ -7,6 +7,7 @@ import FeatureBlock from '../components/ui/FeatureBlock';
 import * as eventService from '../services/eventService';
 import type { CalendarEvent, EventDefinition, CreateEventDefinitionPayload  } from '../services/eventService';
 import { Edit, Trash2, AlertCircle, CalendarClock, Link as LinkIcon, Eye } from 'lucide-react';
+import { ApiError } from '../services/api';
 import { Link } from 'react-router-dom';
 import EventFormModal, { type EventFormModalProps } from '../components/ui/EventFormModal';
 import EventDetailModal from '../components/ui/EventDetailModal';
@@ -145,7 +146,11 @@ const EventsPage: React.FC = () => {
             await fetchAndSetData();
         } catch (err) {
             console.error('Failed to save event:', err);
-            setError('Failed to save event. Please check your input and try again.');
+            if (err instanceof ApiError && err.status === 403) {
+                setError('You are not permitted to modify this event. Only the creator or Admin/HR can edit it.');
+            } else {
+                setError('Failed to save event. Please check your input and try again.');
+            }
         } finally {
             setIsFormModalOpen(false);
             setEventToEdit(null);
@@ -191,7 +196,7 @@ const EventsPage: React.FC = () => {
                 </div>
             );
         }
-        if (user?.role === 'Admin') {
+        if (user?.role === 'Admin' || user?.role === 'HR') {
             return <AdminView events={events} onEdit={handleStartEdit} onDelete={handleDeleteRequest} onView={handleViewEvent} />;
         }
         return <UserView events={events} />;
@@ -227,7 +232,7 @@ const EventsPage: React.FC = () => {
             </FeatureGrid>
 
             {/* Modals for Admin */}
-            {user?.role === 'Admin' && (
+            {(user?.role === 'Admin' || user?.role === 'HR') && (
                 <>
                     <EventFormModal
                         isOpen={isFormModalOpen}
@@ -321,8 +326,12 @@ const AdminView: React.FC<AdminViewProps> = ({ events, onEdit, onDelete, onView 
                                     </div>
                                         <div className="flex items-center space-x-2">
                                         <button onClick={() => onView(event)} className="text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"><Eye size={16} /></button>
-                                        <button onClick={() => onEdit(event)} className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary"><Edit size={16} /></button>
-                                        <button onClick={() => onDelete(event)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"><Trash2 size={16} /></button>
+                                        {event.extendedProps.canEdit && (
+                                            <button onClick={() => onEdit(event)} className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary"><Edit size={16} /></button>
+                                        )}
+                                        {event.extendedProps.canDelete && (
+                                            <button onClick={() => onDelete(event)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"><Trash2 size={16} /></button>
+                                        )}
                                     </div>
                                 </div>
                             </li>
