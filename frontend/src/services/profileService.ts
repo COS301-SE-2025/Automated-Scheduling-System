@@ -24,7 +24,6 @@ export interface EmployeeCompetencyProfile {
   employee: EmployeeHeader;
   completed: CompetencyBrief[];
   required: CompetencyBrief[];
-  explore: CompetencyBrief[];
 }
 
 export const getEmployeeCompetencyProfile = async (): Promise<EmployeeCompetencyProfile> => {
