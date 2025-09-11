@@ -73,7 +73,12 @@ const (
 func stubCurrentUser(t *testing.T, userID int, empNo, email string, isAdmin, isHR bool) {
 	prev := currentUserContextFn
 	currentUserContextFn = func(c *gin.Context) (*gen_models.User, *gen_models.Employee, bool, bool, error) {
-	return &gen_models.User{ID: int64(userID), Username: "unit-user", Role: func() string { if isAdmin { return "Admin" }; return "User" }(), EmployeeNumber: empNo},
+		return &gen_models.User{ID: int64(userID), Username: "unit-user", Role: func() string {
+				if isAdmin {
+					return "Admin"
+				}
+				return "User"
+			}(), EmployeeNumber: empNo},
 			&gen_models.Employee{Employeenumber: empNo, Useraccountemail: email}, isAdmin, isHR, nil
 	}
 	t.Cleanup(func() { currentUserContextFn = prev })
@@ -89,7 +94,7 @@ func TestCreateEventDefinitionHandler_Unit(t *testing.T) {
 	}
 	mock.ExpectBegin()
 	mock.ExpectQuery(regexp.QuoteMeta(
-	`INSERT INTO "custom_event_definitions" ("event_name","activity_description","standard_duration","grants_certificate_id","facilitator","created_by","creation_date") VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING "custom_event_id"`)).
+		`INSERT INTO "custom_event_definitions" ("event_name","activity_description","standard_duration","grants_certificate_id","facilitator","created_by","creation_date") VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING "custom_event_id"`)).
 		WithArgs(req.EventName, req.ActivityDescription, req.StandardDuration, req.GrantsCertificateID, req.Facilitator, testUserEmail, sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"custom_event_id"}).AddRow(1))
 	mock.ExpectCommit()
@@ -412,11 +417,11 @@ func TestGetEventSchedulesHandler_Unit(t *testing.T) {
 	mock.ExpectQuery(regexp.QuoteMeta(
 		`SELECT * FROM "event_schedule_employees" WHERE "event_schedule_employees"."custom_event_schedule_id" IN ($1,$2)`)).
 		WithArgs(1, 2).
-	WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "employee_number", "role"}))
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "employee_number", "role"}))
 	mock.ExpectQuery(regexp.QuoteMeta(
 		`SELECT * FROM "event_schedule_position_targets" WHERE "event_schedule_position_targets"."custom_event_schedule_id" IN ($1,$2)`)).
 		WithArgs(1, 2).
-	WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "position_matrix_code"}))
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "position_matrix_code"}))
 
 	c, rec := ctxWithJSON(t, db, "GET", "/event-schedules", nil)
 	GetEventSchedulesHandler(c)
@@ -511,15 +516,11 @@ func TestUpdateEventScheduleHandler_NonAdmin_NotLinked_Forbidden_Unit(t *testing
 	db, mock := newMockDB(t)
 
 	scheduleID := 9
-	// Load schedule (created_by_user_id present)
+	// Load schedule created by user ID 1, but current user is ID 2
 	mock.ExpectQuery(regexp.QuoteMeta(
 		`SELECT * FROM "custom_event_schedules" WHERE "custom_event_schedules"."custom_event_schedule_id" = $1 ORDER BY "custom_event_schedules"."custom_event_schedule_id" LIMIT $2`)).
 		WithArgs(scheduleID, 1).
 		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "title", "created_by_user_id"}).AddRow(scheduleID, "T", 1))
-	// Check link count (0)
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT count(*) FROM "event_schedule_employees" WHERE custom_event_schedule_id = $1 AND employee_number = $2`)).
-		WithArgs(scheduleID, "E001").
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 
 	c, rec := ctxWithJSON(t, db, "PUT", fmt.Sprintf("/event-schedules/%d", scheduleID), models.CreateEventScheduleRequest{Title: "X", CustomEventID: 1, EventStartDate: time.Now(), EventEndDate: time.Now().Add(time.Hour)})
 	stubCurrentUser(t, 2, "E001", testUserEmail, false, false)
@@ -535,17 +536,13 @@ func TestUpdateEventScheduleHandler_NonAdmin_CannotAddOthersOrPositions_Unit(t *
 	db, mock := newMockDB(t)
 
 	scheduleID := 10
-	// Load schedule
+	// Load schedule created by user ID 2 (same as current user), so they pass the creator check
 	mock.ExpectQuery(regexp.QuoteMeta(
 		`SELECT * FROM "custom_event_schedules" WHERE "custom_event_schedules"."custom_event_schedule_id" = $1 ORDER BY "custom_event_schedules"."custom_event_schedule_id" LIMIT $2`)).
 		WithArgs(scheduleID, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "title", "created_by_user_id"}).AddRow(scheduleID, "T", 1))
-	// Check link count (1) to get past the first permission check
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT count(*) FROM "event_schedule_employees" WHERE custom_event_schedule_id = $1 AND employee_number = $2`)).
-		WithArgs(scheduleID, "E001").
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "title", "created_by_user_id"}).AddRow(scheduleID, "T", 2))
 
-	// Attempt to add a different employee
+	// Attempt to add a different employee (should fail the employee check)
 	req := models.CreateEventScheduleRequest{Title: "T2", CustomEventID: 1, EventStartDate: time.Now(), EventEndDate: time.Now().Add(time.Hour), EmployeeNumbers: []string{"E999"}}
 	c, rec := ctxWithJSON(t, db, "PUT", fmt.Sprintf("/event-schedules/%d", scheduleID), req)
 	stubCurrentUser(t, 2, "E001", testUserEmail, false, false)
