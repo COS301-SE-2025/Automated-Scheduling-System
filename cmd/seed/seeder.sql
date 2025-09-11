@@ -13,6 +13,7 @@ CREATE TABLE employee (
     LastName VARCHAR(255),
     UserAccountEmail VARCHAR(255) UNIQUE NOT NULL,
     EmployeeStatus VARCHAR(100),
+    PhoneNumber VARCHAR(11),
     TerminationDate DATE
 );
 
@@ -176,12 +177,12 @@ CREATE INDEX IF NOT EXISTS idx_event_attendance_employee ON event_attendance(emp
 
 -- Insert dummy data
 -- Insert data into the employee table
-INSERT INTO employee (EmployeeNumber, FirstName, LastName, UserAccountEmail, EmployeeStatus, TerminationDate)
+INSERT INTO employee (EmployeeNumber, FirstName, LastName, UserAccountEmail, EmployeeStatus, PhoneNumber, TerminationDate)
 VALUES
-('E001', 'John', 'Doe', 'john.doe@example.com', 'Active', NULL),
-('E002', 'Jane', 'Smith', 'jane.smith@example.com', 'Active', NULL),
-('E003', 'Alice', 'Johnson', 'alice.johnson@example.com', 'Terminated', '2025-06-01'),
-('E004', 'Bob', 'Brown', 'bob.brown@example.com', 'Active', NULL)
+('E001', 'John', 'Doe', 'johnpeterkrause@gmail.com', 'Active', '27630614668', NULL),
+('E002', 'Jane', 'Smith', 'jane.smith@example.com', 'Active', '27630614668', NULL),
+('E003', 'Alice', 'Johnson', 'alice.johnson@example.com', 'Terminated', '27630614668', '2025-06-01'),
+('E004', 'Bob', 'Brown', 'bob.brown@example.com', 'Active', '27630614668', NULL)
 ON CONFLICT (EmployeeNumber) DO NOTHING;
 
 -- Insert data into the users table

@@ -23,6 +23,9 @@ import CanvasToast from '../components/rules-canvas/CanvasToast';
 import CanvasConfirm from '../components/rules-canvas/CanvasConfirm';
 import { materializeFromBackend, deleteRuleInBackend } from '../utils/canvasBackend';
 import { RulesMetadataProvider } from '../contexts/RulesMetadataContext';
+import EventEmployeeFilterModal from '../components/ui/EventEmployeeFilterModal';
+import { getAllUsers } from '../services/userService';
+import type { User } from '../types/user';
 
 const initialNodes: any[] = [];
 
@@ -35,8 +38,50 @@ const RulesPage: React.FC = () => {
     const [exported, setExported] = useState<string>('');
     const [showPreview, setShowPreview] = useState<boolean>(false);
 
+    // Employee selector modal state
+    const [users, setUsers] = useState<User[]>([]);
+    const [showEmployeeSelector, setShowEmployeeSelector] = useState(false);
+    const [currentEmployeeSelection, setCurrentEmployeeSelection] = useState<{
+        currentValue: string[];
+        onChange: (value: string) => void;
+    } | null>(null);
+
     const nodesRef = useRef<typeof nodes>(nodes);
     const edgesRef = useRef<typeof edges>(edges);
+
+    useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+    useEffect(() => { edgesRef.current = edges; }, [edges]);
+
+    // Load users for employee selector
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                const userList = await getAllUsers();
+                if (active) {
+                    setUsers(userList);
+                }
+            } catch (error) {
+                console.error('Failed to load users:', error);
+            }
+        })();
+        return () => { active = false; };
+    }, []);
+
+    // Listen for employee selector events from ActionsNode
+    useEffect(() => {
+        const handleOpenEmployeeSelector = (event: CustomEvent) => {
+            const { currentValue, onChange } = event.detail;
+            setCurrentEmployeeSelection({ currentValue, onChange });
+            setShowEmployeeSelector(true);
+        };
+
+        window.addEventListener('employees:open-selector', handleOpenEmployeeSelector as EventListener);
+        
+        return () => {
+            window.removeEventListener('employees:open-selector', handleOpenEmployeeSelector as EventListener);
+        };
+    }, []);
 
     useEffect(() => { nodesRef.current = nodes; }, [nodes]);
     useEffect(() => { edgesRef.current = edges; }, [edges]);
@@ -265,6 +310,26 @@ const RulesPage: React.FC = () => {
                     </RulesMetadataProvider>
                 </ReactFlowProvider>
             </div>
+
+            {/* Employee Selection Modal - Rendered at page level */}
+            <EventEmployeeFilterModal
+                isOpen={showEmployeeSelector}
+                mode="employees"
+                title="Select Employees for Action"
+                users={users}
+                initialSelected={currentEmployeeSelection?.currentValue || []}
+                onClose={() => {
+                    setShowEmployeeSelector(false);
+                    setCurrentEmployeeSelection(null);
+                }}
+                onConfirm={(selectedEmployeeNumbers) => {
+                    if (currentEmployeeSelection?.onChange) {
+                        currentEmployeeSelection.onChange(JSON.stringify(selectedEmployeeNumbers));
+                    }
+                    setShowEmployeeSelector(false);
+                    setCurrentEmployeeSelection(null);
+                }}
+            />
         </MainLayout>
     );
 };

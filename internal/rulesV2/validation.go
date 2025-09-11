@@ -142,7 +142,7 @@ func validateParameterType(param Parameter, value any) error {
 	}
 
 	switch param.Type {
-	case "string", "text_area":
+	case "string", "text_area", "employees":
 		if _, ok := value.(string); !ok {
 			return fmt.Errorf("parameter '%s' must be a string, got %T", param.Name, value)
 		}
