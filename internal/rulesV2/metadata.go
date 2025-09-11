@@ -270,7 +270,7 @@ func getActionMetadata() []ActionMetadata {
 				},
 				{
 					Name:        "customEventID",
-					Type:        "number",
+					Type:        "event_type",
 					Required:    true,
 					Description: "Event definition ID that this schedule is based on",
 					Example:     2,

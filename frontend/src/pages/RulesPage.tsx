@@ -24,7 +24,9 @@ import CanvasConfirm from '../components/rules-canvas/CanvasConfirm';
 import { materializeFromBackend, deleteRuleInBackend } from '../utils/canvasBackend';
 import { RulesMetadataProvider } from '../contexts/RulesMetadataContext';
 import EventEmployeeFilterModal from '../components/ui/EventEmployeeFilterModal';
+import GenericSelectModal from '../components/ui/GenericSelectModal';
 import { getAllUsers } from '../services/userService';
+import * as eventService from '../services/eventService';
 import type { User } from '../types/user';
 
 const initialNodes: any[] = [];
@@ -46,23 +48,35 @@ const RulesPage: React.FC = () => {
         onChange: (value: string) => void;
     } | null>(null);
 
+    // Event type selector modal state
+    const [eventDefinitions, setEventDefinitions] = useState<eventService.EventDefinition[]>([]);
+    const [showEventTypeSelector, setShowEventTypeSelector] = useState(false);
+    const [currentEventTypeSelection, setCurrentEventTypeSelection] = useState<{
+        currentValue: string;
+        onChange: (value: string) => void;
+    } | null>(null);
+
     const nodesRef = useRef<typeof nodes>(nodes);
     const edgesRef = useRef<typeof edges>(edges);
 
     useEffect(() => { nodesRef.current = nodes; }, [nodes]);
     useEffect(() => { edgesRef.current = edges; }, [edges]);
 
-    // Load users for employee selector
+    // Load users for employee selector and event definitions for event type selector
     useEffect(() => {
         let active = true;
         (async () => {
             try {
-                const userList = await getAllUsers();
+                const [userList, eventDefs] = await Promise.all([
+                    getAllUsers(),
+                    eventService.getEventDefinitions()
+                ]);
                 if (active) {
                     setUsers(userList);
+                    setEventDefinitions(eventDefs);
                 }
             } catch (error) {
-                console.error('Failed to load users:', error);
+                console.error('Failed to load users or event definitions:', error);
             }
         })();
         return () => { active = false; };
@@ -80,6 +94,21 @@ const RulesPage: React.FC = () => {
         
         return () => {
             window.removeEventListener('employees:open-selector', handleOpenEmployeeSelector as EventListener);
+        };
+    }, []);
+
+    // Listen for event type selector events from ActionsNode
+    useEffect(() => {
+        const handleOpenEventTypeSelector = (event: CustomEvent) => {
+            const { currentValue, onChange } = event.detail;
+            setCurrentEventTypeSelection({ currentValue, onChange });
+            setShowEventTypeSelector(true);
+        };
+
+        window.addEventListener('event-type:open-selector', handleOpenEventTypeSelector as EventListener);
+        
+        return () => {
+            window.removeEventListener('event-type:open-selector', handleOpenEventTypeSelector as EventListener);
         };
     }, []);
 
@@ -329,6 +358,32 @@ const RulesPage: React.FC = () => {
                     setShowEmployeeSelector(false);
                     setCurrentEmployeeSelection(null);
                 }}
+            />
+
+            {/* Event Type Selector Modal */}
+            <GenericSelectModal<eventService.EventDefinition>
+                isOpen={showEventTypeSelector}
+                title="Select event type"
+                items={eventDefinitions}
+                idKey={(d) => String(d.CustomEventID)}
+                columns={[
+                    { header: 'Name', field: 'EventName' },
+                    { header: 'Duration', field: 'StandardDuration', className: 'text-gray-500' }
+                ]}
+                searchFields={['EventName'] as any}
+                multiSelect={false}
+                onClose={() => {
+                    setShowEventTypeSelector(false);
+                    setCurrentEventTypeSelection(null);
+                }}
+                onConfirm={(ids) => {
+                    if (currentEventTypeSelection?.onChange && ids.length > 0) {
+                        currentEventTypeSelection.onChange(ids[0]);
+                    }
+                    setShowEventTypeSelector(false);
+                    setCurrentEventTypeSelection(null);
+                }}
+                footerPrimaryLabel="Use Selection"
             />
         </MainLayout>
     );

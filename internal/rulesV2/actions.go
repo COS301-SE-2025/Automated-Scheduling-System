@@ -23,9 +23,8 @@ type NotificationAction struct {
 }
 
 func (a *NotificationAction) Execute(ctx EvalContext, params map[string]any) error {
-	// Log the exact parameters received by the rule engine
-	paramsJSON, _ := json.Marshal(params)
-	log.Printf("NotificationAction.Execute received params: %s", string(paramsJSON))
+	// paramsJSON, _ := json.Marshal(params)
+	// log.Printf("NotificationAction.Execute received params: %s", string(paramsJSON))
 
 	recipientsParam, _ := params["recipients"].(string)
 	subject, _ := params["subject"].(string)

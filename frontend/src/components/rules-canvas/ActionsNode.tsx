@@ -253,6 +253,69 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                 </div>
             );
         }
+        if (type === 'event_type') {
+            // Parse the value as a single event ID if possible, otherwise treat as empty
+            let selectedEventId: string = '';
+            try {
+                if (value && value.trim() !== '') {
+                    selectedEventId = String(value);
+                }
+            } catch {
+                selectedEventId = '';
+            }
+
+            return (
+                <div className="w-1/2 flex items-center gap-2">
+                    <button
+                        type="button"
+                        className="px-3 py-1 border rounded bg-green-50 hover:bg-green-100 text-green-700 text-sm"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            // Open event type selector modal with current value
+                            let currentEventId: string = '';
+                            try {
+                                if (value && value.trim() !== '') {
+                                    currentEventId = String(value);
+                                }
+                            } catch {
+                                currentEventId = '';
+                            }
+                            
+                            // Dispatch custom event to open modal at page level
+                            window.dispatchEvent(new CustomEvent('event-type:open-selector', {
+                                detail: {
+                                    currentValue: currentEventId,
+                                    onChange: onChange || (() => {})
+                                }
+                            }));
+                        }}
+                        {...stopAll}
+                    >
+                        Select Event Type
+                    </button>
+                    <span className="text-sm text-gray-600 cursor-pointer hover:underline">
+                        {selectedEventId
+                            ? `Event ID: ${selectedEventId}`
+                            : 'No event type selected'}
+                    </span>
+                    {selectedEventId && (
+                        <button
+                            type="button"
+                            aria-label="Clear event type selection"
+                            title="Clear selection"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onChange?.('');
+                            }}
+                            className="text-gray-400 hover:text-red-600"
+                            {...stopAll}
+                        >
+                            ×
+                        </button>
+                    )}
+                </div>
+            );
+        }
         return (
             <input
                 className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
