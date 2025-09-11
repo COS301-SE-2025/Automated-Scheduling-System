@@ -75,10 +75,10 @@ func TestRules_Validate_Integration(t *testing.T) {
 		Trigger:    TriggerSpec{Type: "scheduled_event"},
 		Conditions: []Condition{{Fact: "scheduledEvent.StatusName", Operator: "equals", Value: "Scheduled"}},
 		Actions: []ActionSpec{{Type: "notification", Parameters: map[string]any{
-			"recipient": "test@example.com",
-			"subject":   "Hello",
-			"message":   "World",
-			"type":      "email",
+			"recipients": "test@example.com",
+			"subject":    "Hello",
+			"message":    "World",
+			"type":       "email",
 		}}},
 	}
 	rec := doJSONIT(t, router, http.MethodPost, "/api/rules/validate", valid)
@@ -99,9 +99,9 @@ func TestRules_CRUD_Status_Integration(t *testing.T) {
 		Name:    "My Rule",
 		Trigger: TriggerSpec{Type: "event_definition"},
 		Actions: []ActionSpec{{Type: "notification", Parameters: map[string]any{
-			"recipient": "ops@example.com",
-			"subject":   "Subj",
-			"message":   "Msg",
+			"recipients": "ops@example.com",
+			"subject":    "Subj",
+			"message":    "Msg",
 		}}},
 	}
 	rec := doJSONIT(t, router, http.MethodPost, "/api/rules/rules", create)
@@ -126,9 +126,9 @@ func TestRules_CRUD_Status_Integration(t *testing.T) {
 		Name:    "My Rule Updated",
 		Trigger: TriggerSpec{Type: "scheduled_event", Parameters: map[string]any{"operation": "update"}},
 		Actions: []ActionSpec{{Type: "notification", Parameters: map[string]any{
-			"recipient": "ops@example.com",
-			"subject":   "Updated",
-			"message":   "Updated body",
+			"recipients": "ops@example.com",
+			"subject":    "Updated",
+			"message":    "Updated body",
 		}}},
 	}
 	rec = doJSONIT(t, router, http.MethodPut, "/api/rules/rules/"+id, update)

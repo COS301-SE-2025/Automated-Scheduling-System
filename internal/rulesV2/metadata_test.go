@@ -106,8 +106,8 @@ func TestGetActionMetadata(t *testing.T) {
 		assert.Contains(t, notificationAction.Description, "notification")
 
 		recipientParam := notificationAction.Parameters[1]
-		assert.Equal(t, "recipient", recipientParam.Name)
-		assert.Equal(t, "string", recipientParam.Type)
+		assert.Equal(t, "recipients", recipientParam.Name)
+		assert.Equal(t, "employees", recipientParam.Type)
 		assert.True(t, recipientParam.Required)
 		assert.NotEmpty(t, recipientParam.Description)
 		assert.NotNil(t, recipientParam.Example)

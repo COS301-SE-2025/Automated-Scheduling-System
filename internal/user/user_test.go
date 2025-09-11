@@ -100,7 +100,7 @@ func TestAddUserHandler_Success_Unit(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"role_id", "role_name", "description"}).AddRow(2, "User", "System"))
 
 	mock.ExpectQuery(regexp.QuoteMeta(
-		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."terminationdate" FROM "employee" WHERE UserAccountEmail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
+		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE UserAccountEmail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
 		WithArgs(testNewUserEmail, 1).
 		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname", "useraccountemail"}).
 			AddRow(testNewUserEmpNum, "New", "User", testNewUserEmail))
@@ -144,7 +144,7 @@ func TestAddUserHandler_UserAlreadyExists_Unit(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"role_id", "role_name", "description"}).AddRow(2, "User", "System"))
 
 	mock.ExpectQuery(regexp.QuoteMeta(
-		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."terminationdate" FROM "employee" WHERE UserAccountEmail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
+		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE UserAccountEmail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
 		WithArgs(testUserEmail, 1).
 		WillReturnRows(sqlmock.NewRows([]string{"employeenumber"}).AddRow(testUserEmpNum))
 
