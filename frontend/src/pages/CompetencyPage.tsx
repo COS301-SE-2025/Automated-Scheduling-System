@@ -224,16 +224,25 @@ const CompetencyPage: React.FC = () => {
             await competencyService.addPrerequisite(managingPrereqsFor.competencyID, prerequisiteId);
             const newPrereq = competencies.find(c => c.competencyID === prerequisiteId);
             if (newPrereq) {
-                const updatedCompetencies = competencies.map(c => {
-                    if (c.competencyID === managingPrereqsFor.competencyID) {
-                        const newPrerequisites = [...(c.Prerequisites || []), newPrereq];
-                        const updatedComp = { ...c, Prerequisites: newPrerequisites };
-                        setManagingPrereqsFor(updatedComp);
-                        return updatedComp;
-                    }
-                    return c;
+                // ✅ Update competencies with functional state
+                setCompetencies(prevCompetencies => {
+                    return prevCompetencies.map(c => {
+                        if (c.competencyID === managingPrereqsFor.competencyID) {
+                            const newPrerequisites = [...(c.Prerequisites || []), newPrereq];
+                            return { ...c, Prerequisites: newPrerequisites };
+                        }
+                        return c;
+                    });
                 });
-                setCompetencies(updatedCompetencies);
+
+                // ✅ Update managingPrereqsFor with functional state
+                setManagingPrereqsFor(prev => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        Prerequisites: [...(prev.Prerequisites || []), newPrereq]
+                    };
+                });
             }
         } catch (err) {
             setPrereqApiError(err instanceof ApiError ? (err.data?.error || err.message) : 'Failed to add prerequisite.');
