@@ -226,7 +226,7 @@ func getActionMetadata() []ActionMetadata {
 			Description: "Send email or system notification to specified recipient",
 			Parameters: []Parameter{
 				{
-					Name:        "notification_type",
+					Name:        "type",
 					Type:        "string",
 					Required:    true,
 					Description: "Email or SMS",

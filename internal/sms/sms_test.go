@@ -3,6 +3,7 @@
 package sms
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,10 +21,197 @@ func (m *MockHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	return m.DoFunc(req)
 }
 
-func TestSendSMS_JSONMarshalling_Success(t *testing.T) {
+func TestSendSMS_SingleRecipient_Success(t *testing.T) {
 	// Setup
-	recipient := "+27123456789"
+	recipient := "27123456789"
 	message := "Test message"
+
+	// Set test API key
+	originalAPIKey := apiKey
+	apiKey = "test-api-key"
+	defer func() { apiKey = originalAPIKey }()
+
+	// Mock successful HTTP response
+	mockClient := &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			// Verify the request was built correctly
+			if req.Method != "POST" {
+				t.Errorf("Expected POST method, got %s", req.Method)
+			}
+
+			if !strings.Contains(req.URL.String(), "/sms/outgoing/send") {
+				t.Errorf("Expected URL to contain /sms/outgoing/send, got %s", req.URL.String())
+			}
+
+			// Verify headers
+			if req.Header.Get("Content-Type") != "application/json" {
+				t.Errorf("Expected Content-Type application/json, got %s", req.Header.Get("Content-Type"))
+			}
+
+			if req.Header.Get("AUTHORIZATION") == "" {
+				t.Error("Expected AUTHORIZATION header to be set")
+			}
+
+			// Verify JSON payload
+			body, err := io.ReadAll(req.Body)
+			if err != nil {
+				t.Fatalf("Failed to read request body: %v", err)
+			}
+
+			var messageDetails MessageDetails
+			if err := json.Unmarshal(body, &messageDetails); err != nil {
+				t.Fatalf("Failed to unmarshal JSON: %v", err)
+			}
+
+			// Verify payload structure
+			if messageDetails.Message != message {
+				t.Errorf("Expected message %s, got %s", message, messageDetails.Message)
+			}
+
+			if len(messageDetails.Recipients) != 1 {
+				t.Errorf("Expected 1 recipient, got %d", len(messageDetails.Recipients))
+			}
+
+			if messageDetails.Recipients[0].MobileNumber != recipient {
+				t.Errorf("Expected recipient %s, got %s", recipient, messageDetails.Recipients[0].MobileNumber)
+			}
+
+			// Return mock success response
+			response := SendSMSResponse{
+				BaseResponse: BaseResponse{
+					TimeStamp:  "20240911120000000",
+					Version:    "1.0",
+					StatusCode: 200,
+				},
+				Recipients: []MessageRecipientResponse{
+					{
+						MobileNumber:     recipient,
+						Accepted:         true,
+						AcceptError:      "",
+						APIMessageID:     func() *int { id := 12345; return &id }(),
+						CreditCost:       1.0,
+						NewCreditBalance: 99.0,
+					},
+				},
+			}
+
+			responseBody, _ := json.Marshal(response)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(string(responseBody))),
+			}, nil
+		},
+	}
+
+	// Execute
+	resp, err := SendSMSWithClient(recipient, message, mockClient)
+
+	// Assert
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+
+	if resp == nil {
+		t.Fatal("Expected response, got nil")
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected status code 200, got %d", resp.StatusCode)
+	}
+
+	if len(resp.Recipients) != 1 {
+		t.Errorf("Expected 1 recipient response, got %d", len(resp.Recipients))
+	}
+
+	if !resp.Recipients[0].Accepted {
+		t.Error("Expected recipient to be accepted")
+	}
+}
+
+func TestSendSMSBulk_MultipleRecipients_Success(t *testing.T) {
+	// Setup
+	message := "Bulk test message"
+	recipients := []MessageRecipient{
+		{MobileNumber: "27123456789", ClientMessageID: "msg1"},
+		{MobileNumber: "27987654321", ClientMessageID: "msg2"},
+	}
+
+	// Set test API key
+	originalAPIKey := apiKey
+	apiKey = "test-api-key"
+	defer func() { apiKey = originalAPIKey }()
+
+	// Mock successful HTTP response
+	mockClient := &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			// Verify JSON payload
+			body, err := io.ReadAll(req.Body)
+			if err != nil {
+				t.Fatalf("Failed to read request body: %v", err)
+			}
+
+			var messageDetails MessageDetails
+			if err := json.Unmarshal(body, &messageDetails); err != nil {
+				t.Fatalf("Failed to unmarshal JSON: %v", err)
+			}
+
+			if len(messageDetails.Recipients) != 2 {
+				t.Errorf("Expected 2 recipients, got %d", len(messageDetails.Recipients))
+			}
+
+			// Return mock success response
+			response := SendSMSResponse{
+				BaseResponse: BaseResponse{
+					TimeStamp:  "20240911120000000",
+					Version:    "1.0",
+					StatusCode: 200,
+				},
+				Recipients: []MessageRecipientResponse{
+					{
+						ClientMessageID:  "msg1",
+						MobileNumber:     "27123456789",
+						Accepted:         true,
+						APIMessageID:     func() *int { id := 12345; return &id }(),
+						CreditCost:       1.0,
+						NewCreditBalance: 98.0,
+					},
+					{
+						ClientMessageID:  "msg2",
+						MobileNumber:     "27987654321",
+						Accepted:         true,
+						APIMessageID:     func() *int { id := 12346; return &id }(),
+						CreditCost:       1.0,
+						NewCreditBalance: 97.0,
+					},
+				},
+			}
+
+			responseBody, _ := json.Marshal(response)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(string(responseBody))),
+			}, nil
+		},
+	}
+
+	// Execute
+	resp, err := SendSMSBulkWithClient(message, recipients, mockClient)
+
+	// Assert
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+
+	if len(resp.Recipients) != 2 {
+		t.Errorf("Expected 2 recipient responses, got %d", len(resp.Recipients))
+	}
+}
+
+func TestGetAvailableCredits_Success(t *testing.T) {
+	// Set test API key
+	originalAPIKey := apiKey
+	apiKey = "test-api-key"
+	defer func() { apiKey = originalAPIKey }()
 
 	// Mock successful HTTP response
 	mockClient := &MockHTTPClient{
@@ -33,37 +221,291 @@ func TestSendSMS_JSONMarshalling_Success(t *testing.T) {
 				t.Errorf("Expected GET method, got %s", req.Method)
 			}
 
-			// Verify URL contains the base API URL
-			if !strings.Contains(req.URL.String(), "https://api.sendmode.co.za/httppost.aspx") {
-				t.Errorf("Expected URL to contain sendmode API URL, got %s", req.URL.String())
+			if !strings.Contains(req.URL.String(), "/credits/balance") {
+				t.Errorf("Expected URL to contain /credits/balance, got %s", req.URL.String())
 			}
 
-			// Verify URL parameters
-			params := req.URL.Query()
-			if params.Get("type") != "sendparam" {
-				t.Errorf("Expected type=sendparam, got %s", params.Get("type"))
-			}
-			if params.Get("numto") != recipient {
-				t.Errorf("Expected numto=%s, got %s", recipient, params.Get("numto"))
-			}
-			if params.Get("data1") != message {
-				t.Errorf("Expected data1=%s, got %s", message, params.Get("data1"))
+			if req.Header.Get("AUTHORIZATION") == "" {
+				t.Error("Expected AUTHORIZATION header to be set")
 			}
 
-			// Return mock success response (XML format like SendMode)
+			// Return mock success response
+			response := CreditBalanceResponse{
+				BaseResponse: BaseResponse{
+					TimeStamp:  "20240911120000000",
+					Version:    "1.0",
+					StatusCode: 200,
+				},
+				CreditBalance: 150.5,
+			}
+
+			responseBody, _ := json.Marshal(response)
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(`<httppost_result><call_result><result>True</result><error></error></call_result></httppost_result>`)),
+				Body:       io.NopCloser(strings.NewReader(string(responseBody))),
 			}, nil
 		},
 	}
 
 	// Execute
-	err := SendSMSWithClient(recipient, message, mockClient)
+	resp, err := GetAvailableCreditsWithClient(mockClient)
 
 	// Assert
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
+	}
+
+	if resp == nil {
+		t.Fatal("Expected response, got nil")
+	}
+
+	if resp.CreditBalance != 150.5 {
+		t.Errorf("Expected credit balance 150.5, got %f", resp.CreditBalance)
+	}
+}
+
+func TestGetSMSStatus_Success(t *testing.T) {
+	// Setup
+	messageIDs := []int{12345, 12346}
+
+	// Set test API key
+	originalAPIKey := apiKey
+	apiKey = "test-api-key"
+	defer func() { apiKey = originalAPIKey }()
+
+	// Mock successful HTTP response
+	mockClient := &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			// Verify the request was built correctly
+			if req.Method != "POST" {
+				t.Errorf("Expected POST method, got %s", req.Method)
+			}
+
+			if !strings.Contains(req.URL.String(), "/sms/outgoing/status") {
+				t.Errorf("Expected URL to contain /sms/outgoing/status, got %s", req.URL.String())
+			}
+
+			// Verify JSON payload
+			body, err := io.ReadAll(req.Body)
+			if err != nil {
+				t.Fatalf("Failed to read request body: %v", err)
+			}
+
+			var requestIDs []int
+			if err := json.Unmarshal(body, &requestIDs); err != nil {
+				t.Fatalf("Failed to unmarshal JSON: %v", err)
+			}
+
+			if len(requestIDs) != 2 {
+				t.Errorf("Expected 2 message IDs, got %d", len(requestIDs))
+			}
+
+			// Return mock success response
+			response := SMSStatusResponse{
+				BaseResponse: BaseResponse{
+					TimeStamp:  "20240911120000000",
+					Version:    "1.0",
+					StatusCode: 200,
+				},
+				MessageStatuses: []MessageStatus{
+					{
+						APIMessageID:    12345,
+						MobileNumber:    "27123456789",
+						StatusDelivered: true,
+						StatusErrorCode: "",
+						StatusTime:      "202409111200",
+						CreditCost:      1.0,
+					},
+					{
+						APIMessageID:    12346,
+						MobileNumber:    "27987654321",
+						StatusDelivered: false,
+						StatusErrorCode: "FAILED",
+						StatusTime:      "202409111201",
+						CreditCost:      1.0,
+					},
+				},
+			}
+
+			responseBody, _ := json.Marshal(response)
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(string(responseBody))),
+			}, nil
+		},
+	}
+
+	// Execute
+	resp, err := GetSMSStatusWithClient(messageIDs, mockClient)
+
+	// Assert
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+
+	if resp == nil {
+		t.Fatal("Expected response, got nil")
+	}
+
+	if len(resp.MessageStatuses) != 2 {
+		t.Errorf("Expected 2 message statuses, got %d", len(resp.MessageStatuses))
+	}
+
+	if resp.MessageStatuses[0].APIMessageID != 12345 {
+		t.Errorf("Expected message ID 12345, got %d", resp.MessageStatuses[0].APIMessageID)
+	}
+
+	if !resp.MessageStatuses[0].StatusDelivered {
+		t.Error("Expected first message to be delivered")
+	}
+
+	if resp.MessageStatuses[1].StatusDelivered {
+		t.Error("Expected second message to not be delivered")
+	}
+}
+
+func TestSendSMS_Network_Error(t *testing.T) {
+	// Setup
+	recipient := "27123456789"
+	message := "Test message"
+
+	// Set test API key
+	originalAPIKey := apiKey
+	apiKey = "test-api-key"
+	defer func() { apiKey = originalAPIKey }()
+
+	// Mock HTTP client that returns an error
+	mockClient := &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			return nil, fmt.Errorf("network error")
+		},
+	}
+
+	// Execute
+	_, err := SendSMSWithClient(recipient, message, mockClient)
+
+	// Assert
+	if err == nil {
+		t.Error("Expected an error, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "error sending request") {
+		t.Errorf("Expected 'error sending request' in error message, got %s", err.Error())
+	}
+}
+
+func TestSendSMS_API_Error_Response(t *testing.T) {
+	// Setup
+	recipient := "27123456789"
+	message := "Test message"
+
+	// Set test API key
+	originalAPIKey := apiKey
+	apiKey = "test-api-key"
+	defer func() { apiKey = originalAPIKey }()
+
+	// Mock HTTP client that returns an API error
+	mockClient := &MockHTTPClient{
+		DoFunc: func(req *http.Request) (*http.Response, error) {
+			errorResponse := ErrorResponse{
+				BaseResponse: BaseResponse{
+					TimeStamp:  "20240911120000000",
+					Version:    "1.0",
+					StatusCode: 401,
+				},
+				ErrorMessage: "Unauthorized - Invalid API key",
+			}
+
+			responseBody, _ := json.Marshal(errorResponse)
+			return &http.Response{
+				StatusCode: http.StatusUnauthorized,
+				Body:       io.NopCloser(strings.NewReader(string(responseBody))),
+			}, nil
+		},
+	}
+
+	// Execute
+	_, err := SendSMSWithClient(recipient, message, mockClient)
+
+	// Assert
+	if err == nil {
+		t.Error("Expected an error, got nil")
+	}
+
+	if !strings.Contains(err.Error(), "Unauthorized - Invalid API key") {
+		t.Errorf("Expected API error message in error, got %s", err.Error())
+	}
+}
+
+// Test the original function with httptest server
+func TestSendSMS_Integration_WithTestServer(t *testing.T) {
+	// Create test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify request
+		if r.Method != "POST" {
+			t.Errorf("Expected POST method, got %s", r.Method)
+		}
+
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("Expected Content-Type application/json")
+		}
+
+		// Read and verify body
+		body, _ := io.ReadAll(r.Body)
+		var messageDetails MessageDetails
+		json.Unmarshal(body, &messageDetails)
+
+		if messageDetails.Message != "Integration test message" {
+			t.Errorf("Unexpected message text")
+		}
+
+		// Return success response
+		response := SendSMSResponse{
+			BaseResponse: BaseResponse{
+				TimeStamp:  "20240911120000000",
+				Version:    "1.0",
+				StatusCode: 200,
+			},
+			Recipients: []MessageRecipientResponse{
+				{
+					MobileNumber:     "27123456789",
+					Accepted:         true,
+					APIMessageID:     func() *int { id := 12345; return &id }(),
+					CreditCost:       1.0,
+					NewCreditBalance: 99.0,
+				},
+			},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	// Override base URL to use test server
+	originalBaseURL := baseURL
+	baseURL = server.URL
+	defer func() { baseURL = originalBaseURL }()
+
+	// Set test API key
+	originalAPIKey := apiKey
+	apiKey = "test-api-key"
+	defer func() { apiKey = originalAPIKey }()
+
+	// Test the original function
+	resp, err := SendSMS("27123456789", "Integration test message")
+
+	if err != nil {
+		t.Errorf("Expected no error, got %v", err)
+	}
+
+	if resp == nil {
+		t.Fatal("Expected response, got nil")
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected status code 200, got %d", resp.StatusCode)
 	}
 }
 
@@ -80,51 +522,71 @@ func TestSendSMS_HTTPClient_Error(t *testing.T) {
 	}
 
 	// Execute
-	err := SendSMSWithClient(recipient, message, mockClient)
+	_, err := SendSMSWithClient(recipient, message, mockClient)
 
 	// Assert
 	if err == nil {
 		t.Error("Expected an error, got nil")
 	}
 
-	if !strings.Contains(err.Error(), "Error sending request") {
-		t.Errorf("Expected 'Error sending request' in error message, got %s", err.Error())
+	if !strings.Contains(err.Error(), "error sending request") {
+		t.Errorf("Expected 'error sending request' in error message, got %s", err.Error())
 	}
 }
 
 func TestSendSMS_HTTP_BadResponse(t *testing.T) {
 	// Setup
-	recipient := "+27123456789"
+	recipient := "27123456789"
 	message := "Test message"
+
+	// Set test API key
+	originalAPIKey := apiKey
+	apiKey = "test-api-key"
+	defer func() { apiKey = originalAPIKey }()
 
 	// Mock HTTP client that returns a bad response
 	mockClient := &MockHTTPClient{
 		DoFunc: func(req *http.Request) (*http.Response, error) {
+			errorResponse := ErrorResponse{
+				BaseResponse: BaseResponse{
+					TimeStamp:  "20240911120000000",
+					Version:    "1.0",
+					StatusCode: 400,
+				},
+				ErrorMessage: "Invalid request",
+			}
+
+			responseBody, _ := json.Marshal(errorResponse)
 			return &http.Response{
 				StatusCode: http.StatusBadRequest,
 				Status:     "400 Bad Request",
-				Body:       io.NopCloser(strings.NewReader(`<httppost_result><call_result><result>False</result><error>Invalid request</error></call_result></httppost_result>`)),
+				Body:       io.NopCloser(strings.NewReader(string(responseBody))),
 			}, nil
 		},
 	}
 
 	// Execute
-	err := SendSMSWithClient(recipient, message, mockClient)
+	_, err := SendSMSWithClient(recipient, message, mockClient)
 
 	// Assert
 	if err == nil {
 		t.Error("Expected an error, got nil")
 	}
 
-	if !strings.Contains(err.Error(), "Failed to send SMS") {
-		t.Errorf("Expected 'Failed to send SMS' in error message, got %s", err.Error())
+	if !strings.Contains(err.Error(), "Invalid request") {
+		t.Errorf("Expected 'Invalid request' in error message, got %s", err.Error())
 	}
 }
 
-func TestSendSMS_URL_Creation_Error(t *testing.T) {
+func TestSendSMS_Request_Creation_Error(t *testing.T) {
 	// Setup - create a scenario that will fail URL creation
-	recipient := "+27123456789"
+	recipient := "27123456789"
 	message := "Test message"
+
+	// Set test API key
+	originalAPIKey := apiKey
+	apiKey = "test-api-key"
+	defer func() { apiKey = originalAPIKey }()
 
 	// Mock HTTP client - shouldn't be called due to earlier error
 	mockClient := &MockHTTPClient{
@@ -134,28 +596,36 @@ func TestSendSMS_URL_Creation_Error(t *testing.T) {
 		},
 	}
 
-	// Set invalid API URL to trigger request creation error
-	originalAPIURL := apiURL
-	apiURL = "://invalid-url"
-	defer func() { apiURL = originalAPIURL }()
+	// Set invalid base URL to trigger request creation error
+	originalBaseURL := baseURL
+	baseURL = "://invalid-url"
+	defer func() { baseURL = originalBaseURL }()
 
 	// Execute
-	err := SendSMSWithClient(recipient, message, mockClient)
+	_, err := SendSMSWithClient(recipient, message, mockClient)
 
 	// Assert
 	if err == nil {
 		t.Error("Expected an error, got nil")
 	}
 
-	if !strings.Contains(err.Error(), "Error creating request") {
-		t.Errorf("Expected 'Error creating request' in error message, got %s", err.Error())
+	if !strings.Contains(err.Error(), "error creating request") {
+		t.Errorf("Expected 'error creating request' in error message, got %s", err.Error())
 	}
 }
 
-func TestSendSMS_MultipleRecipients(t *testing.T) {
-	// Setup - Test the main SendSMS function with multiple recipients
-	recipients := []string{"+27123456789", "+27987654321"}
+func TestSendSMS_Multiple_Recipients_Integration(t *testing.T) {
+	// Setup - Test bulk SMS functionality
 	message := "Test message"
+	recipients := []MessageRecipient{
+		{MobileNumber: "27123456789", ClientMessageID: "msg1"},
+		{MobileNumber: "27987654321", ClientMessageID: "msg2"},
+	}
+
+	// Set test API key
+	originalAPIKey := apiKey
+	apiKey = "test-api-key"
+	defer func() { apiKey = originalAPIKey }()
 
 	callCount := 0
 	// Mock successful HTTP response
@@ -163,75 +633,151 @@ func TestSendSMS_MultipleRecipients(t *testing.T) {
 		DoFunc: func(req *http.Request) (*http.Response, error) {
 			callCount++
 
-			// Verify URL parameters for each call
-			params := req.URL.Query()
-			expectedRecipient := recipients[callCount-1]
-
-			if params.Get("numto") != expectedRecipient {
-				t.Errorf("Call %d: Expected numto=%s, got %s", callCount, expectedRecipient, params.Get("numto"))
+			// Verify JSON payload
+			body, err := io.ReadAll(req.Body)
+			if err != nil {
+				t.Fatalf("Failed to read request body: %v", err)
 			}
 
-			if params.Get("data1") != message {
-				t.Errorf("Call %d: Expected data1=%s, got %s", callCount, message, params.Get("data1"))
+			var messageDetails MessageDetails
+			if err := json.Unmarshal(body, &messageDetails); err != nil {
+				t.Fatalf("Failed to unmarshal JSON: %v", err)
 			}
 
+			if messageDetails.Message != message {
+				t.Errorf("Expected message %s, got %s", message, messageDetails.Message)
+			}
+
+			if len(messageDetails.Recipients) != len(recipients) {
+				t.Errorf("Expected %d recipients, got %d", len(recipients), len(messageDetails.Recipients))
+			}
+
+			// Return mock success response
+			response := SendSMSResponse{
+				BaseResponse: BaseResponse{
+					TimeStamp:  "20240911120000000",
+					Version:    "1.0",
+					StatusCode: 200,
+				},
+				Recipients: []MessageRecipientResponse{
+					{
+						ClientMessageID:  "msg1",
+						MobileNumber:     "27123456789",
+						Accepted:         true,
+						APIMessageID:     func() *int { id := 12345; return &id }(),
+						CreditCost:       1.0,
+						NewCreditBalance: 98.0,
+					},
+					{
+						ClientMessageID:  "msg2",
+						MobileNumber:     "27987654321",
+						Accepted:         true,
+						APIMessageID:     func() *int { id := 12346; return &id }(),
+						CreditCost:       1.0,
+						NewCreditBalance: 97.0,
+					},
+				},
+			}
+
+			responseBody, _ := json.Marshal(response)
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(`<httppost_result><call_result><result>True</result><error></error></call_result></httppost_result>`)),
+				Body:       io.NopCloser(strings.NewReader(string(responseBody))),
 			}, nil
 		},
 	}
 
-	// Replace the default HTTP client temporarily
-	originalClient := DefaultHTTPClient
-	DefaultHTTPClient = mockClient
-	defer func() { DefaultHTTPClient = originalClient }()
-
 	// Execute
-	err := SendSMS(recipients, message)
+	resp, err := SendSMSBulkWithClient(message, recipients, mockClient)
 
 	// Assert
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
 	}
 
-	if callCount != len(recipients) {
-		t.Errorf("Expected %d HTTP calls, got %d", len(recipients), callCount)
+	if callCount != 1 {
+		t.Errorf("Expected 1 HTTP call, got %d", callCount)
+	}
+
+	if len(resp.Recipients) != 2 {
+		t.Errorf("Expected 2 recipient responses, got %d", len(resp.Recipients))
 	}
 }
 
-func TestSendSMS_URL_Parameters(t *testing.T) {
+func TestSendSMS_JSON_Parameters(t *testing.T) {
 	// Setup
-	recipient := "+27123456789"
+	recipient := "27123456789"
 	message := "Test message with spaces & special chars!"
 
-	// Mock HTTP client to verify URL parameters
+	// Set test API key
+	originalAPIKey := apiKey
+	apiKey = "test-api-key"
+	defer func() { apiKey = originalAPIKey }()
+
+	// Mock HTTP client to verify JSON parameters
 	mockClient := &MockHTTPClient{
 		DoFunc: func(req *http.Request) (*http.Response, error) {
-			params := req.URL.Query()
+			// Verify JSON payload
+			body, err := io.ReadAll(req.Body)
+			if err != nil {
+				t.Fatalf("Failed to read request body: %v", err)
+			}
+
+			var messageDetails MessageDetails
+			if err := json.Unmarshal(body, &messageDetails); err != nil {
+				t.Fatalf("Failed to unmarshal JSON: %v", err)
+			}
 
 			// Verify all required parameters are present and correct
-			if params.Get("type") != "sendparam" {
-				t.Errorf("Expected type=sendparam, got %s", params.Get("type"))
+			if messageDetails.Message != message {
+				t.Errorf("Expected message=%s, got %s", message, messageDetails.Message)
 			}
 
-			if params.Get("numto") != recipient {
-				t.Errorf("Expected numto=%s, got %s", recipient, params.Get("numto"))
+			if len(messageDetails.Recipients) != 1 {
+				t.Errorf("Expected 1 recipient, got %d", len(messageDetails.Recipients))
 			}
 
-			if params.Get("data1") != message {
-				t.Errorf("Expected data1=%s, got %s", message, params.Get("data1"))
+			if messageDetails.Recipients[0].MobileNumber != recipient {
+				t.Errorf("Expected recipient=%s, got %s", recipient, messageDetails.Recipients[0].MobileNumber)
 			}
 
+			// Verify headers
+			if req.Header.Get("Content-Type") != "application/json" {
+				t.Errorf("Expected Content-Type application/json, got %s", req.Header.Get("Content-Type"))
+			}
+
+			if req.Header.Get("AUTHORIZATION") == "" {
+				t.Error("Expected AUTHORIZATION header to be set")
+			}
+
+			// Return mock success response
+			response := SendSMSResponse{
+				BaseResponse: BaseResponse{
+					TimeStamp:  "20240911120000000",
+					Version:    "1.0",
+					StatusCode: 200,
+				},
+				Recipients: []MessageRecipientResponse{
+					{
+						MobileNumber:     recipient,
+						Accepted:         true,
+						APIMessageID:     func() *int { id := 12345; return &id }(),
+						CreditCost:       1.0,
+						NewCreditBalance: 99.0,
+					},
+				},
+			}
+
+			responseBody, _ := json.Marshal(response)
 			return &http.Response{
 				StatusCode: http.StatusOK,
-				Body:       io.NopCloser(strings.NewReader(`<httppost_result><call_result><result>True</result><error></error></call_result></httppost_result>`)),
+				Body:       io.NopCloser(strings.NewReader(string(responseBody))),
 			}, nil
 		},
 	}
 
 	// Execute
-	err := SendSMSWithClient(recipient, message, mockClient)
+	_, err := SendSMSWithClient(recipient, message, mockClient)
 
 	// Assert
 	if err != nil {
@@ -240,43 +786,73 @@ func TestSendSMS_URL_Parameters(t *testing.T) {
 }
 
 // Test the original function with httptest server
-func TestSendSMS_Integration_WithTestServer(t *testing.T) {
+func TestSendSMS_Integration_WithTestServer_WinSMS(t *testing.T) {
 	// Create test server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify request
-		if r.Method != "GET" {
-			t.Errorf("Expected GET method, got %s", r.Method)
+		if r.Method != "POST" {
+			t.Errorf("Expected POST method, got %s", r.Method)
 		}
 
-		// Verify URL parameters
-		params := r.URL.Query()
-		if params.Get("type") != "sendparam" {
-			t.Errorf("Expected type=sendparam, got %s", params.Get("type"))
+		if r.Header.Get("Content-Type") != "application/json" {
+			t.Errorf("Expected Content-Type application/json")
 		}
 
-		if params.Get("data1") != "Integration test message" {
-			t.Errorf("Expected data1='Integration test message', got %s", params.Get("data1"))
+		// Read and verify body
+		body, _ := io.ReadAll(r.Body)
+		var messageDetails MessageDetails
+		json.Unmarshal(body, &messageDetails)
+
+		if messageDetails.Message != "Integration test message" {
+			t.Errorf("Unexpected message text")
 		}
 
-		if params.Get("numto") != "+27123456789" {
-			t.Errorf("Expected numto='+27123456789', got %s", params.Get("numto"))
+		// Return success response
+		response := SendSMSResponse{
+			BaseResponse: BaseResponse{
+				TimeStamp:  "20240911120000000",
+				Version:    "1.0",
+				StatusCode: 200,
+			},
+			Recipients: []MessageRecipientResponse{
+				{
+					MobileNumber:     "27123456789",
+					Accepted:         true,
+					APIMessageID:     func() *int { id := 12345; return &id }(),
+					CreditCost:       1.0,
+					NewCreditBalance: 99.0,
+				},
+			},
 		}
 
-		// Return success response (SendMode XML format)
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`<httppost_result><call_result><result>True</result><error></error></call_result></httppost_result>`))
+		json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
-	// Override API URL to use test server
-	originalAPIURL := apiURL
-	apiURL = server.URL
-	defer func() { apiURL = originalAPIURL }()
+	// Override base URL to use test server
+	originalBaseURL := baseURL
+	baseURL = server.URL
+	defer func() { baseURL = originalBaseURL }()
+
+	// Set test API key
+	originalAPIKey := apiKey
+	apiKey = "test-api-key"
+	defer func() { apiKey = originalAPIKey }()
 
 	// Test the original function
-	err := SendSMS([]string{"+27123456789"}, "Integration test message")
+	resp, err := SendSMS("27123456789", "Integration test message")
 
 	if err != nil {
 		t.Errorf("Expected no error, got %v", err)
+	}
+
+	if resp == nil {
+		t.Fatal("Expected response, got nil")
+	}
+
+	if resp.StatusCode != 200 {
+		t.Errorf("Expected status code 200, got %d", resp.StatusCode)
 	}
 }
