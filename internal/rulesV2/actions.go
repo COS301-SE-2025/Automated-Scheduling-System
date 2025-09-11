@@ -26,7 +26,7 @@ func (a *NotificationAction) Execute(ctx EvalContext, params map[string]any) err
 	recipient, _ := params["recipient"].(string)
 	subject, _ := params["subject"].(string)
 	message, _ := params["message"].(string)
-	notificationType, _ := params["type"].(string) // "email", "sms", "push", or "system"
+	notificationType, _ := params["type"].(string) // "email" or "sms"
 
 	if recipient == "" || subject == "" || message == "" {
 		return fmt.Errorf("notification requires recipient, subject, and message")
@@ -45,7 +45,8 @@ func (a *NotificationAction) Execute(ctx EvalContext, params map[string]any) err
 		}
 	case "sms":
 		// TODO: Change later to fetch all the employees phonenumbers
-		a.sendSMS(recipient, message)
+		smsWithSubject := subject + "\n\n" + message
+		a.sendSMS(recipient, smsWithSubject)
 	case "push":
 		// TODO: Implement push notification logic here
 		log.Printf("PUSH NOTIFICATION SENT: To=%s, Subject=%s, Message=%s", recipient, subject, message)
@@ -90,12 +91,27 @@ func (a *NotificationAction) sendEmail(recipient, subject, message string) error
 	return nil
 }
 
-// SMS sender for notification if notification type is SMS
-// Takes in the recipient and the message string
+// Calls sendSMS and handles error responses if there are any
 func (a *NotificationAction) sendSMS(recipient, message string) error {
-	// Implement SMS sending logic here
-	sms.SendSMS([]string{recipient}, message)
-	log.Printf("SMS SENT: To=%s, Message=%s", recipient, message)
+	resp, err := sms.SendSMS(recipient, message)
+	if err != nil {
+		log.Printf("SMS SEND ERROR: To=%s, Message=%s, Error=%v", recipient, message, err)
+		return err
+	}
+
+	// Check if the recipient was actually accepted
+	if len(resp.Recipients) == 0 {
+		return fmt.Errorf("no recipients in SMS response")
+	}
+
+	recipientResp := resp.Recipients[0] // Will only send to one recipient for now
+	if !recipientResp.Accepted {
+		log.Printf("SMS REJECTED: To=%s, Error=%s", recipientResp.MobileNumber, recipientResp.AcceptError)
+		return fmt.Errorf("SMS rejected by API: %s", recipientResp.AcceptError)
+	}
+
+	// log.Printf("SMS SENT: To=%s, Message=%s, MessageID=%d, Cost=%.1f",
+	// 	recipientResp.MobileNumber, message, *recipientResp.APIMessageID, recipientResp.CreditCost)
 	return nil
 }
 
