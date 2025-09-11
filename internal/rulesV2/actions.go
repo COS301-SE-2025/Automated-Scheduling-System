@@ -165,6 +165,10 @@ func (a *CreateEventAction) Execute(ctx EvalContext, params map[string]any) erro
 	maxAttendees, _ := params["maxAttendees"].(int)
 	minAttendees, _ := params["minAttendees"].(int)
 
+	// Log extracted string parameters
+	// log.Printf("Extracted parameters: title='%s', startTime='%s', endTime='%s', roomName='%s', color='%s', statusName='%s'",
+	// title, startTime, endTime, roomName, color, statusName)
+
 	// Handle customEventID parameter
 	customEventID := 0
 	if customEventIDParam, ok := params["customEventID"]; ok {
@@ -180,81 +184,62 @@ func (a *CreateEventAction) Execute(ctx EvalContext, params map[string]any) erro
 		}
 	}
 
-	// Handle employee numbers - support both JSON string and array formats
+	// Handle employee numbers - JSON string format
 	var employeeNumbers []string
 	if empParam, ok := params["employeeNumbers"]; ok {
-		switch v := empParam.(type) {
-		case string:
-			// Parse JSON string format
-			if v != "" {
-				if err := json.Unmarshal([]byte(v), &employeeNumbers); err != nil {
-					log.Printf("Failed to parse employeeNumbers JSON: %v", err)
-					return fmt.Errorf("invalid employeeNumbers format: %w", err)
-				}
-			}
-		case []string:
-			employeeNumbers = v
-		case []interface{}:
-			for _, item := range v {
-				if str, ok := item.(string); ok {
-					employeeNumbers = append(employeeNumbers, str)
-				}
+		if empStr, ok := empParam.(string); ok && empStr != "" {
+			if err := json.Unmarshal([]byte(empStr), &employeeNumbers); err != nil {
+				return fmt.Errorf("invalid employeeNumbers format: %w", err)
 			}
 		}
 	}
 
-	// Handle position codes - support both JSON string and array formats
+	// Handle position codes - JSON string format
 	var positionCodes []string
 	if posParam, ok := params["positionCodes"]; ok {
-		switch v := posParam.(type) {
-		case string:
-			// Parse JSON string format
-			if v != "" {
-				if err := json.Unmarshal([]byte(v), &positionCodes); err != nil {
-					log.Printf("Failed to parse positionCodes JSON: %v", err)
-					return fmt.Errorf("invalid positionCodes format: %w", err)
-				}
+		log.Printf("positionCodes parameter found: %v (type: %T)", posParam, posParam)
+		if posStr, ok := posParam.(string); ok && posStr != "" {
+			if err := json.Unmarshal([]byte(posStr), &positionCodes); err != nil {
+				log.Printf("Failed to parse positionCodes JSON: %v", err)
+				return fmt.Errorf("invalid positionCodes format: %w", err)
 			}
-		case []string:
-			positionCodes = v
-		case []interface{}:
-			for _, item := range v {
-				if str, ok := item.(string); ok {
-					positionCodes = append(positionCodes, str)
-				}
-			}
+			log.Printf("Parsed positionCodes from JSON string: %v", positionCodes)
 		}
+	} else {
+		log.Printf("positionCodes parameter not found in params")
 	}
+
+	// Log final extracted values before validation
+	// log.Printf("Final extracted values: title='%s' (empty: %t), customEventID=%d (zero: %t), startTime='%s' (empty: %t)",
+	// 	title, title == "", customEventID, customEventID == 0, startTime, startTime == "")
 
 	// Required fields validation
 	if title == "" || customEventID == 0 || startTime == "" {
-		return fmt.Errorf("create_event requires title, customEventID, and startTime")
+		missing := []string{}
+		if title == "" {
+			missing = append(missing, "title")
+		}
+		if customEventID == 0 {
+			missing = append(missing, "customEventID")
+		}
+		if startTime == "" {
+			missing = append(missing, "startTime")
+		}
+		return fmt.Errorf("create_event requires title, customEventID, and startTime - missing: %v", missing)
 	}
 
 	// Parse start time
-	startDateTime, err := time.Parse("2006-01-02 15:04", startTime)
+	startDateTime, err := time.Parse("2006-01-02T15:04", startTime)
 	if err != nil {
-		// Try alternative format
-		startDateTime, err = time.Parse(time.RFC3339, startTime)
-		if err != nil {
-			return fmt.Errorf("invalid startTime format: %w", err)
-		}
+		return fmt.Errorf("Couldn't parse startTime")
 	}
 
 	// Parse end time
-	var endDateTime time.Time
-	if endTime != "" {
-		endDateTime, err = time.Parse("2006-01-02 15:04", endTime)
-		if err != nil {
-			// Try alternative format
-			endDateTime, err = time.Parse(time.RFC3339, endTime)
-			if err != nil {
-				return fmt.Errorf("invalid endTime format: %w", err)
-			}
-		}
-	} else {
-		endDateTime = startDateTime.Add(2 * time.Hour) // Default to 2 hours later
+	endDateTime, err := time.Parse("2006-01-02T15:04", endTime)
+	if err != nil && endTime != "" {
+		return fmt.Errorf("Couldn't parse endTime")
 	}
+	endDateTime = startDateTime.Add(2 * time.Hour) // Default to 2 hours later
 
 	// Set defaults
 	if color == "" {
