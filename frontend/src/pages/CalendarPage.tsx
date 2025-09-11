@@ -12,6 +12,7 @@ import EventDefinitionFormModal from '../components/ui/EventDefinitionFormModal'
 import EventDetailModal from '../components/ui/EventDetailModal';
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
 import * as eventService from '../services/eventService';
+import { ApiError } from '../services/api';
 import type { CalendarEvent, CreateEventDefinitionPayload } from '../services/eventService';
 import { useAuth } from '../hooks/useAuth';
 import Button from '../components/ui/Button';
@@ -38,6 +39,8 @@ const CalendarPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [competencies, setCompetencies] = useState<Competency[]>([]);
+    // Transient action-level message (e.g., permission denied on drag)
+    const [actionMessage, setActionMessage] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -270,9 +273,15 @@ const CalendarPage: React.FC = () => {
 
             await eventService.updateScheduledEvent(Number(event.extendedProps.scheduleId), scheduleData);
             await fetchAndSetData();
-        } catch (err) {
+        } catch (err: any) {
+            // Revert UI immediately
+            dropInfo.revert();
+            if (err instanceof ApiError && err.status === 403) {
+                setActionMessage('You are not permitted to move this event. Only the creator or an Admin/HR can modify it.');
+            } else {
+                setActionMessage('Failed to update event. Please try again.');
+            }
             console.error('Failed to update event after drop:', err);
-            dropInfo.revert(); 
         }
     };
 
@@ -459,7 +468,24 @@ const CalendarPage: React.FC = () => {
                             select={handleSelect}
                             eventDrop={handleEventDrop}
                             eventResize={handleEventResize}
+                            eventAllow={(_dropInfo, draggedEvent) => {
+                                if (!draggedEvent) return false;
+                                return !!(draggedEvent as any).extendedProps?.canEdit;
+                            }}
                         />
+                        {actionMessage && (
+                            <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-200 px-4 py-2 rounded shadow text-sm flex items-center gap-2 z-10">
+                                <span>{actionMessage}</span>
+                                <button
+                                    type="button"
+                                    aria-label="Dismiss message"
+                                    className="text-yellow-700 dark:text-yellow-300 hover:underline"
+                                    onClick={() => setActionMessage(null)}
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
                 
