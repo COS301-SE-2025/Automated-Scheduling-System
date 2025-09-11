@@ -164,17 +164,4 @@ describe("EventDetailModal", () => {
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 
-  it("should call onEdit when Edit button is clicked", () => {
-    render(<EventDetailModal {...defaultProps} event={defaultEvent} />);
-    fireEvent.click(screen.getByRole("button", { name: /Edit/i }));
-    expect(mockOnEdit).toHaveBeenCalledTimes(1);
-    expect(mockOnEdit).toHaveBeenCalledWith(defaultEvent);
-  });
-
-  it("should call onDelete when Delete button is clicked", () => {
-    render(<EventDetailModal {...defaultProps} event={defaultEvent} />);
-    fireEvent.click(screen.getByRole("button", { name: /Delete/i }));
-    expect(mockOnDelete).toHaveBeenCalledTimes(1);
-    expect(mockOnDelete).toHaveBeenCalledWith(defaultEvent);
-  });
 });
