@@ -68,10 +68,10 @@ func TestRegisterHandler_Success_Unit(t *testing.T) {
 	form := url.Values{"username": {testUsername}, "email": {testEmail}, "password": {testPassword}}
 
 	mock.ExpectQuery(regexp.QuoteMeta(
-		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."terminationdate" FROM "employee" WHERE useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
+		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
 		WithArgs(testEmail, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname", "useraccountemail", "employeestatus"}).
-			AddRow(testEmployeeNum, "Alice", "Smith", testEmail, "Active"))
+		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname", "useraccountemail", "employeestatus", "phonenumber"}).
+			AddRow(testEmployeeNum, "Alice", "Smith", testEmail, "Active", nil))
 
 	mock.ExpectQuery(regexp.QuoteMeta(
 		`SELECT * FROM "users" WHERE "users"."employee_number" = $1`)).
@@ -100,10 +100,10 @@ func TestRegisterHandler_Duplicate_Unit(t *testing.T) {
 
 	// 1. Mock finding the employee.
 	mock.ExpectQuery(regexp.QuoteMeta(
-		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."terminationdate" FROM "employee" WHERE useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
+		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
 		WithArgs(testEmail, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname", "useraccountemail", "employeestatus"}).
-			AddRow(testEmployeeNum, "Alice", "Smith", testEmail, "Active"))
+		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname", "useraccountemail", "employeestatus", "phonenumber"}).
+			AddRow(testEmployeeNum, "Alice", "Smith", testEmail, "Active", nil))
 
 	// 2. Mock the .Preload("User") check, returning an existing user.
 	mock.ExpectQuery(regexp.QuoteMeta(
@@ -126,7 +126,7 @@ func TestRegisterHandler_EmployeeNotFound_Unit(t *testing.T) {
 	db, mock := newMockDB(t)
 	form := url.Values{"username": {testUsername}, "email": {testEmail}, "password": {testPassword}}
 	mock.ExpectQuery(regexp.QuoteMeta(
-		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."terminationdate" FROM "employee" WHERE useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
+		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
 		WithArgs(testEmail, 1).
 		WillReturnError(gorm.ErrRecordNotFound)
 
@@ -150,10 +150,10 @@ func TestLoginHandler_Success(t *testing.T) {
 
 	//  Mock finding the employee.
 	mock.ExpectQuery(regexp.QuoteMeta(
-		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."terminationdate" FROM "employee" WHERE Useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
+		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE Useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
 		WithArgs(testEmail, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname", "useraccountemail"}).
-			AddRow(testEmployeeNum, "Alice", "Smith", testEmail))
+		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname", "useraccountemail", "phonenumber"}).
+			AddRow(testEmployeeNum, "Alice", "Smith", testEmail, nil))
 
 	//  Mock .Preload("User") check, returning the existing user with the hashed password.
 	mock.ExpectQuery(regexp.QuoteMeta(
@@ -190,10 +190,10 @@ func TestLoginHandler_WrongPassword(t *testing.T) {
 
 	//  Mock finding the employee.
 	mock.ExpectQuery(regexp.QuoteMeta(
-		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."terminationdate" FROM "employee" WHERE Useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
+		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE Useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
 		WithArgs(testEmail, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname", "useraccountemail"}).
-			AddRow(testEmployeeNum, "Alice", "Smith", testEmail))
+		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname", "useraccountemail", "phonenumber"}).
+			AddRow(testEmployeeNum, "Alice", "Smith", testEmail, nil))
 
 	//  Mock the .Preload("User") check, returning the user with the correct hashed password.
 	mock.ExpectQuery(regexp.QuoteMeta(
@@ -217,10 +217,10 @@ func TestProfileHandler_ValidToken(t *testing.T) {
 
 	//  Mock finding the employee by email.
 	mock.ExpectQuery(regexp.QuoteMeta(
-		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."terminationdate" FROM "employee" WHERE Useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
+		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE Useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
 		WithArgs(testEmail, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname", "useraccountemail", "employeestatus"}).
-			AddRow(testEmployeeNum, "Alice", "Smith", testEmail, "Active"))
+		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname", "useraccountemail", "employeestatus", "phonenumber"}).
+			AddRow(testEmployeeNum, "Alice", "Smith", testEmail, "Active", nil))
 
 	//  Mock the .Preload("User") check.
 	mock.ExpectQuery(regexp.QuoteMeta(

@@ -87,10 +87,10 @@ func TestValidateRuleHandler_Unit(t *testing.T) {
 			{
 				Type: "notification",
 				Parameters: map[string]any{
-					"recipient": "test@example.com",
-					"subject":   "Hello",
-					"message":   "World",
-					"type":      "email",
+					"recipients": "test@example.com",
+					"subject":    "Hello",
+					"message":    "World",
+					"type":       "email",
 				},
 			},
 		},
@@ -213,9 +213,9 @@ func TestRuleCRUDAndStatus_Unit(t *testing.T) {
 			{
 				Type: "notification",
 				Parameters: map[string]any{
-					"recipient": "ops@example.com",
-					"subject":   "Subj",
-					"message":   "Msg",
+					"recipients": "ops@example.com",
+					"subject":    "Subj",
+					"message":    "Msg",
 				},
 			},
 		},
@@ -251,9 +251,9 @@ func TestRuleCRUDAndStatus_Unit(t *testing.T) {
 			{
 				Type: "notification",
 				Parameters: map[string]any{
-					"recipient": "ops@example.com",
-					"subject":   "Updated",
-					"message":   "Updated Body",
+					"recipients": "ops@example.com",
+					"subject":    "Updated",
+					"message":    "Updated Body",
 				},
 			},
 		},

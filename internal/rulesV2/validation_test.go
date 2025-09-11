@@ -19,10 +19,10 @@ func TestValidateRuleParameters(t *testing.T) {
 				{
 					Type: "notification",
 					Parameters: map[string]any{
-						"recipient": "test@example.com",
-						"subject":   "Test Subject",
-						"message":   "Test Message",
-						"type":      "email",
+						"recipients": "test@example.com",
+						"subject":    "Test Subject",
+						"message":    "Test Message",
+						"type":       "email",
 					},
 				},
 			},
@@ -77,7 +77,7 @@ func TestValidateRuleParameters(t *testing.T) {
 				{
 					Type: "notification",
 					Parameters: map[string]any{
-						"recipient": "test@example.com",
+						"recipients": "test@example.com",
 						// Missing required "subject" and "message"
 					},
 				},
@@ -99,9 +99,9 @@ func TestValidateRuleParameters(t *testing.T) {
 				{
 					Type: "notification",
 					Parameters: map[string]any{
-						"recipient": 123,    // Should be string
-						"subject":   "test", // Correct
-						"message":   "",     // Empty but technically a string
+						"recipients": 123,    // Should be string
+						"subject":    "test", // Correct
+						"message":    "",     // Empty but technically a string
 					},
 				},
 			},
