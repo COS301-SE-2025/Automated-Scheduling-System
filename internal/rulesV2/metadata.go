@@ -277,14 +277,14 @@ func getActionMetadata() []ActionMetadata {
 				},
 				{
 					Name:        "startTime",
-					Type:        "string",
+					Type:        "date",
 					Required:    true,
 					Description: "Event start date and time (YYYY-MM-DD HH:MM format)",
 					Example:     "2025-08-25 09:00",
 				},
 				{
 					Name:        "endTime",
-					Type:        "string",
+					Type:        "date",
 					Required:    false,
 					Description: "Event end date and time (YYYY-MM-DD HH:MM format). Defaults to 2 hours after start time if not provided",
 					Example:     "2025-08-25 11:00",

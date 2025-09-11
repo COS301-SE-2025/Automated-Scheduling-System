@@ -171,7 +171,7 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
             return (
                 <input
                     className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
-                    type="date"
+                    type="datetime-local"
                     value={value}
                     onChange={(e) => onChange?.(e.target.value)}
                     {...stopAll}
