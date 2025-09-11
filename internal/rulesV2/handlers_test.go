@@ -90,6 +90,7 @@ func TestValidateRuleHandler_Unit(t *testing.T) {
 					"recipient": "test@example.com",
 					"subject":   "Hello",
 					"message":   "World",
+					"type":      "email",
 				},
 			},
 		},

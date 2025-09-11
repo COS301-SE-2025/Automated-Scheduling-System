@@ -22,6 +22,7 @@ func TestValidateRuleParameters(t *testing.T) {
 						"recipient": "test@example.com",
 						"subject":   "Test Subject",
 						"message":   "Test Message",
+						"type":      "email",
 					},
 				},
 			},

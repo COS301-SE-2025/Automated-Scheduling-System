@@ -136,7 +136,11 @@ func SendSMSBulkWithClient(message string, recipients []MessageRecipient, client
 	if err != nil {
 		return nil, fmt.Errorf("error sending request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			fmt.Println("Error closing resp body:", closeErr)
+		}
+	}()
 
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
@@ -184,7 +188,11 @@ func GetAvailableCreditsWithClient(client HTTPClient) (*CreditBalanceResponse, e
 	if err != nil {
 		return nil, fmt.Errorf("error sending request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			fmt.Println("Error closing resp body:", closeErr)
+		}
+	}()
 
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
