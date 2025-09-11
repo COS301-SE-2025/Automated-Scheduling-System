@@ -3,7 +3,7 @@ package rulesv2
 // Parameter represents a parameter definition for triggers and actions
 type Parameter struct {
 	Name        string `json:"name"`
-	Type        string `json:"type"` // "string", "text_area", "number", "boolean", "date", "array", "object"
+	Type        string `json:"type"` // "string", "text_area", "employees", "number", "boolean", "date", "array", "object"
 	Required    bool   `json:"required"`
 	Description string `json:"description"`
 	Example     any    `json:"example,omitempty"`
@@ -234,8 +234,8 @@ func getActionMetadata() []ActionMetadata {
 					Example:     "sms",
 				},
 				{
-					Name:        "recipient",
-					Type:        "string",
+					Name:        "recipients",
+					Type:        "employees",
 					Required:    true,
 					Description: "Email address or user ID of the recipient",
 					Example:     "manager@company.com",

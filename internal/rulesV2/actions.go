@@ -23,47 +23,80 @@ type NotificationAction struct {
 }
 
 func (a *NotificationAction) Execute(ctx EvalContext, params map[string]any) error {
-	recipient, _ := params["recipient"].(string)
+	// Log the exact parameters received by the rule engine
+	paramsJSON, _ := json.Marshal(params)
+	log.Printf("NotificationAction.Execute received params: %s", string(paramsJSON))
+
+	recipientsParam, _ := params["recipients"].(string)
 	subject, _ := params["subject"].(string)
 	message, _ := params["message"].(string)
 	notificationType, _ := params["type"].(string) // "email" or "sms"
 
-	if recipient == "" || subject == "" || message == "" {
-		return fmt.Errorf("notification requires recipient, subject, and message")
+	// Parse recipients JSON string into array
+	var recipients []string
+	if recipientsParam != "" {
+		if err := json.Unmarshal([]byte(recipientsParam), &recipients); err != nil {
+			return fmt.Errorf("failed to parse recipients JSON: %w", err)
+		}
+	}
+
+	if len(recipients) == 0 || subject == "" || message == "" {
+		return fmt.Errorf("notification requires recipients, subject, and message")
 	}
 
 	if notificationType == "" {
 		notificationType = "email" // Default to email notification
 	}
 
-	switch notificationType {
-	case "email":
-		// TODO: Change later to loop over employee and pass email field
-		err := a.sendEmail(recipient, subject, message)
-		if err != nil {
-			return fmt.Errorf("failed to execute NotificationAction: %w", err)
+	// Send notification to each recipient
+	for _, employeeNumber := range recipients {
+		if employeeNumber == "" {
+			continue // Skip empty recipient entries
 		}
-	case "sms":
-		// TODO: Change later to fetch all the employees phonenumbers
-		smsWithSubject := subject + "\n\n" + message
-		err := a.sendSMS(recipient, smsWithSubject)
-		if err != nil {
-			return fmt.Errorf("failed to send SMS: %w", err)
+
+		// Get employee email from database
+		var employee gen_models.Employee
+		if err := a.DB.Where("employeenumber = ?", employeeNumber).First(&employee).Error; err != nil {
+			log.Printf("Failed to find employee %s: %v", employeeNumber, err)
+			return fmt.Errorf("failed to find employee %s: %w", employeeNumber, err)
 		}
-	case "push":
-		// TODO: Implement push notification logic here
-		log.Printf("PUSH NOTIFICATION SENT: To=%s, Subject=%s, Message=%s", recipient, subject, message)
-	default:
-		return fmt.Errorf("unknown notification type: %s", notificationType)
-	}
 
-	// Logs notification if it didn't return early(error didn't occur)
-	err := a.logSuccessfulNotification(recipient, subject, message, notificationType)
+		switch notificationType {
+		case "email":
+			employeeEmail := employee.Useraccountemail
 
-	if err != nil {
-		log.Printf("Failed to log notification: %v", err)
-		return fmt.Errorf("failed to log notification: %w", err)
+			err := a.sendEmail(employeeEmail, subject, message)
+			if err != nil {
+				log.Printf("Failed to send email to %s (%s): %v", employeeNumber, employeeEmail, err)
+				return fmt.Errorf("failed to execute NotificationAction for %s: %w", employeeNumber, err)
+			}
+		case "sms":
+			// Get employee phone number from database
+			var employee gen_models.Employee
+			if err := a.DB.Where("employeenumber = ?", employeeNumber).First(&employee).Error; err != nil {
+				log.Printf("Failed to find employee %s: %v", employeeNumber, err)
+				return fmt.Errorf("failed to find employee %s: %w", employeeNumber, err)
+			}
+			employeeSMS := employee.PhoneNumber
 
+			smsWithSubject := subject + "\n\n" + message
+			err := a.sendSMS(employeeSMS, smsWithSubject)
+			if err != nil {
+				log.Printf("Failed to send SMS to %s (%s): %v", employeeNumber, employeeSMS, err)
+				return fmt.Errorf("failed to send SMS to %s: %w", employeeNumber, err)
+			}
+		case "push":
+			// TODO: Implement push notification logic here
+			log.Printf("PUSH NOTIFICATION SENT: To=%s, Subject=%s, Message=%s", employeeNumber, subject, message)
+		default:
+			return fmt.Errorf("unknown notification type: %s", notificationType)
+		}
+
+		// Log each successful notification
+		err := a.logSuccessfulNotification(employee.Useraccountemail, subject, message, notificationType)
+		if err != nil {
+			log.Printf("Failed to log notification for %s: %v", employeeNumber, err)
+		}
 	}
 
 	return nil

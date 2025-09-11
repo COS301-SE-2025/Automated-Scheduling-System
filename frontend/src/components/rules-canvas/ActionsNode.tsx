@@ -190,6 +190,69 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                 />
             );
         }
+        if (type === 'employees') {
+            // Parse the value as JSON array of employee numbers if possible, otherwise treat as empty
+            let selectedEmployees: string[] = [];
+            try {
+                if (value && value.trim() !== '') {
+                    selectedEmployees = JSON.parse(value);
+                }
+            } catch {
+                selectedEmployees = [];
+            }
+
+            return (
+                <div className="w-1/2 flex items-center gap-2">
+                    <button
+                        type="button"
+                        className="px-3 py-1 border rounded bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            // Open employee selector modal with current value
+                            let currentEmployeeNumbers: string[] = [];
+                            try {
+                                if (value && value.trim() !== '') {
+                                    currentEmployeeNumbers = JSON.parse(value);
+                                }
+                            } catch {
+                                currentEmployeeNumbers = [];
+                            }
+                            
+                            // Dispatch custom event to open modal at page level
+                            window.dispatchEvent(new CustomEvent('employees:open-selector', {
+                                detail: {
+                                    currentValue: currentEmployeeNumbers,
+                                    onChange: onChange || (() => {})
+                                }
+                            }));
+                        }}
+                        {...stopAll}
+                    >
+                        Select Employees
+                    </button>
+                    <span className="text-sm text-gray-600 cursor-pointer hover:underline">
+                        {selectedEmployees.length > 0
+                            ? `${selectedEmployees.length} employee${selectedEmployees.length === 1 ? '' : 's'} selected`
+                            : 'No employees selected'}
+                    </span>
+                    {selectedEmployees.length > 0 && (
+                        <button
+                            type="button"
+                            aria-label="Clear employee selections"
+                            title="Clear selections"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onChange?.('[]');
+                            }}
+                            className="text-gray-400 hover:text-red-600"
+                            {...stopAll}
+                        >
+                            ×
+                        </button>
+                    )}
+                </div>
+            );
+        }
         return (
             <input
                 className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"

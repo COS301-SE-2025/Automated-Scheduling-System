@@ -17,6 +17,7 @@ type Employee struct {
 	Lastname         string    `gorm:"column:lastname" json:"lastname"`
 	Useraccountemail string    `gorm:"column:useraccountemail;not null" json:"useraccountemail"`
 	Employeestatus   string    `gorm:"column:employeestatus" json:"employeestatus"`
+	PhoneNumber      string    `gorm:"column:phonenumber" json:"phonenumber"`
 	Terminationdate  time.Time `gorm:"column:terminationdate" json:"terminationdate"`
 }
 
