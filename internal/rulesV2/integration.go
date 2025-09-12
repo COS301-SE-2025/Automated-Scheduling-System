@@ -27,14 +27,14 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 		UseFactResolver(CompetencyFacts{}).
 		UseFactResolver(EventFacts{}).
 		UseFactResolver(DomainFacts{}).
-		UseTrigger("job_position", &JobPositionTrigger{DB: db}).
-		UseTrigger("competency_type", &CompetencyTypeTrigger{DB: db}).
-		UseTrigger("competency", &CompetencyTrigger{DB: db}).
-		UseTrigger("event_definition", &EventDefinitionTrigger{DB: db}).
-		UseTrigger("scheduled_event", &ScheduledEventTrigger{DB: db}).
-		UseTrigger("roles", &RolesTrigger{DB: db}).
-		UseTrigger("link_job_to_competency", &LinkJobToCompetencyTrigger{DB: db}).
-		UseTrigger("competency_prerequisite", &CompetencyPrerequisiteTrigger{DB: db}).
+		UseTrigger("job_position", NewTrigger(db, "job_position")).
+		UseTrigger("competency_type", NewTrigger(db, "competency_type")).
+		UseTrigger("competency", NewTrigger(db, "competency")).
+		UseTrigger("event_definition", NewTrigger(db, "event_definition")).
+		UseTrigger("scheduled_event", NewTrigger(db, "scheduled_event")).
+		UseTrigger("roles", NewTrigger(db, "roles")).
+		UseTrigger("link_job_to_competency", NewTrigger(db, "link_job_to_competency")).
+		UseTrigger("competency_prerequisite", NewTrigger(db, "competency_prerequisite")).
 		UseAction("notification", &NotificationAction{DB: db}).
 		// UseAction("schedule_training", &ScheduleTrainingAction{DB: db}).
 		UseAction("competency_assignment", &CompetencyAssignmentAction{DB: db}).
