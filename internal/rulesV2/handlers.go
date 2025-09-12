@@ -10,11 +10,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+
+	meta "Automated-Scheduling-Project/internal/rulesV2/metadata"
 )
 
 // GetRulesMetadataHandler returns metadata about all available triggers, actions, facts, and operators
 func GetRulesMetadataHandler(c *gin.Context) {
-	metadata := GetRulesMetadata()
+	metadata := meta.GetRulesMetadata()
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 		"data":   metadata,
@@ -23,7 +25,7 @@ func GetRulesMetadataHandler(c *gin.Context) {
 
 // GetTriggersMetadataHandler returns metadata about available triggers
 func GetTriggersMetadataHandler(c *gin.Context) {
-	triggers := getTriggerMetadata()
+	triggers := meta.GetTriggerMetadata()
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 		"data":   triggers,
@@ -32,7 +34,7 @@ func GetTriggersMetadataHandler(c *gin.Context) {
 
 // GetActionsMetadataHandler returns metadata about available actions
 func GetActionsMetadataHandler(c *gin.Context) {
-	actions := getActionMetadata()
+	actions := meta.GetActionMetadata()
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 		"data":   actions,
@@ -41,7 +43,7 @@ func GetActionsMetadataHandler(c *gin.Context) {
 
 // GetFactsMetadataHandler returns metadata about available facts for conditions
 func GetFactsMetadataHandler(c *gin.Context) {
-	facts := getFactMetadata()
+	facts := meta.GetFactMetadata()
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 		"data":   facts,
@@ -50,7 +52,7 @@ func GetFactsMetadataHandler(c *gin.Context) {
 
 // GetOperatorsMetadataHandler returns metadata about available operators
 func GetOperatorsMetadataHandler(c *gin.Context) {
-	operators := getOperatorMetadata()
+	operators := meta.GetOperatorMetadata()
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
 		"data":   operators,

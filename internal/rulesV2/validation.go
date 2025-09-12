@@ -5,6 +5,9 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	// NOTE: ensure this matches your module path in go.mod
+	meta "Automated-Scheduling-Project/internal/rulesV2/metadata"
 )
 
 // ValidationError represents a parameter validation error
@@ -74,8 +77,8 @@ func ValidateRuleParameters(rule Rulev2) ValidationResult {
 }
 
 // findTriggerMetadata finds metadata for a specific trigger type
-func findTriggerMetadata(triggerType string) *TriggerMetadata {
-	triggers := getTriggerMetadata()
+func findTriggerMetadata(triggerType string) *meta.TriggerMetadata {
+	triggers := meta.GetTriggerMetadata()
 	for _, trigger := range triggers {
 		if trigger.Type == triggerType {
 			return &trigger
@@ -85,8 +88,8 @@ func findTriggerMetadata(triggerType string) *TriggerMetadata {
 }
 
 // findActionMetadata finds metadata for a specific action type
-func findActionMetadata(actionType string) *ActionMetadata {
-	actions := getActionMetadata()
+func findActionMetadata(actionType string) *meta.ActionMetadata {
+	actions := meta.GetActionMetadata()
 	for _, action := range actions {
 		if action.Type == actionType {
 			return &action
@@ -96,7 +99,7 @@ func findActionMetadata(actionType string) *ActionMetadata {
 }
 
 // validateParameter validates a single parameter against its metadata
-func validateParameter(param Parameter, params map[string]any) error {
+func validateParameter(param meta.Parameter, params map[string]any) error {
 	value, exists := params[param.Name]
 
 	// Check if required parameter is missing
@@ -133,7 +136,7 @@ func validateParameter(param Parameter, params map[string]any) error {
 }
 
 // validateParameterType validates that a parameter value matches its expected type
-func validateParameterType(param Parameter, value any) error {
+func validateParameterType(param meta.Parameter, value any) error {
 	if value == nil {
 		if param.Required {
 			return fmt.Errorf("parameter '%s' cannot be null", param.Name)
