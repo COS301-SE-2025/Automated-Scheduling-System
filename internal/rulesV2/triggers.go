@@ -32,6 +32,14 @@ type RolesTrigger struct {
 	DB *gorm.DB
 }
 
+type LinkJobToCompetencyTrigger struct {
+	DB *gorm.DB
+}
+
+type CompetencyPrerequisiteTrigger struct {
+	DB *gorm.DB
+}
+
 // JobPositionTrigger: now only operation
 func (t *JobPositionTrigger) Fire(ctx context.Context, params map[string]any, emit func(EvalContext) error) error {
 	op, _ := params["operation"].(string)
@@ -126,11 +134,6 @@ func (t *RolesTrigger) Fire(ctx context.Context, params map[string]any, emit fun
 	return emit(evalCtx)
 }
 
-// New: LinkJobToCompetencyTrigger
-type LinkJobToCompetencyTrigger struct {
-	DB *gorm.DB
-}
-
 func (t *LinkJobToCompetencyTrigger) Fire(ctx context.Context, params map[string]any, emit func(EvalContext) error) error {
 	op, _ := params["operation"].(string) // add|remove
 	evalCtx := EvalContext{
@@ -143,11 +146,6 @@ func (t *LinkJobToCompetencyTrigger) Fire(ctx context.Context, params map[string
 		},
 	}
 	return emit(evalCtx)
-}
-
-// New: CompetencyPrerequisiteTrigger
-type CompetencyPrerequisiteTrigger struct {
-	DB *gorm.DB
 }
 
 func (t *CompetencyPrerequisiteTrigger) Fire(ctx context.Context, params map[string]any, emit func(EvalContext) error) error {
