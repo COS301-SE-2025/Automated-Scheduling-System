@@ -23,7 +23,7 @@ import (
 	"Automated-Scheduling-Project/internal/user"
 )
 
-func gracefulShutdown(apiServer *http.Server, done chan bool) {
+func gracefulShutdown(apiServer *http.Server, rulesService *rulesv2.RuleBackEndService, done chan bool) {
 	// Create context that listens for the interrupt signal from the OS.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -33,6 +33,9 @@ func gracefulShutdown(apiServer *http.Server, done chan bool) {
 
 	log.Println("shutting down gracefully, press Ctrl+C again to force")
 	stop() // Allow Ctrl+C to force shutdown
+
+	// Stop scheduler first
+	_ = rulesService.StopScheduler(context.Background())
 
 	// The context is used to inform the server it has 5 seconds to finish
 	// the request it is currently handling
@@ -64,6 +67,10 @@ func main() {
 
 	// Initialize RulesV2 Backend Service
 	rulesService := rulesv2.NewRuleBackEndService(dbConnection)
+	rulesService.Scheduler.EnableDebug(true)
+	if err := rulesService.StartScheduler(context.Background()); err != nil {
+		log.Printf("failed to start scheduler: %v", err)
+	}
 
 	// Inject rules service into domain handlers that should fire triggers
 	event.SetRulesService(rulesService)
@@ -73,14 +80,13 @@ func main() {
 	matrix.SetRulesService(rulesService)
 	role.SetRulesService(rulesService)
 
-
 	server := server.NewServer(rulesService)
 
 	// Create a done channel to signal when the shutdown is complete
 	done := make(chan bool, 1)
 
 	// Run graceful shutdown in a separate goroutine
-	go gracefulShutdown(server, done)
+	go gracefulShutdown(server, rulesService, done)
 
 	err := server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {

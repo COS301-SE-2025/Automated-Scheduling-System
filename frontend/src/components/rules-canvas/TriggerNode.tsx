@@ -4,11 +4,44 @@ import { Trash2 } from 'lucide-react';
 import type { TriggerNodeData, ParamKV } from '../../types/rule.types';
 import { useRulesMetadata } from '../../contexts/RulesMetadataContext';
 
+const dayLabels = new Map<string, string>([
+    ['1', 'Monday'],
+    ['2', 'Tuesday'],
+    ['3', 'Wednesday'],
+    ['4', 'Thursday'],
+    ['5', 'Friday'],
+    ['6', 'Saturday'],
+    ['7', 'Sunday'],
+]);
+
+function getVisibleParamKeys(triggerType: string, params: ParamKV[]): Set<string> {
+    if (triggerType !== 'scheduled_time') return new Set(params.map(p => p.key));
+    const freq = params.find(p => p.key === 'frequency')?.value || '';
+    const keys = new Set<string>(['frequency']); // always show frequency
+    switch (freq) {
+        case 'hourly':
+            keys.add('minute_of_hour'); keys.add('timezone'); break;
+        case 'daily':
+            keys.add('time_of_day'); keys.add('timezone'); break;
+        case 'weekly':
+            keys.add('day_of_week'); keys.add('time_of_day'); keys.add('timezone'); break;
+        case 'monthly':
+            keys.add('day_of_month'); keys.add('time_of_day'); keys.add('timezone'); break;
+        case 'once':
+            keys.add('date'); keys.add('time_of_day'); keys.add('timezone'); break;
+        case 'cron':
+            keys.add('cron_expression'); keys.add('timezone'); break;
+        default:
+            break;
+    }
+    return keys;
+}
+
 const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
     const rf = useReactFlow();
     const { triggers, byTrigger } = useRulesMetadata();
 
-    const update = (partial: Partial<TriggerNodeData>) => {
+    const update = React.useCallback((partial: Partial<TriggerNodeData>) => {
         const edges = rf.getEdges?.() ?? [];
         const ruleIds = new Set<string>();
         for (const e of edges) {
@@ -30,7 +63,7 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
                 return n;
             })
         );
-    };
+    }, [id, rf]);
 
     const setTriggerType = (newType: string) => {
         const meta = byTrigger.get(newType);
@@ -47,6 +80,11 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
         const next = data.parameters.map((p, i) => (i === idx ? { ...p, ...patch } : p));
         update({ parameters: next });
     };
+    // const setParamByKey = (key: string, value: string) => {
+    //     const idx = data.parameters.findIndex(p => p.key === key);
+    //     if (idx >= 0) setParam(idx, { value });
+    //     else update({ parameters: [...data.parameters, { key, value }] });
+    // };
     const removeParam = (idx: number) => update({ parameters: data.parameters.filter((_, i) => i !== idx) });
     const onDelete = () => rf.deleteElements({ nodes: [{ id }] });
 
@@ -85,13 +123,43 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
     };
 
     const meta = byTrigger.get(data.triggerType);
-    const metaParamMap = new Map((meta?.parameters || []).map((p) => [p.name, p]));
+    const metaParamMap = new Map((meta?.parameters || []).map((p) => [p.name, p as any]));
+    const visibleKeys = getVisibleParamKeys(data.triggerType, data.parameters);
+
+    // Map of date_field options per entity_type for relative_time
+    const relativeDateFields: Record<string, string[]> = React.useMemo(() => ({
+        scheduled_event: ['event_start_date', 'event_end_date'],
+        employee_competency: ['expiry_date'],
+        employee: ['termination_date'],
+        employment_history: ['start_date'],
+    }), []);
+
+    // Ensure required keys for scheduled_time AFTER render to avoid setState in render.
+    React.useEffect(() => {
+        if (data.triggerType !== 'scheduled_time') return;
+
+        const metaLocal = byTrigger.get(data.triggerType);
+        const defMap = new Map((metaLocal?.parameters || []).map((p) => [p.name, p as any]));
+
+        const keysToEnsure = getVisibleParamKeys(data.triggerType, data.parameters);
+        const missing: ParamKV[] = [];
+        for (const k of keysToEnsure) {
+            if (!data.parameters.some(p => p.key === k)) {
+                const def = defMap.get(k);
+                const firstOpt = def?.options?.length ? String(def.options[0]) : (k === 'timezone' ? 'UTC+0' : '');
+                missing.push({ key: k, value: firstOpt });
+            }
+        }
+        if (missing.length > 0) {
+            update({ parameters: [...data.parameters, ...missing] });
+        }
+}, [data.triggerType, data.parameters, byTrigger, update])
 
     const renderValueInput = (p: ParamKV, idx: number) => {
         const def = metaParamMap.get(p.key);
         const type = def?.type || 'string';
         const required = def?.required;
-        const options = (def as any)?.options as any[] | undefined;
+        let options = (def as any)?.options as any[] | undefined;
         const placeholder = `${type}${required ? ' • required' : ''}`;
 
         const stopAll = {
@@ -106,7 +174,17 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
             },
         };
 
+        // Dynamically narrow date_field options for relative_time based on entity_type
+        if (data.triggerType === 'relative_time' && p.key === 'date_field') {
+            const et = data.parameters.find(x => x.key === 'entity_type')?.value as string || '';
+            if (et && relativeDateFields[et]) {
+                options = relativeDateFields[et];
+            }
+        }
+
+        // Dropdowns from options (supports numeric and string lists)
         if (options && options.length > 0) {
+            const isDOW = data.triggerType === 'scheduled_time' && p.key === 'day_of_week';
             return (
                 <select
                     className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
@@ -117,7 +195,8 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
                     <option value="">{required ? 'Select…' : '—'}</option>
                     {options.map((opt, i) => {
                         const val = String(opt);
-                        return <option key={`${p.key}-opt-${i}`} value={val}>{val}</option>;
+                        const label = isDOW ? (dayLabels.get(val) ?? val) : val;
+                        return <option key={`${p.key}-opt-${i}`} value={val}>{label}</option>;
                     })}
                 </select>
             );
@@ -137,7 +216,7 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
                 </select>
             );
         }
-        if (type === 'number') {
+        if (type === 'number' || type === 'integer') {
             return (
                 <input
                     className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
@@ -159,8 +238,19 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
                     placeholder={placeholder}
                     value={p.value}
                     onChange={(e) => setParam(idx, { value: e.target.value })}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onWheel={(e) => e.stopPropagation()}
+                    {...stopAll}
+                />
+            );
+        }
+        if (type === 'time') {
+            return (
+                <input
+                    className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
+                    type="time"
+                    placeholder={placeholder}
+                    value={p.value}
+                    onChange={(e) => setParam(idx, { value: e.target.value })}
+                    {...stopAll}
                 />
             );
         }
@@ -175,6 +265,12 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
             />
         );
     };
+
+    const onParamKeyChange = (idx: number, nextKey: string) => {
+        setParam(idx, { key: nextKey });
+    };
+
+    const frequency = data.parameters.find(p => p.key === 'frequency')?.value || '';
 
     return (
         <div
@@ -211,36 +307,53 @@ const TriggerNode: React.FC<NodeProps<TriggerNodeData>> = ({ id, data }) => {
                 <div className="border-t pt-2">
                     <div className="flex items-center justify-between mb-1">
                         <span className="text-sm font-semibold">Parameters</span>
+                        {data.triggerType === 'scheduled_time' && (
+                            <span className="text-xs text-gray-500">
+                                {frequency ? `Showing fields for “${frequency}”` : 'Select frequency'}
+                            </span>
+                        )}
                     </div>
                     <div className="space-y-1">
-                        {data.parameters.map((p, idx) => {
-                            const def = metaParamMap.get(p.key);
-                            const isMeta = Boolean(def);
-                            return (
-                                <div key={`${p.key}-${idx}`} className="flex gap-1 items-center">
-                                    <input
-                                        className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800 disabled:bg-gray-100"
-                                        placeholder="key"
-                                        value={p.key}
-                                        onChange={(e) => setParam(idx, { key: e.target.value })}
-                                        disabled={isMeta}
-                                        title={isMeta ? 'Defined by trigger metadata' : 'Custom parameter key'}
-                                    />
-                                    {renderValueInput(p, idx)}
-                                    <button
-                                        className="px-2 border rounded text-xs disabled:opacity-50"
-                                        onClick={() => removeParam(idx)}
-                                        type="button"
-                                        aria-label="Remove parameter"
-                                        disabled={isMeta}
-                                        title={isMeta ? 'Defined by trigger metadata' : 'Remove parameter'}
-                                    >
-                                        ×
-                                    </button>
-                                </div>
-                            );
-                        })}
-                        {data.parameters.length === 0 && (
+                        {data.parameters
+                            .map((p, originalIdx) => ({ p, originalIdx }))
+                            .filter(({ p }) => visibleKeys.has(p.key))
+                            .map(({ p, originalIdx }) => {
+                                const def = metaParamMap.get(p.key);
+                                const isMeta = Boolean(def);
+                                return (
+                                    <div key={`${p.key}-${originalIdx}`} className="flex gap-1 items-center">
+                                        <button
+                                            type="button"
+                                            className="w-5 h-5 rounded-full border text-xs leading-4 text-gray-700 bg-white"
+                                            title={def?.description || 'No description'}
+                                            onPointerDown={(e) => e.stopPropagation()}
+                                            onMouseDown={(e) => e.stopPropagation()}
+                                        >
+                                            ?
+                                        </button>
+                                        <input
+                                            className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800 disabled:bg-gray-100"
+                                            placeholder="key"
+                                            value={p.key}
+                                            onChange={(e) => onParamKeyChange(originalIdx, e.target.value)}
+                                            disabled={isMeta}
+                                            title={isMeta ? 'Defined by trigger metadata' : 'Custom parameter key'}
+                                        />
+                                        {renderValueInput(p, originalIdx)}
+                                        <button
+                                            className="px-2 border rounded text-xs disabled:opacity-50"
+                                            onClick={() => removeParam(originalIdx)}
+                                            type="button"
+                                            aria-label="Remove parameter"
+                                            disabled={isMeta}
+                                            title={isMeta ? 'Defined by trigger metadata' : 'Remove parameter'}
+                                        >
+                                            ×
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        {data.parameters.filter(p => visibleKeys.has(p.key)).length === 0 && (
                             <p className="text-xs text-gray-400 text-center">No parameters</p>
                         )}
                     </div>

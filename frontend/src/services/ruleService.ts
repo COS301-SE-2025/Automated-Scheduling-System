@@ -39,7 +39,7 @@ export type ValidationResult = {
 
 export type ParameterMeta = {
     name: string;
-    type: 'string' | 'number' | 'boolean' | 'date' | 'array' | 'object';
+    type: 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'time' | 'array' | 'object';
     required: boolean;
     description: string;
     example?: any;

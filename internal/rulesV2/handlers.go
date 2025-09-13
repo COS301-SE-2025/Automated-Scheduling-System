@@ -141,7 +141,7 @@ func CreateRule(c *gin.Context, service *RuleBackEndService) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	newID, err := service.Store.CreateRule(ctx, rule)
+	newID, err := service.CreateRule(ctx, rule)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -194,7 +194,7 @@ func UpdateRule(c *gin.Context, service *RuleBackEndService) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := service.Store.UpdateRule(ctx, ruleID, rule); err != nil {
+	if err := service.UpdateRule(ctx, ruleID, rule); err != nil {
 		c.JSON(httpStatusForStoreErr(err), gin.H{"error": err.Error()})
 		return
 	}
@@ -224,7 +224,7 @@ func EnableRule(c *gin.Context, service *RuleBackEndService) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := service.Store.EnableRule(ctx, ruleID, true); err != nil {
+	if err := service.EnableRule(ctx, ruleID, true); err != nil {
 		c.JSON(httpStatusForStoreErr(err), gin.H{"error": err.Error()})
 		return
 	}
@@ -239,7 +239,7 @@ func DisableRule(c *gin.Context, service *RuleBackEndService) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := service.Store.EnableRule(ctx, ruleID, false); err != nil {
+	if err := service.EnableRule(ctx, ruleID, false); err != nil {
 		c.JSON(httpStatusForStoreErr(err), gin.H{"error": err.Error()})
 		return
 	}

@@ -2,11 +2,11 @@ package rulesv2
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"time"
 
-	// NOTE: ensure this matches your module path in go.mod
 	meta "Automated-Scheduling-Project/internal/rulesV2/metadata"
 )
 
@@ -152,9 +152,23 @@ func validateParameterType(param meta.Parameter, value any) error {
 	case "number":
 		switch value.(type) {
 		case int, int32, int64, float32, float64:
-			// Valid number types
 		default:
 			return fmt.Errorf("parameter '%s' must be a number, got %T", param.Name, value)
+		}
+	case "integer":
+		switch v := value.(type) {
+		case int, int32, int64:
+			// ok
+		case float64:
+			if v != math.Trunc(v) {
+				return fmt.Errorf("parameter '%s' must be an integer, got %v", param.Name, v)
+			}
+		case float32:
+			if float64(v) != math.Trunc(float64(v)) {
+				return fmt.Errorf("parameter '%s' must be an integer, got %v", param.Name, v)
+			}
+		default:
+			return fmt.Errorf("parameter '%s' must be an integer, got %T", param.Name, value)
 		}
 	case "boolean":
 		if _, ok := value.(bool); !ok {
@@ -170,6 +184,15 @@ func validateParameterType(param meta.Parameter, value any) error {
 			}
 		} else if _, ok := value.(time.Time); !ok {
 			return fmt.Errorf("parameter '%s' must be a date string or time.Time, got %T", param.Name, value)
+		}
+	case "time":
+		// "HH:MM" 24h
+		if str, ok := value.(string); ok {
+			if _, err := time.Parse("15:04", str); err != nil {
+				return fmt.Errorf("parameter '%s' must be a valid time in HH:MM (24h) format", param.Name)
+			}
+		} else {
+			return fmt.Errorf("parameter '%s' must be a time string (HH:MM), got %T", param.Name, value)
 		}
 	case "array":
 		if reflect.TypeOf(value).Kind() != reflect.Slice {
