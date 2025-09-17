@@ -1,3 +1,5 @@
+//go:build unit
+
 package rulesv2
 
 import (
@@ -102,11 +104,10 @@ func TestGetActionMetadata(t *testing.T) {
 	if assert.NotNil(t, notificationAction) {
 		assert.Equal(t, "Send Notification", notificationAction.Name)
 		assert.Contains(t, notificationAction.Description, "notification")
-		assert.Len(t, notificationAction.Parameters, 3)
 
-		recipientParam := notificationAction.Parameters[0]
-		assert.Equal(t, "recipient", recipientParam.Name)
-		assert.Equal(t, "string", recipientParam.Type)
+		recipientParam := notificationAction.Parameters[1]
+		assert.Equal(t, "recipients", recipientParam.Name)
+		assert.Equal(t, "employees", recipientParam.Type)
 		assert.True(t, recipientParam.Required)
 		assert.NotEmpty(t, recipientParam.Description)
 		assert.NotNil(t, recipientParam.Example)

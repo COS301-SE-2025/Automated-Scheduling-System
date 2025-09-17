@@ -10,24 +10,28 @@
 ---
 
 ## 📚 Documentation  
-| Resource                               | Link                                                                                                                                          |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| 📄 SRS Document                        | [Requirements](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Software-Requirements-Specification)                        |
-| 📄 Architectural Requirements Document | [Architectural](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/%F0%9F%8F%9B%EF%B8%8F-Architectural-Requirements-Document) |
-| 📄 User Manual                         | [User Manual](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/User-Manual)                                                 |
-| 📄 Coding Standards Document           | [Coding standards](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Coding-Standards-Document)                              |
-| 📊 Scrum Board                         | [Scrum Board](https://github.com/orgs/COS301-SE-2025/projects/145)                                                                            |
-| 📊 Sprint Planning                     | [Sprint Planning](https://github.com/orgs/COS301-SE-2025/projects/145/views/3?sliceBy%5Bvalue%5D=Task&pane=info)                              |
-| 📄 Getting Started                     | [Getting Started](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Getting-Started)                                         |
-| 📄 Previous Documentation              | [Previous Docs (Google Drive)](https://drive.google.com/drive/folders/1qHXDQRyW6HW9QMX4W1FLxzJk8N2bGqz8)                                      |
+| Resource                               | Link                                                                                                                    |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 📄 Architectural Requirements Document | [Architectural](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Architectural-Requirements-Document) |
+| 📄 SRS Document                        | [Requirements](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Software-Requirements-Specification)  |
+| 📄 Coding Standards Document           | [Coding standards](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Coding-Standards-Document)        |
+| 📄 User Manual                         | [User Manual](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/User-Manual)                           |
+| 📄 Deployment Model                    | [Deployment](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Deployment-Model)                       |
+| 📄 Domain Model                        | [Domain Model](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Domain-Model)                         |
+| 📄 Technical Installation Manual       | [Technical](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Technical-Installation-Manual)           |
+| 📄 Previous Documentation              | [Previous Docs (Google Drive)](https://drive.google.com/drive/folders/1qHXDQRyW6HW9QMX4W1FLxzJk8N2bGqz8)                |
+| 📊 Scrum Board                         | [Scrum Board](https://github.com/orgs/COS301-SE-2025/projects/145)                                                      |
+| 📊 Sprint Planning                     | [Sprint Planning](https://github.com/orgs/COS301-SE-2025/projects/145/views/3?sliceBy%5Bvalue%5D=Task&pane=info)        |
 
 ---
 
 ## 🎥 Demo Resources
 
-| Demo   | Video                                                                              | Presentation                                                                     |
-| ------ | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Demo 1 | [Demo 1](https://drive.google.com/drive/folders/1vOPVthLNlVF2fgY1ZBmNBSnBYhcFAFdi) | [Slides 1](https://www.canva.com/design/DAGorRU2lTc/os4bYH1iU9YRJyTcd99fxw/edit) |
+| Demo   | Video                                                                                  | Presentation                                                                     |
+| ------ | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Demo 1 | [Demo 1](https://drive.google.com/drive/folders/1vOPVthLNlVF2fgY1ZBmNBSnBYhcFAFdi)     | [Slides 1](https://www.canva.com/design/DAGorRU2lTc/os4bYH1iU9YRJyTcd99fxw/edit) |
+| Demo 2 | [Demo 2](https://drive.google.com/drive/u/1/folders/1-mdaq45m-Sp1UUUVYKJQAZZTceB0rOP_) |                                                                                  |
+| Demo 3 | [Demo 3](https://drive.google.com/drive/u/1/folders/1odLyx5iK4Imljp3SzXOKa6GeVPKQt6L_) | [Slides 3](https://www.canva.com/design/DAGwb_F4zsE/I9vMSY4Pc_XMz4enSEpG2Q/edit) |
 
 ---
 
@@ -115,7 +119,7 @@ Here’s the team behind **Automated Scheduling System**:
  <img src="https://skillicons.dev/icons?i=go"/>
     
  ### Project Management & Deployment
- <img src="https://skillicons.dev/icons?i=git,githubactions,yarn,docker"/>
+ <img src="https://skillicons.dev/icons?i=git,githubactions,npm,docker"/>
    
  ### Testing
  <img src="https://skillicons.dev/icons?i=vitest"/>

@@ -7,6 +7,7 @@ import (
 	"Automated-Scheduling-Project/internal/event"
 	"Automated-Scheduling-Project/internal/jobposition"
 	"Automated-Scheduling-Project/internal/matrix"
+	"Automated-Scheduling-Project/internal/profile"
 	"Automated-Scheduling-Project/internal/role"
 	rulesv2 "Automated-Scheduling-Project/internal/rulesV2"
 	"Automated-Scheduling-Project/internal/user"
@@ -49,6 +50,7 @@ func (s *Server) RegisterRoutes() http.Handler {
 	competency.RegisterCompetencyRoutes(r)
 	competency_type.RegisterCompetencyTypeRoutes(r)
 	jobposition.RegisterJobPositionRoutes(r)
+	profile.RegisterProfileRoutes(r)
 	rulesv2.RegisterRulesRoutes(r, s.rulesService)
 
 	return r

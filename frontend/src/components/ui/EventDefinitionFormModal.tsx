@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -6,6 +6,7 @@ import type { EventDefinition, CreateEventDefinitionPayload  } from '../../servi
 import type { Competency } from '../../types/competency';
 import MessageBox from './MessageBox';
 import Button from './Button';
+import GenericSelectModal from './GenericSelectModal';
 
 const eventDefinitionSchema = z.object({
     EventName: z.string().trim().min(1, 'Event name is required'),
@@ -35,7 +36,7 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
     const [apiError, setApiError] = useState<string | null>(null);
     const isEditMode = !!initialData;
 
-    const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitting } } = useForm<EventDefinitionFormData>({
+    const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } = useForm<EventDefinitionFormData>({
         resolver: zodResolver(eventDefinitionSchema),
         mode: 'onBlur',
         reValidateMode: 'onChange',
@@ -88,6 +89,9 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
             setApiError(null);
         }
     }, [isOpen, initialData, reset, setValue]);
+    const [showCompetencyPicker, setShowCompetencyPicker] = useState(false);
+    const selectedGrantId = watch('GrantsCertificateID');
+    const selectedGrant = useMemo(() => providedCompetencies.find(c => c.competencyID === selectedGrantId), [providedCompetencies, selectedGrantId]);
 
     // We no longer fetch competencies here; the parent page should pass them in when allowed.
 
@@ -173,27 +177,18 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
 
                     {showGrantField && (
                         <div>
-                            <label htmlFor="GrantsCertificateID" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Grants Certificate (Optional)</label>
-                            {providedCompetencies.length === 0 ? (
-                                <select id="GrantsCertificateID" className="w-full p-2 border rounded-md dark:bg-dark-input" disabled>
-                                    <option value="">No competencies available</option>
-                                </select>
-                            ) : (
-                                <select
-                                    id="GrantsCertificateID"
-                                    className="w-full p-2 border rounded-md dark:bg-dark-input"
-                                    {...register('GrantsCertificateID', {
-                                        setValueAs: (v) => v === '' ? undefined : Number(v)
-                                    })}
-                                    defaultValue=""
-                                >
-                                    {/* Allow user to explicitly choose no competency */}
-                                    <option value="">None</option>
-                                    {providedCompetencies.map((c: Competency) => (
-                                        <option key={c.competencyID} value={c.competencyID}>{c.competencyName}</option>
-                                    ))}
-                                </select>
-                            )}
+                            <label className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Grants Competency (Optional)</label>
+                            <div className="flex items-center gap-2">
+                                <Button type="button" variant="outline" onClick={() => setShowCompetencyPicker(true)} disabled={providedCompetencies.length === 0}>
+                                    {selectedGrant ? 'Change' : 'Select'} Competency
+                                </Button>
+                                <span className="text-sm text-gray-600 dark:text-gray-300">
+                                    {providedCompetencies.length === 0 ? 'No competencies available' : (selectedGrant ? selectedGrant.competencyName : 'None')}
+                                </span>
+                                {selectedGrant && (
+                                    <button type="button" className="text-gray-400 hover:text-red-600" title="Clear selection" onClick={() => setValue('GrantsCertificateID', undefined, { shouldDirty: true, shouldValidate: true })}>×</button>
+                                )}
+                            </div>
                             {errors.GrantsCertificateID && <p className="text-red-500 text-xs mt-1">{errors.GrantsCertificateID.message}</p>}
                         </div>
                     )}
@@ -208,6 +203,20 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({ isO
                     </div>
                 </form>
             </div>
+            {showGrantField && (
+                <GenericSelectModal<Competency>
+                    isOpen={showCompetencyPicker}
+                    title="Select competency to grant"
+                    items={providedCompetencies}
+                    idKey={(c) => String(c.competencyID)}
+                    columns={[{ header: 'Name', field: 'competencyName' }, { header: 'Type', field: 'competencyTypeName', className: 'text-gray-500' }]}
+                    searchFields={[ 'competencyName', 'competencyTypeName' ] as any}
+                    multiSelect={false}
+                    onClose={() => setShowCompetencyPicker(false)}
+                    onConfirm={(ids) => { setValue('GrantsCertificateID', ids[0] ? Number(ids[0]) : undefined, { shouldDirty: true, shouldValidate: true }); setShowCompetencyPicker(false); }}
+                    footerPrimaryLabel="Use Selection"
+                />
+            )}
         </div>
     );
 };

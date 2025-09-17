@@ -23,6 +23,12 @@ import CanvasToast from '../components/rules-canvas/CanvasToast';
 import CanvasConfirm from '../components/rules-canvas/CanvasConfirm';
 import { materializeFromBackend, deleteRuleInBackend } from '../utils/canvasBackend';
 import { RulesMetadataProvider } from '../contexts/RulesMetadataContext';
+import EventEmployeeFilterModal from '../components/ui/EventEmployeeFilterModal';
+import GenericSelectModal from '../components/ui/GenericSelectModal';
+import { getAllUsers } from '../services/userService';
+import { getAllJobPositions, type JobPosition } from '../services/jobPositionService';
+import * as eventService from '../services/eventService';
+import type { User } from '../types/user';
 
 const initialNodes: any[] = [];
 
@@ -35,8 +41,102 @@ const RulesPage: React.FC = () => {
     const [exported, setExported] = useState<string>('');
     const [showPreview, setShowPreview] = useState<boolean>(false);
 
+    // Employee selector modal state
+    const [users, setUsers] = useState<User[]>([]);
+    const [showEmployeeSelector, setShowEmployeeSelector] = useState(false);
+    const [currentEmployeeSelection, setCurrentEmployeeSelection] = useState<{
+        currentValue: string[];
+        onChange: (value: string) => void;
+    } | null>(null);
+
+    // Job position selector modal state
+    const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
+    const [showJobPositionSelector, setShowJobPositionSelector] = useState(false);
+    const [currentJobPositionSelection, setCurrentJobPositionSelection] = useState<{
+        currentValue: string[];
+        onChange: (value: string) => void;
+    } | null>(null);
+
+    // Event type selector modal state
+    const [eventDefinitions, setEventDefinitions] = useState<eventService.EventDefinition[]>([]);
+    const [showEventTypeSelector, setShowEventTypeSelector] = useState(false);
+    const [currentEventTypeSelection, setCurrentEventTypeSelection] = useState<{
+        currentValue: string;
+        onChange: (value: string) => void;
+    } | null>(null);
+
     const nodesRef = useRef<typeof nodes>(nodes);
     const edgesRef = useRef<typeof edges>(edges);
+
+    useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+    useEffect(() => { edgesRef.current = edges; }, [edges]);
+
+    // Load users for employee selector, job positions, and event definitions for event type selector
+    useEffect(() => {
+        let active = true;
+        (async () => {
+            try {
+                const [userList, eventDefs, positions] = await Promise.all([
+                    getAllUsers(),
+                    eventService.getEventDefinitions(),
+                    getAllJobPositions()
+                ]);
+                if (active) {
+                    setUsers(userList);
+                    setEventDefinitions(eventDefs);
+                    setJobPositions(positions.filter(p => p.isActive));
+                }
+            } catch (error) {
+                console.error('Failed to load users, event definitions, or job positions:', error);
+            }
+        })();
+        return () => { active = false; };
+    }, []);
+
+    // Listen for employee selector events from ActionsNode
+    useEffect(() => {
+        const handleOpenEmployeeSelector = (event: CustomEvent) => {
+            const { currentValue, onChange } = event.detail;
+            setCurrentEmployeeSelection({ currentValue, onChange });
+            setShowEmployeeSelector(true);
+        };
+
+        window.addEventListener('employees:open-selector', handleOpenEmployeeSelector as EventListener);
+        
+        return () => {
+            window.removeEventListener('employees:open-selector', handleOpenEmployeeSelector as EventListener);
+        };
+    }, []);
+
+    // Listen for job position selector events from ActionsNode
+    useEffect(() => {
+        const handleOpenJobPositionSelector = (event: CustomEvent) => {
+            const { currentValue, onChange } = event.detail;
+            setCurrentJobPositionSelection({ currentValue, onChange });
+            setShowJobPositionSelector(true);
+        };
+
+        window.addEventListener('job-positions:open-selector', handleOpenJobPositionSelector as EventListener);
+        
+        return () => {
+            window.removeEventListener('job-positions:open-selector', handleOpenJobPositionSelector as EventListener);
+        };
+    }, []);
+
+    // Listen for event type selector events from ActionsNode
+    useEffect(() => {
+        const handleOpenEventTypeSelector = (event: CustomEvent) => {
+            const { currentValue, onChange } = event.detail;
+            setCurrentEventTypeSelection({ currentValue, onChange });
+            setShowEventTypeSelector(true);
+        };
+
+        window.addEventListener('event-type:open-selector', handleOpenEventTypeSelector as EventListener);
+        
+        return () => {
+            window.removeEventListener('event-type:open-selector', handleOpenEventTypeSelector as EventListener);
+        };
+    }, []);
 
     useEffect(() => { nodesRef.current = nodes; }, [nodes]);
     useEffect(() => { edgesRef.current = edges; }, [edges]);
@@ -265,6 +365,71 @@ const RulesPage: React.FC = () => {
                     </RulesMetadataProvider>
                 </ReactFlowProvider>
             </div>
+
+            {/* Employee Selection Modal - Rendered at page level */}
+            <EventEmployeeFilterModal
+                isOpen={showEmployeeSelector}
+                mode="employees"
+                title="Select Employees for Action"
+                users={users}
+                initialSelected={currentEmployeeSelection?.currentValue || []}
+                onClose={() => {
+                    setShowEmployeeSelector(false);
+                    setCurrentEmployeeSelection(null);
+                }}
+                onConfirm={(selectedEmployeeNumbers) => {
+                    if (currentEmployeeSelection?.onChange) {
+                        currentEmployeeSelection.onChange(JSON.stringify(selectedEmployeeNumbers));
+                    }
+                    setShowEmployeeSelector(false);
+                    setCurrentEmployeeSelection(null);
+                }}
+            />
+
+            {/* Job Position Selector Modal */}
+            <EventEmployeeFilterModal
+                isOpen={showJobPositionSelector}
+                mode="positions"
+                positions={jobPositions}
+                initialSelected={currentJobPositionSelection?.currentValue || []}
+                onClose={() => {
+                    setShowJobPositionSelector(false);
+                    setCurrentJobPositionSelection(null);
+                }}
+                onConfirm={(selectedPositionCodes) => {
+                    if (currentJobPositionSelection?.onChange) {
+                        currentJobPositionSelection.onChange(JSON.stringify(selectedPositionCodes));
+                    }
+                    setShowJobPositionSelector(false);
+                    setCurrentJobPositionSelection(null);
+                }}
+            />
+
+            {/* Event Type Selector Modal */}
+            <GenericSelectModal<eventService.EventDefinition>
+                isOpen={showEventTypeSelector}
+                title="Select event type"
+                items={eventDefinitions}
+                idKey={(d) => String(d.CustomEventID)}
+                columns={[
+                    { header: 'Name', field: 'EventName' },
+                    { header: 'Duration', field: 'StandardDuration', className: 'text-gray-500' }
+                ]}
+                searchFields={['EventName'] as any}
+                multiSelect={false}
+                onClose={() => {
+                    setShowEventTypeSelector(false);
+                    setCurrentEventTypeSelection(null);
+                }}
+                onConfirm={(ids) => {
+                    if (currentEventTypeSelection?.onChange && ids.length > 0) {
+                        currentEventTypeSelection.onChange(ids[0]);
+                    }
+                    setShowEventTypeSelector(false);
+                    setCurrentEventTypeSelection(null);
+                }}
+                footerPrimaryLabel="Use Selection"
+            />
         </MainLayout>
     );
 };

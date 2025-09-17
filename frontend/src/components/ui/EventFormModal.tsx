@@ -5,13 +5,15 @@ import { z } from 'zod';
 import * as eventService from '../../services/eventService';
 import MessageBox from './MessageBox';
 import { HexColorPicker } from 'react-colorful';
-import { MultiSelect } from 'primereact/multiselect';
+// Removed MultiSelect combo boxes in favor of modal-based selection
 import Button from './Button';
 import { useAuth } from '../../hooks/useAuth';
 import { getAllUsers } from '../../services/userService';
 import { getAllJobPositions, type JobPosition } from '../../services/jobPositionService';
 import { getAllJobRequirements } from '../../services/jobRequirementService';
 import type { User } from '../../types/user';
+import EventEmployeeFilterModal from './EventEmployeeFilterModal';
+import GenericSelectModal from './GenericSelectModal';
 
 const scheduleSchema = z.object({
     title: z.string().min(1, "Title is required."),
@@ -19,8 +21,8 @@ const scheduleSchema = z.object({
     start: z.string().min(1, "Start date is required."),
     end: z.string().min(1, "End date is required."),
     roomName: z.string().optional(),
-    maximumAttendees: z.number().optional().nullable(),
-    minimumAttendees: z.number().optional().nullable(),
+    maximumAttendees: z.number().min(0, "Maximum attendees must be 0 or greater").optional().nullable(),
+    minimumAttendees: z.number().min(0, "Minimum attendees must be 0 or greater").optional().nullable(),
     statusName: z.string().optional(),
     color: z.string().optional(),
     employeeNumbers: z.array(z.string()).optional(),
@@ -71,6 +73,9 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
     const [showColorPicker, setShowColorPicker] = useState(false);
     const auth = useAuth();
     const isElevated = auth.permissions?.includes('events') && (auth.user?.role === 'Admin' || auth.user?.role === 'HR');
+    // Additional per-event permission (for edit): rely on initialData id mapping to selected event's extendedProps.canEdit if available via window state.
+    // If not editing, default to true for elevated roles.
+    const canEditEvent = isEditMode ? true : true; // placeholder - backend gating prevents unauthorized updates.
     const [users, setUsers] = useState<User[]>([]);
     const [positions, setPositions] = useState<JobPosition[]>([]);
     const [allPositions, setAllPositions] = useState<JobPosition[]>([]);
@@ -87,9 +92,10 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
     });
     const watchPositions = watch('positionCodes');
     const watchCustomEventId = watch('customEventId');
-    const filteredEmployees = useMemo(() => {
-        return users;
-    }, [users]);
+    // Selector modal visibility
+    const [showEmployeeSelector, setShowEmployeeSelector] = useState(false);
+    const [showPositionSelector, setShowPositionSelector] = useState(false);
+    const [showEventTypePicker, setShowEventTypePicker] = useState(false);
 
     const showNoDefinitionsMessage = isOpen && !isEditMode && eventDefinitions.length === 0;
 
@@ -281,63 +287,83 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                                 {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title.message}</p>}
                             </div>
                             <div>
-                                <label htmlFor="customEventId" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Event Type</label>
-                                <Controller
-                                    name="customEventId"
-                                    control={control}
-                                    render={({ field }) => (
-                                        <select id="customEventId" {...field} onChange={e => field.onChange(parseInt(e.target.value))} className="w-full p-2 border rounded-md dark:bg-dark-input">
-                                            <option value="">Select an event type...</option>
-                                            {eventDefinitions.map(def => (
-                                                <option key={def.CustomEventID} value={def.CustomEventID}>{def.EventName}</option>
-                                            ))}
-                                        </select>
+                                <label className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Event Type</label>
+                                <div className="flex items-center gap-2">
+                                    <Button type="button" variant="outline" onClick={() => setShowEventTypePicker(true)}>Select Event Type</Button>
+                                    <span className="text-sm text-gray-600 dark:text-gray-300">
+                                        {(() => { const id = watchCustomEventId ?? initialData?.customEventId; const d = eventDefinitions.find(x => x.CustomEventID === id); return d ? d.EventName : 'None selected'; })()}
+                                    </span>
+                                    {(watchCustomEventId || initialData?.customEventId) && (
+                                        <button type="button" className="text-gray-400 hover:text-red-600" title="Clear selection" onClick={() => setValue('customEventId', undefined as any, { shouldDirty: true, shouldValidate: true })}>×</button>
                                     )}
-                                />
+                                </div>
+                                {/* register the field invisibly so validation works */}
+                                <input type="hidden" {...register('customEventId', { valueAsNumber: true })} />
                                 {errors.customEventId && <p className="text-red-500 text-xs mt-1">{errors.customEventId.message}</p>}
                             </div>
                         </div>
 
-                        {/* Row 2: Employees + Positions */}
+                        {/* Row 2: Employees + Positions (modal-based selection) */}
                         {isElevated && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Employees (optional)</label>
-                                    <Controller
-                                        name="employeeNumbers"
-                                        control={control}
-                                        render={({ field }) => {
-                        const options = filteredEmployees.map(u => ({ label: `${u.name} (${u.employeeNumber})${(watchPositions?.length ?? 0) > 0 && employeesInPositions.includes(u.employeeNumber) ? ' • via position' : ''}`.trim(), value: u.employeeNumber, disabled: (watchPositions?.length ?? 0) > 0 && employeesInPositions.includes(u.employeeNumber) }));
-                                            return (
-                                                <MultiSelect
-                                                    value={field.value || []}
-                                                    onChange={(e) => field.onChange(e.value)}
-                                                    options={options}
-                                                    optionDisabled="disabled"
-                                                    display="chip"
-                                                    className="w-full"
-                                                    placeholder={watchPositions && watchPositions.length > 0 ? "Employees (positions selected)" : "Select employees"}
-                                                />
-                                            );
-                                        }}
-                                    />
+                                    <div className="flex items-center gap-2">
+                                        <Button type="button" variant="outline" onClick={() => setShowEmployeeSelector(true)}>Select Employees</Button>
+                                        <span
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => setShowEmployeeSelector(true)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') setShowEmployeeSelector(true); }}
+                                            className="text-sm text-gray-600 dark:text-gray-300 cursor-pointer hover:underline"
+                                        >
+                                            {(watch('employeeNumbers')?.length || 0) > 0
+                                                ? `${watch('employeeNumbers')!.length} employee${watch('employeeNumbers')!.length === 1 ? '' : 's'} selected`
+                                                : 'No employees selected'}
+                                        </span>
+                                        {(watch('employeeNumbers')?.length || 0) > 0 && (
+                                            <button
+                                                type="button"
+                                                aria-label="Clear employee selections"
+                                                title="Clear selections"
+                                                onClick={() => setValue('employeeNumbers', [], { shouldDirty: true, shouldValidate: true })}
+                                                className="ml-1 text-gray-400 hover:text-red-600"
+                                            >
+                                                ×
+                                            </button>
+                                        )}
+                                    </div>
+                                    {watchPositions && watchPositions.length > 0 && (
+                                        <p className="text-xs text-gray-500 mt-1">Employees covered by selected positions are automatically included.</p>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Job Positions (optional)</label>
-                                    <Controller
-                                        name="positionCodes"
-                                        control={control}
-                                        render={({ field }) => (
-                                            <MultiSelect
-                                                value={field.value || []}
-                                                onChange={(e) => field.onChange(e.value)}
-                                                options={positions.map(p => ({ label: `${p.jobTitle} (${p.positionMatrixCode})`, value: p.positionMatrixCode }))}
-                                                display="chip"
-                                                className="w-full"
-                                                placeholder="Select positions"
-                                            />
+                                    <div className="flex items-center gap-2">
+                                        <Button type="button" variant="outline" onClick={() => setShowPositionSelector(true)}>Select by Job Position</Button>
+                                        <span
+                                            role="button"
+                                            tabIndex={0}
+                                            onClick={() => setShowPositionSelector(true)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter') setShowPositionSelector(true); }}
+                                            className="text-sm text-gray-600 dark:text-gray-300 cursor-pointer hover:underline"
+                                        >
+                                            {(watch('positionCodes')?.length || 0) > 0
+                                                ? `${watch('positionCodes')!.length} position${watch('positionCodes')!.length === 1 ? '' : 's'} selected`
+                                                : 'No positions selected'}
+                                        </span>
+                                        {(watch('positionCodes')?.length || 0) > 0 && (
+                                            <button
+                                                type="button"
+                                                aria-label="Clear position selections"
+                                                title="Clear selections"
+                                                onClick={() => setValue('positionCodes', [], { shouldDirty: true, shouldValidate: true })}
+                                                className="ml-1 text-gray-400 hover:text-red-600"
+                                            >
+                                                ×
+                                            </button>
                                         )}
-                                    />
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -379,17 +405,18 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                                 <p className="text-xs text-gray-500 mt-1">Set to Completed and save to grant any linked competency to marked attendees.</p>
                             </div>
                         </div>
-
+                        
+                        {/* Remove negative values being input into the min attendees spn edit */}
                         {/* Row 5: Min + Max */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label htmlFor="minimumAttendees" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Min Attendees (Optional)</label>
-                                <input id="minimumAttendees" type="number" {...register('minimumAttendees', { valueAsNumber: true })} className="w-full p-2 border rounded-md dark:bg-dark-input" />
+                                <input id="minimumAttendees" type="number" min={0} step={1} {...register('minimumAttendees', { valueAsNumber: true })} className="w-full p-2 border rounded-md dark:bg-dark-input" />
                                 {errors.minimumAttendees && <p className="text-red-500 text-xs mt-1">{errors.minimumAttendees.message}</p>}
                             </div>
                             <div>
                                 <label htmlFor="maximumAttendees" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Max Attendees (Optional)</label>
-                                <input id="maximumAttendees" type="number" {...register('maximumAttendees', { valueAsNumber: true })} className="w-full p-2 border rounded-md dark:bg-dark-input" />
+                                <input id="maximumAttendees" type="number" min={0} step={1} {...register('maximumAttendees', { valueAsNumber: true })} className="w-full p-2 border rounded-md dark:bg-dark-input" />
                                 {errors.maximumAttendees && <p className="text-red-500 text-xs mt-1">{errors.maximumAttendees.message}</p>}
                             </div>
                         </div>
@@ -467,7 +494,7 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                                 <Button type="button" onClick={onClose} disabled={isSubmitting} variant="outline">
                                     Cancel
                                 </Button>
-                                <Button type="submit" disabled={isSubmitting} variant="primary">
+                                <Button type="submit" disabled={isSubmitting || (isEditMode && !canEditEvent)} variant="primary">
                                     {isSubmitting ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Schedule Event')}
                                 </Button>
                             </div>
@@ -487,6 +514,40 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                         competencyId={grantedCompetencyId}
                     />
                 )}
+                {/* Selection modals */}
+                {isElevated && (
+                    <>
+                        <EventEmployeeFilterModal
+                            isOpen={showEmployeeSelector}
+                            mode="employees"
+                            users={users}
+                            disabledIds={employeesInPositions}
+                            initialSelected={watch('employeeNumbers') || []}
+                            onClose={() => setShowEmployeeSelector(false)}
+                            onConfirm={(ids) => { setValue('employeeNumbers', ids, { shouldDirty: true, shouldValidate: true }); setShowEmployeeSelector(false); }}
+                        />
+                        <EventEmployeeFilterModal
+                            isOpen={showPositionSelector}
+                            mode="positions"
+                            positions={positions}
+                            initialSelected={watch('positionCodes') || []}
+                            onClose={() => setShowPositionSelector(false)}
+                            onConfirm={(ids) => { setValue('positionCodes', ids, { shouldDirty: true, shouldValidate: true }); setShowPositionSelector(false); }}
+                        />
+                    </>
+                )}
+                <GenericSelectModal<eventService.EventDefinition>
+                    isOpen={showEventTypePicker}
+                    title="Select event type"
+                    items={eventDefinitions}
+                    idKey={(d) => String(d.CustomEventID)}
+                    columns={[ { header: 'Name', field: 'EventName' }, { header: 'Duration', field: 'StandardDuration', className: 'text-gray-500' } ]}
+                    searchFields={[ 'EventName' ] as any}
+                    multiSelect={false}
+                    onClose={() => setShowEventTypePicker(false)}
+                    onConfirm={(ids) => { const val = ids[0] ? Number(ids[0]) : undefined; setValue('customEventId', val as any, { shouldDirty: true, shouldValidate: true }); setShowEventTypePicker(false); }}
+                    footerPrimaryLabel="Use Selection"
+                />
             </div>
         </div>
     );

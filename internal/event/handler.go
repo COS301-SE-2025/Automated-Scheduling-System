@@ -419,10 +419,6 @@ func GetEventSchedulesHandler(c *gin.Context) {
 			return
 		}
 	} else {
-		// Limit to schedules linked to this employee, or targeting their current positions
-		// a) direct employee link
-		// b) position-based via employment_history (current positions where end_date is NULL)
-		// Build subquery for position codes
 		sub := DB.Table("employment_history").Select("position_matrix_code").Where("employee_number = ? AND (end_date IS NULL OR end_date > NOW())", currentEmployee.Employeenumber)
 		if err := q.Joins("LEFT JOIN event_schedule_employees ese ON ese.custom_event_schedule_id = custom_event_schedules.custom_event_schedule_id").
 			Joins("LEFT JOIN event_schedule_position_targets espt ON espt.custom_event_schedule_id = custom_event_schedules.custom_event_schedule_id").
@@ -434,7 +430,26 @@ func GetEventSchedulesHandler(c *gin.Context) {
 		}
 	}
 
-	c.JSON(http.StatusOK, schedules)
+	// Enrich with permission flags (avoid changing database model)
+	type scheduleDTO struct {
+		models.CustomEventSchedule
+		CanEdit   bool `json:"canEdit"`
+		CanDelete bool `json:"canDelete"`
+		CreatorID *int64 `json:"creatorUserId"`
+	}
+	out := make([]scheduleDTO, 0, len(schedules))
+	for _, s := range schedules {
+		creatorID := s.CreatedByUserID
+		canManage := false
+		if isAdmin || isHR {
+			canManage = true
+		} else if creatorID != nil && currentUser != nil && *creatorID == currentUser.ID {
+			canManage = true
+		}
+		out = append(out, scheduleDTO{CustomEventSchedule: s, CanEdit: canManage, CanDelete: canManage, CreatorID: creatorID})
+	}
+
+	c.JSON(http.StatusOK, out)
 }
 
 // UpdateEventScheduleHandler updates an existing scheduled event.
@@ -458,21 +473,19 @@ func UpdateEventScheduleHandler(c *gin.Context) {
 		return
 	}
 
-	// Permissions: Generic user can only update their own schedule and cannot add others
-	_, currentEmployee, isAdmin, isHR, err := currentUserContextFn(c)
+	// Permissions: Only Admin/HR or the original creator may update the schedule.
+	// (Previous logic allowed any directly linked attendee; now tightened per new RBAC requirement.)
+	currentUser, currentEmployee, isAdmin, isHR, err := currentUserContextFn(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 	if !isAdmin && !isHR {
-		// Ensure the user is the creator or is directly linked; and cannot add others
-		var linkCount int64
-		_ = DB.Model(&models.EventScheduleEmployee{}).Where("custom_event_schedule_id = ? AND employee_number = ?", scheduleToUpdate.CustomEventScheduleID, currentEmployee.Employeenumber).Count(&linkCount)
-		if scheduleToUpdate.CreatedByUserID != nil && linkCount == 0 {
+		if scheduleToUpdate.CreatedByUserID == nil || *scheduleToUpdate.CreatedByUserID != currentUser.ID {
 			c.JSON(http.StatusForbidden, gin.H{"error": "You are not permitted to modify this event"})
 			return
 		}
-		// Strip any attempt to add other employees/positions
+		// Creator (non Admin/HR) still cannot add other employees or positions beyond themselves.
 		if len(req.EmployeeNumbers) > 0 && !(len(req.EmployeeNumbers) == 1 && req.EmployeeNumbers[0] == currentEmployee.Employeenumber) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "You can only modify yourself as attendee"})
 			return
@@ -547,6 +560,19 @@ func DeleteEventScheduleHandler(c *gin.Context) {
 	if err := DB.First(&schedule, scheduleID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Event schedule not found"})
 		return
+	}
+
+	// Permission gate: Only Admin/HR or the creator may delete.
+	currentUser, _, isAdmin, isHR, err := currentUserContextFn(c)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+		return
+	}
+	if !isAdmin && !isHR {
+		if schedule.CreatedByUserID == nil || *schedule.CreatedByUserID != currentUser.ID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You are not permitted to delete this event"})
+			return
+		}
 	}
 
 	result := DB.Delete(&models.CustomEventSchedule{}, scheduleID)

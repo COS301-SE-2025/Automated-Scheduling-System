@@ -3,7 +3,7 @@ package rulesv2
 // Parameter represents a parameter definition for triggers and actions
 type Parameter struct {
 	Name        string `json:"name"`
-	Type        string `json:"type"` // "string", "number", "boolean", "date", "array", "object"
+	Type        string `json:"type"` // "string", "text_area", "employees", "event_type", "job_positions", "number", "boolean", "date", "array", "object"
 	Required    bool   `json:"required"`
 	Description string `json:"description"`
 	Example     any    `json:"example,omitempty"`
@@ -226,8 +226,16 @@ func getActionMetadata() []ActionMetadata {
 			Description: "Send email or system notification to specified recipient",
 			Parameters: []Parameter{
 				{
-					Name:        "recipient",
+					Name:        "type",
 					Type:        "string",
+					Required:    true,
+					Description: "Email or SMS",
+					Options:     []any{"sms", "email"},
+					Example:     "sms",
+				},
+				{
+					Name:        "recipients",
+					Type:        "employees",
 					Required:    true,
 					Description: "Email address or user ID of the recipient",
 					Example:     "manager@company.com",
@@ -241,7 +249,7 @@ func getActionMetadata() []ActionMetadata {
 				},
 				{
 					Name:        "message",
-					Type:        "string",
+					Type:        "text_area",
 					Required:    true,
 					Description: "Message content",
 					Example:     "Employee needs safety training by end of month",
@@ -262,35 +270,35 @@ func getActionMetadata() []ActionMetadata {
 				},
 				{
 					Name:        "customEventID",
-					Type:        "number",
+					Type:        "event_type",
 					Required:    true,
 					Description: "Event definition ID that this schedule is based on",
 					Example:     2,
 				},
 				{
 					Name:        "startTime",
-					Type:        "string",
+					Type:        "date",
 					Required:    true,
 					Description: "Event start date and time (YYYY-MM-DD HH:MM format)",
 					Example:     "2025-08-25 09:00",
 				},
 				{
 					Name:        "endTime",
-					Type:        "string",
+					Type:        "date",
 					Required:    false,
 					Description: "Event end date and time (YYYY-MM-DD HH:MM format). Defaults to 2 hours after start time if not provided",
 					Example:     "2025-08-25 11:00",
 				},
 				{
 					Name:        "employeeNumbers",
-					Type:        "array",
+					Type:        "employees",
 					Required:    false,
 					Description: "List of employee numbers to directly invite to the event",
 					Example:     []string{"EMP001", "EMP002"},
 				},
 				{
 					Name:        "positionCodes",
-					Type:        "array",
+					Type:        "job_positions",
 					Required:    false,
 					Description: "List of position codes to target (all employees in these positions will be invited)",
 					Example:     []string{"MGR", "DEV"},
@@ -303,14 +311,14 @@ func getActionMetadata() []ActionMetadata {
 					Example:     "Conference Room A",
 				},
 				{
-					Name:        "maxAttendees",
+					Name:        "minAttendees",
 					Type:        "number",
 					Required:    false,
 					Description: "Maximum number of attendees for the event",
 					Example:     20,
 				},
 				{
-					Name:        "minAttendees",
+					Name:        "maxAttendees",
 					Type:        "number",
 					Required:    false,
 					Description: "Minimum number of attendees required for the event",

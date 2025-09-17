@@ -104,7 +104,7 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
         return true;
     };
 
-    const valueInput = (metaParamType?: string, value = '', onChange?: (v: string) => void) => {
+    const valueInput = (metaParamType?: string, value = '', onChange?: (v: string) => void, options?: any[]) => {
         const type = metaParamType || 'string';
         const stopAll = {
             onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
@@ -120,6 +120,24 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                 }
             },
         };
+
+        // Handle options dropdown (similar to TriggerNode)
+        if (options && options.length > 0) {
+            return (
+                <select
+                    className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
+                    value={value}
+                    onChange={(e) => onChange?.(e.target.value)}
+                    {...stopAll}
+                >
+                    <option value="">Select…</option>
+                    {options.map((opt, i) => {
+                        const val = String(opt);
+                        return <option key={`opt-${i}`} value={val}>{val}</option>;
+                    })}
+                </select>
+            );
+        }
 
         if (type === 'boolean') {
             return (
@@ -153,11 +171,212 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
             return (
                 <input
                     className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
-                    type="date"
+                    type="datetime-local"
                     value={value}
                     onChange={(e) => onChange?.(e.target.value)}
                     {...stopAll}
                 />
+            );
+        }
+        if (type === 'text_area') {
+            return (
+                <textarea
+                    className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800 resize-y min-h-[60px]"
+                    placeholder="Enter text..."
+                    value={value}
+                    onChange={(e) => onChange?.(e.target.value)}
+                    {...stopAll}
+                    rows={3}
+                />
+            );
+        }
+        if (type === 'employees') {
+            // Parse the value as JSON array of employee numbers if possible, otherwise treat as empty
+            let selectedEmployees: string[] = [];
+            try {
+                if (value && value.trim() !== '') {
+                    selectedEmployees = JSON.parse(value);
+                }
+            } catch {
+                selectedEmployees = [];
+            }
+
+            return (
+                <div className="w-1/2 flex items-center gap-2">
+                    <button
+                        type="button"
+                        className="px-3 py-1 border rounded bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            // Open employee selector modal with current value
+                            let currentEmployeeNumbers: string[] = [];
+                            try {
+                                if (value && value.trim() !== '') {
+                                    currentEmployeeNumbers = JSON.parse(value);
+                                }
+                            } catch {
+                                currentEmployeeNumbers = [];
+                            }
+                            
+                            // Dispatch custom event to open modal at page level
+                            window.dispatchEvent(new CustomEvent('employees:open-selector', {
+                                detail: {
+                                    currentValue: currentEmployeeNumbers,
+                                    onChange: onChange || (() => {})
+                                }
+                            }));
+                        }}
+                        {...stopAll}
+                    >
+                        Select Employees
+                    </button>
+                    <span className="text-sm text-gray-600 cursor-pointer hover:underline">
+                        {selectedEmployees.length > 0
+                            ? `${selectedEmployees.length} employee${selectedEmployees.length === 1 ? '' : 's'} selected`
+                            : 'No employees selected'}
+                    </span>
+                    {selectedEmployees.length > 0 && (
+                        <button
+                            type="button"
+                            aria-label="Clear employee selections"
+                            title="Clear selections"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onChange?.('[]');
+                            }}
+                            className="text-gray-400 hover:text-red-600"
+                            {...stopAll}
+                        >
+                            ×
+                        </button>
+                    )}
+                </div>
+            );
+        }
+        if (type === 'event_type') {
+            // Parse the value as a single event ID if possible, otherwise treat as empty
+            let selectedEventId: string = '';
+            try {
+                if (value && value.trim() !== '') {
+                    selectedEventId = String(value);
+                }
+            } catch {
+                selectedEventId = '';
+            }
+
+            return (
+                <div className="w-1/2 flex items-center gap-2">
+                    <button
+                        type="button"
+                        className="px-3 py-1 border rounded bg-green-50 hover:bg-green-100 text-green-700 text-sm"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            // Open event type selector modal with current value
+                            let currentEventId: string = '';
+                            try {
+                                if (value && value.trim() !== '') {
+                                    currentEventId = String(value);
+                                }
+                            } catch {
+                                currentEventId = '';
+                            }
+                            
+                            // Dispatch custom event to open modal at page level
+                            window.dispatchEvent(new CustomEvent('event-type:open-selector', {
+                                detail: {
+                                    currentValue: currentEventId,
+                                    onChange: onChange || (() => {})
+                                }
+                            }));
+                        }}
+                        {...stopAll}
+                    >
+                        Select Event Type
+                    </button>
+                    <span className="text-sm text-gray-600 cursor-pointer hover:underline">
+                        {selectedEventId
+                            ? `Event ID: ${selectedEventId}`
+                            : 'No event type selected'}
+                    </span>
+                    {selectedEventId && (
+                        <button
+                            type="button"
+                            aria-label="Clear event type selection"
+                            title="Clear selection"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onChange?.('');
+                            }}
+                            className="text-gray-400 hover:text-red-600"
+                            {...stopAll}
+                        >
+                            ×
+                        </button>
+                    )}
+                </div>
+            );
+        }
+        if (type === 'job_positions') {
+            // Parse the value as JSON array of position codes if possible, otherwise treat as empty
+            let selectedPositions: string[] = [];
+            try {
+                if (value && value.trim() !== '') {
+                    selectedPositions = JSON.parse(value);
+                }
+            } catch {
+                selectedPositions = [];
+            }
+
+            return (
+                <div className="w-1/2 flex items-center gap-2">
+                    <button
+                        type="button"
+                        className="px-3 py-1 border rounded bg-purple-50 hover:bg-purple-100 text-purple-700 text-sm"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            // Open job position selector modal with current value
+                            let currentPositionCodes: string[] = [];
+                            try {
+                                if (value && value.trim() !== '') {
+                                    currentPositionCodes = JSON.parse(value);
+                                }
+                            } catch {
+                                currentPositionCodes = [];
+                            }
+                            
+                            // Dispatch custom event to open modal at page level
+                            window.dispatchEvent(new CustomEvent('job-positions:open-selector', {
+                                detail: {
+                                    currentValue: currentPositionCodes,
+                                    onChange: onChange || (() => {})
+                                }
+                            }));
+                        }}
+                        {...stopAll}
+                    >
+                        Select Job Positions
+                    </button>
+                    <span className="text-sm text-gray-600 cursor-pointer hover:underline">
+                        {selectedPositions.length > 0
+                            ? `${selectedPositions.length} position${selectedPositions.length === 1 ? '' : 's'} selected`
+                            : 'No positions selected'}
+                    </span>
+                    {selectedPositions.length > 0 && (
+                        <button
+                            type="button"
+                            aria-label="Clear position selections"
+                            title="Clear selections"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onChange?.('[]');
+                            }}
+                            className="text-gray-400 hover:text-red-600"
+                            {...stopAll}
+                        >
+                            ×
+                        </button>
+                    )}
+                </div>
             );
         }
         return (
@@ -228,6 +447,7 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                                         {a.parameters.map((p, pIdx) => {
                                             const def = metaParamMap.get(p.key);
                                             const required = def?.required;
+                                            const options = (def as any)?.options as any[] | undefined;
                                             return (
                                                 <div key={`${p.key}-${pIdx}`} className="flex gap-1 items-center">
                                                     <input
@@ -238,7 +458,7 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                                                         disabled={!!def}
                                                         title={def ? 'Defined by action metadata' : 'Custom parameter key'}
                                                     />
-                                                    {valueInput(def?.type, p.value, (v) => setParam(aIdx, pIdx, { value: v }))}
+                                                    {valueInput(def?.type, p.value, (v) => setParam(aIdx, pIdx, { value: v }), options)}
                                                     <button
                                                         className="px-2 border rounded text-xs disabled:opacity-50"
                                                         onClick={() => removeParam(aIdx, pIdx)}

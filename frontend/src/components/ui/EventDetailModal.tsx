@@ -1,7 +1,6 @@
 import React from 'react';
 import type { EventClickArg } from '@fullcalendar/core';
 import Button from './Button';
-import { useAuth } from '../../hooks/useAuth';
 
 export interface EventDetailModalProps {
     isOpen: boolean;
@@ -12,7 +11,6 @@ export interface EventDetailModalProps {
 }
 
 const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, event, onEdit, onDelete }) => {
-    const auth = useAuth();
 
     // local UI state for chip overflow toggles
     const [showAllEmployees, setShowAllEmployees] = React.useState(false);
@@ -32,9 +30,8 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
             year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
         });
     };
-    const canManage = !!(
-        auth.user && (auth.user.role === 'Admin' || auth.user.role === 'HR')
-    ) || !!auth.permissions?.includes('events');
+    // New RBAC: use server-provided flags for edit/delete rights.
+    const canManage = !!event?.extendedProps?.canEdit;
 
     const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => {
         const isElement = React.isValidElement(value);

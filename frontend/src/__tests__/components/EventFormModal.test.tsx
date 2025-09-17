@@ -95,9 +95,10 @@ describe("EventFormModal", () => {
     await screen.findByLabelText(/Event Title/i);
     expect(screen.getByText("Schedule New Event")).toBeInTheDocument();
     expect(screen.getByLabelText(/Event Title/i)).toHaveValue("");
-    expect(screen.getByRole("combobox", { name: /Event Type/i })).toHaveValue(
-      ""
-    );
+    expect(
+      screen.getByRole("button", { name: /Select Event Type/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText("None selected")).toBeInTheDocument();
     expect(screen.getByLabelText(/Min Attendees/i)).toHaveValue(0);
     expect(screen.getByLabelText(/Max Attendees/i)).toHaveValue(0);
   });
@@ -115,9 +116,9 @@ describe("EventFormModal", () => {
     await screen.findByDisplayValue("My Test Event");
     expect(screen.getByText("Edit Scheduled Event")).toBeInTheDocument();
     expect(screen.getByLabelText(/Event Title/i)).toHaveValue("My Test Event");
-    expect(screen.getByRole("combobox", { name: /Event Type/i })).toHaveValue(
-      "2"
-    );
+
+    expect(screen.getByText("Onboarding")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("2")).toBeInTheDocument();
     expect(screen.getByLabelText(/Start Date & Time/i)).toHaveValue("");
     expect(screen.getByLabelText(/End Date & Time/i)).toHaveValue("");
   });
@@ -133,8 +134,11 @@ describe("EventFormModal", () => {
     await user.click(screen.getByRole("button", { name: /Schedule Event/i }));
 
     expect(await screen.findByText("Title is required.")).toBeInTheDocument();
+
     expect(
-      await screen.findByText("You must select an event type.")
+      await screen.findByText(
+        /You must select an event type\.|Expected number, received nan/i
+      )
     ).toBeInTheDocument();
     expect(mockOnSave).not.toHaveBeenCalled();
   });

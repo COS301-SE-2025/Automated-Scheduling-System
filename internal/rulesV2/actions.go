@@ -23,41 +23,79 @@ type NotificationAction struct {
 }
 
 func (a *NotificationAction) Execute(ctx EvalContext, params map[string]any) error {
-	recipient, _ := params["recipient"].(string)
+	// paramsJSON, _ := json.Marshal(params)
+	// log.Printf("NotificationAction.Execute received params: %s", string(paramsJSON))
+
+	recipientsParam, _ := params["recipients"].(string)
 	subject, _ := params["subject"].(string)
 	message, _ := params["message"].(string)
-	notificationType, _ := params["type"].(string) // "email", "sms", "push", or "system"
+	notificationType, _ := params["type"].(string) // "email" or "sms"
 
-	if recipient == "" || subject == "" || message == "" {
-		return fmt.Errorf("notification requires recipient, subject, and message")
+	// Parse recipients JSON string into array
+	var recipients []string
+	if recipientsParam != "" {
+		if err := json.Unmarshal([]byte(recipientsParam), &recipients); err != nil {
+			return fmt.Errorf("failed to parse recipients JSON: %w", err)
+		}
+	}
+
+	if len(recipients) == 0 || subject == "" || message == "" {
+		return fmt.Errorf("notification requires recipients, subject, and message")
 	}
 
 	if notificationType == "" {
 		notificationType = "email" // Default to email notification
 	}
 
-	switch notificationType {
-	case "email":
-		err := a.sendEmail(recipient, subject, message)
-		if err != nil {
-			return fmt.Errorf("failed to execute NotificationAction: %w", err)
+	// Send notification to each recipient
+	for _, employeeNumber := range recipients {
+		if employeeNumber == "" {
+			continue // Skip empty recipient entries
 		}
-	case "sms":
-		a.sendSMS(recipient, message)
-	case "push":
-		// TODO: Implement push notification logic here
-		log.Printf("PUSH NOTIFICATION SENT: To=%s, Subject=%s, Message=%s", recipient, subject, message)
-	default:
-		return fmt.Errorf("unknown notification type: %s", notificationType)
-	}
 
-	// Logs notification if it didn't return early(error didn't occur)
-	err := a.logSuccessfulNotification(recipient, subject, message, notificationType)
+		// Get employee email from database
+		var employee gen_models.Employee
+		if err := a.DB.Where("employeenumber = ?", employeeNumber).First(&employee).Error; err != nil {
+			log.Printf("Failed to find employee %s: %v", employeeNumber, err)
+			return fmt.Errorf("failed to find employee %s: %w", employeeNumber, err)
+		}
 
-	if err != nil {
-		log.Printf("Failed to log notification: %v", err)
-		return fmt.Errorf("failed to log notification: %w", err)
+		switch notificationType {
+		case "email":
+			employeeEmail := employee.Useraccountemail
 
+			err := a.sendEmail(employeeEmail, subject, message)
+			if err != nil {
+				log.Printf("Failed to send email to %s (%s): %v", employeeNumber, employeeEmail, err)
+				return fmt.Errorf("failed to execute NotificationAction for %s: %w", employeeNumber, err)
+			}
+		case "sms":
+			// Get employee phone number from database
+			var employee gen_models.Employee
+			if err := a.DB.Where("employeenumber = ?", employeeNumber).First(&employee).Error; err != nil {
+				log.Printf("Failed to find employee %s: %v", employeeNumber, err)
+				return fmt.Errorf("failed to find employee %s: %w", employeeNumber, err)
+			}
+			employeeSMS := employee.PhoneNumber
+
+			smsWithSubject := subject + "\n\n" + message
+			err := a.sendSMS(employeeSMS, smsWithSubject)
+			if err != nil {
+				log.Printf("Failed to send SMS to %s (%s): %v", employeeNumber, employeeSMS, err)
+				return fmt.Errorf("failed to send SMS to %s: %w", employeeNumber, err)
+			}
+		case "push":
+			// TODO: Implement push notification logic here
+			log.Printf("PUSH NOTIFICATION SENT: To=%s, Subject=%s, Message=%s", employeeNumber, subject, message)
+		default:
+			return fmt.Errorf("unknown notification type: %s", notificationType)
+		}
+
+		// Log each successful notification
+		err := a.logSuccessfulNotification(employee.Useraccountemail, subject, message, notificationType)
+		if err != nil {
+			log.Printf("Failed to log notification for %s: %v", employeeNumber, err)
+		}
 	}
 
 	return nil
@@ -88,12 +126,27 @@ func (a *NotificationAction) sendEmail(recipient, subject, message string) error
 	return nil
 }
 
-// SMS sender for notification if notification type is SMS
-// Takes in the recipient and the message string
+// Calls sendSMS and handles error responses if there are any
 func (a *NotificationAction) sendSMS(recipient, message string) error {
-	// Implement SMS sending logic here
-	sms.SendSMS([]string{recipient}, message)
-	log.Printf("SMS SENT: To=%s, Message=%s", recipient, message)
+	resp, err := sms.SendSMS(recipient, message)
+	if err != nil {
+		log.Printf("SMS SEND ERROR: To=%s, Message=%s, Error=%v", recipient, message, err)
+		return err
+	}
+
+	// Check if the recipient was actually accepted
+	if len(resp.Recipients) == 0 {
+		return fmt.Errorf("no recipients in SMS response")
+	}
+
+	recipientResp := resp.Recipients[0] // Will only send to one recipient for now
+	if !recipientResp.Accepted {
+		log.Printf("SMS REJECTED: To=%s, Error=%s", recipientResp.MobileNumber, recipientResp.AcceptError)
+		return fmt.Errorf("SMS rejected by API: %s", recipientResp.AcceptError)
+	}
+
+	// log.Printf("SMS SENT: To=%s, Message=%s, MessageID=%d, Cost=%.1f",
+	// 	recipientResp.MobileNumber, message, *recipientResp.APIMessageID, recipientResp.CreditCost)
 	return nil
 }
 
@@ -102,54 +155,91 @@ type CreateEventAction struct {
 }
 
 func (a *CreateEventAction) Execute(ctx EvalContext, params map[string]any) error {
+	// Extract parameters with proper type handling
 	title, _ := params["title"].(string)
 	startTime, _ := params["startTime"].(string)
 	endTime, _ := params["endTime"].(string)
-	employeeNumbers, _ := params["employeeNumbers"].([]string)
-	positionCodes, _ := params["positionCodes"].([]string)
 	roomName, _ := params["roomName"].(string)
 	color, _ := params["color"].(string)
 	statusName, _ := params["statusName"].(string)
 	maxAttendees, _ := params["maxAttendees"].(int)
 	minAttendees, _ := params["minAttendees"].(int)
-	var createdByUserID *int64 = nil
 
-	// Convert string to int
+	// Log extracted string parameters
+	// log.Printf("Extracted parameters: title='%s', startTime='%s', endTime='%s', roomName='%s', color='%s', statusName='%s'",
+	// title, startTime, endTime, roomName, color, statusName)
+
+	// Handle customEventID parameter
 	customEventID := 0
-
-	if parsed, err := strconv.Atoi(params["customEventID"].(string)); err == nil {
-		customEventID = parsed
+	if customEventIDParam, ok := params["customEventID"]; ok {
+		switch v := customEventIDParam.(type) {
+		case string:
+			if parsed, err := strconv.Atoi(v); err == nil {
+				customEventID = parsed
+			}
+		case int:
+			customEventID = v
+		case float64:
+			customEventID = int(v)
+		}
 	}
+
+	// Handle employee numbers - JSON string format
+	var employeeNumbers []string
+	if empParam, ok := params["employeeNumbers"]; ok {
+		if empStr, ok := empParam.(string); ok && empStr != "" {
+			if err := json.Unmarshal([]byte(empStr), &employeeNumbers); err != nil {
+				return fmt.Errorf("invalid employeeNumbers format: %w", err)
+			}
+		}
+	}
+
+	// Handle position codes - JSON string format
+	var positionCodes []string
+	if posParam, ok := params["positionCodes"]; ok {
+		log.Printf("positionCodes parameter found: %v (type: %T)", posParam, posParam)
+		if posStr, ok := posParam.(string); ok && posStr != "" {
+			if err := json.Unmarshal([]byte(posStr), &positionCodes); err != nil {
+				log.Printf("Failed to parse positionCodes JSON: %v", err)
+				return fmt.Errorf("invalid positionCodes format: %w", err)
+			}
+			log.Printf("Parsed positionCodes from JSON string: %v", positionCodes)
+		}
+	} else {
+		log.Printf("positionCodes parameter not found in params")
+	}
+
+	// Log final extracted values before validation
+	// log.Printf("Final extracted values: title='%s' (empty: %t), customEventID=%d (zero: %t), startTime='%s' (empty: %t)",
+	// 	title, title == "", customEventID, customEventID == 0, startTime, startTime == "")
 
 	// Required fields validation
 	if title == "" || customEventID == 0 || startTime == "" {
-		return fmt.Errorf("create_event requires title, customEventID, and startTime")
+		missing := []string{}
+		if title == "" {
+			missing = append(missing, "title")
+		}
+		if customEventID == 0 {
+			missing = append(missing, "customEventID")
+		}
+		if startTime == "" {
+			missing = append(missing, "startTime")
+		}
+		return fmt.Errorf("create_event requires title, customEventID, and startTime - missing: %v", missing)
 	}
 
 	// Parse start time
-	startDateTime, err := time.Parse("2006-01-02 15:04", startTime)
+	startDateTime, err := time.Parse("2006-01-02T15:04", startTime)
 	if err != nil {
-		// Try alternative format
-		startDateTime, err = time.Parse(time.RFC3339, startTime)
-		if err != nil {
-			return fmt.Errorf("invalid startTime format: %w", err)
-		}
+		return fmt.Errorf("Couldn't parse startTime")
 	}
 
 	// Parse end time
-	var endDateTime time.Time
-	if endTime != "" {
-		endDateTime, err = time.Parse("2006-01-02 15:04", endTime)
-		if err != nil {
-			// Try alternative format
-			endDateTime, err = time.Parse(time.RFC3339, endTime)
-			if err != nil {
-				return fmt.Errorf("invalid endTime format: %w", err)
-			}
-		}
-	} else {
-		endDateTime = startDateTime.Add(2 * time.Hour) // Default to 2 hours later
+	endDateTime, err := time.Parse("2006-01-02T15:04", endTime)
+	if err != nil && endTime != "" {
+		return fmt.Errorf("Couldn't parse endTime")
 	}
+	endDateTime = startDateTime.Add(2 * time.Hour) // Default to 2 hours later
 
 	// Set defaults
 	if color == "" {
@@ -159,17 +249,8 @@ func (a *CreateEventAction) Execute(ctx EvalContext, params map[string]any) erro
 		statusName = "Scheduled"
 	}
 
-	// Validate customEventID exists
-	var count int64
-	if err := a.DB.Model(&models.CustomEventDefinition{}).Where("custom_event_id = ?", customEventID).Count(&count).Error; err != nil {
-		return fmt.Errorf("database error while checking for event definition: %w", err)
-	}
-	if count == 0 {
-		return fmt.Errorf("event definition with ID %d not found", customEventID)
-	}
-
-	// Create the schedule
-	schedule := models.CustomEventSchedule{
+	// Create request for event creation
+	request := models.CreateEventScheduleRequest{
 		CustomEventID:    customEventID,
 		Title:            title,
 		EventStartDate:   startDateTime,
@@ -179,45 +260,82 @@ func (a *CreateEventAction) Execute(ctx EvalContext, params map[string]any) erro
 		MinimumAttendees: minAttendees,
 		StatusName:       statusName,
 		Color:            color,
-		CreatedByUserID:  createdByUserID,
+		EmployeeNumbers:  employeeNumbers,
+		PositionCodes:    positionCodes,
 	}
 
-	// Janky to omit like this, but nothing else worked for some reason
-	if err := a.DB.Omit("created_by_user_id").Create(&schedule).Error; err != nil {
-		return fmt.Errorf("failed to create event schedule: %w", err)
-	}
-
-	// Create employee links
-	for _, empNum := range employeeNumbers {
-		if empNum != "" {
-			empLink := models.EventScheduleEmployee{
-				CustomEventScheduleID: schedule.CustomEventScheduleID,
-				EmployeeNumber:        empNum,
-				Role:                  "Attendee",
-			}
-			if err := a.DB.Create(&empLink).Error; err != nil {
-				log.Printf("Failed to create employee link for %s: %v", empNum, err)
-			}
-		}
-	}
-
-	// Create position target links
-	for _, posCode := range positionCodes {
-		if posCode != "" {
-			posTarget := models.EventSchedulePositionTarget{
-				CustomEventScheduleID: schedule.CustomEventScheduleID,
-				PositionMatrixCode:    posCode,
-			}
-			if err := a.DB.Create(&posTarget).Error; err != nil {
-				log.Printf("Failed to create position target for %s: %v", posCode, err)
-			}
-		}
+	// Call the reusable event creation logic
+	schedule, err := a.createEventSchedule(request)
+	if err != nil {
+		return err
 	}
 
 	log.Printf("EVENT SCHEDULE CREATED: ID=%d, Title=%s, CustomEventID=%d, Start=%s",
 		schedule.CustomEventScheduleID, title, customEventID, startDateTime.Format("2006-01-02 15:04"))
 
 	return nil
+}
+
+// createEventSchedule replicates the same logic as event.CreateEventSchedule
+// This avoids circular import issues while reusing the exact same business logic
+func (a *CreateEventAction) createEventSchedule(req models.CreateEventScheduleRequest) (*models.CustomEventSchedule, error) {
+	// Check if the referenced CustomEventID exists before creating a schedule for it.
+	var count int64
+	if err := a.DB.Model(&models.CustomEventDefinition{}).Where("custom_event_id = ?", req.CustomEventID).Count(&count).Error; err != nil {
+		return nil, fmt.Errorf("database error while checking for event definition: %w", err)
+	}
+	if count == 0 {
+		return nil, fmt.Errorf("event definition with the specified ID not found")
+	}
+
+	// Only set the foreign key `CustomEventID`.
+	schedule := models.CustomEventSchedule{
+		CustomEventID:    req.CustomEventID, // FK
+		Title:            req.Title,
+		EventStartDate:   req.EventStartDate,
+		EventEndDate:     req.EventEndDate,
+		RoomName:         req.RoomName,
+		MaximumAttendees: req.MaximumAttendees,
+		MinimumAttendees: req.MinimumAttendees,
+		StatusName:       "Scheduled",
+		Color:            req.Color,
+		CreatedByUserID:  nil, // Rules engine creates events without specific user context
+	}
+
+	if req.StatusName != "" {
+		schedule.StatusName = req.StatusName
+	}
+
+	// GORM will now only insert into the `custom_event_schedules` table.
+	if err := a.DB.Create(&schedule).Error; err != nil {
+		return nil, fmt.Errorf("failed to create event schedule: %w", err)
+	}
+
+	// Write target links if any - following the same pattern as CreateEventSchedule
+	for _, emp := range req.EmployeeNumbers {
+		if emp != "" {
+			if err := a.DB.Create(&models.EventScheduleEmployee{
+				CustomEventScheduleID: schedule.CustomEventScheduleID,
+				EmployeeNumber:        emp,
+				Role:                  "Attendee",
+			}).Error; err != nil {
+				return nil, fmt.Errorf("failed to create employee link for %s: %w", emp, err)
+			}
+		}
+	}
+
+	for _, pos := range req.PositionCodes {
+		if pos != "" {
+			if err := a.DB.Create(&models.EventSchedulePositionTarget{
+				CustomEventScheduleID: schedule.CustomEventScheduleID,
+				PositionMatrixCode:    pos,
+			}).Error; err != nil {
+				return nil, fmt.Errorf("failed to create position target for %s: %w", pos, err)
+			}
+		}
+	}
+
+	return &schedule, nil
 }
 
 // ScheduleTrainingAction schedules training events

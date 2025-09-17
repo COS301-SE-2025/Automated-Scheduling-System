@@ -13,6 +13,7 @@ CREATE TABLE employee (
     LastName VARCHAR(255),
     UserAccountEmail VARCHAR(255) UNIQUE NOT NULL,
     EmployeeStatus VARCHAR(100),
+    PhoneNumber VARCHAR(11) NULL,
     TerminationDate DATE
 );
 
@@ -176,12 +177,12 @@ CREATE INDEX IF NOT EXISTS idx_event_attendance_employee ON event_attendance(emp
 
 -- Insert dummy data
 -- Insert data into the employee table
-INSERT INTO employee (EmployeeNumber, FirstName, LastName, UserAccountEmail, EmployeeStatus, TerminationDate)
+INSERT INTO employee (EmployeeNumber, FirstName, LastName, UserAccountEmail, EmployeeStatus, PhoneNumber, TerminationDate)
 VALUES
-('E001', 'John', 'Doe', 'john.doe@example.com', 'Active', NULL),
-('E002', 'Jane', 'Smith', 'jane.smith@example.com', 'Active', NULL),
-('E003', 'Alice', 'Johnson', 'alice.johnson@example.com', 'Terminated', '2025-06-01'),
-('E004', 'Bob', 'Brown', 'bob.brown@example.com', 'Active', NULL)
+('E001', 'John', 'Doe', 'john.doe@example.com', 'Active', NULL, NULL),
+('E002', 'Jane', 'Smith', 'jane.smith@example.com', 'Active', NULL, NULL),
+('E003', 'Alice', 'Johnson', 'alice.johnson@example.com', 'Terminated', NULL, '2025-06-01'),
+('E004', 'Bob', 'Brown', 'bob.brown@example.com', 'Active', NULL, NULL)
 ON CONFLICT (EmployeeNumber) DO NOTHING;
 
 -- Insert data into the users table
@@ -246,6 +247,267 @@ SELECT u.id, r.role_id FROM users u JOIN roles r ON ((u.role = 'Admin' AND r.rol
 -- =============================================================================
 -- MOCK DATA INSERTION SCRIPT (CORRECTED ORDER)
 -- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- Additional mock data: expanded sets for more realistic testing
+-- The inserts use ON CONFLICT DO NOTHING so the script is idempotent.
+-- -----------------------------------------------------------------------------
+
+-- More job positions (adds broader variety)
+INSERT INTO job_positions (position_matrix_code, job_title, description, is_active) VALUES
+('P008', 'Maintenance Technician', 'Performs routine and corrective maintenance.', TRUE),
+('P009', 'Quality Inspector', 'Inspects products and ensures quality standards.', TRUE),
+('P010', 'Customer Service Rep', 'Handles customer enquiries and feedback.', TRUE),
+('P011', 'Inventory Clerk', 'Manages stock and warehouse inventory.', TRUE),
+('P012', 'Scheduler', 'Plans and schedules field work and training.', TRUE),
+('P013', 'Safety Coordinator', 'Coordinates safety initiatives and audits.', TRUE),
+('P014', 'Field Engineer', 'Advanced diagnostics and field engineering.', TRUE),
+('P015', 'Trainer', 'Delivers internal training courses.', TRUE),
+('P016', 'IT Support', 'Provides technical support for systems.', TRUE),
+('P017', 'Procurement Officer', 'Handles purchasing and supplier management.', TRUE),
+('P018', 'Compliance Officer', 'Ensures regulatory and standards compliance.', TRUE),
+('P019', 'HR Generalist', 'Supports HR activities and employee relations.', TRUE),
+('P020', 'Operations Analyst', 'Analyzes operations and process improvements.', TRUE)
+ON CONFLICT (position_matrix_code) DO NOTHING;
+
+-- Additional competency types
+INSERT INTO competency_types (type_name, description) VALUES
+('Compliance', 'Regulatory and compliance related competencies.'),
+('Quality', 'Quality assurance and inspection competencies.'),
+('Customer Service', 'Skills for customer-facing roles.'),
+('IT', 'Information technology and systems competencies.'),
+('Management', 'Management and leadership skills.')
+ON CONFLICT (type_name) DO NOTHING;
+
+-- More employees for larger test coverage
+INSERT INTO employee (EmployeeNumber, FirstName, LastName, UserAccountEmail, EmployeeStatus, TerminationDate)
+VALUES
+('E011','Liam','Anderson','liam.anderson@example.com','Active',NULL),
+('E012','Noah','Thompson','noah.thompson@example.com','Active',NULL),
+('E013','Emma','Williams','emma.williams@example.com','Active',NULL),
+('E014','Olivia','Brown','olivia.brown@example.com','Active',NULL),
+('E015','Ava','Jones','ava.jones@example.com','Active',NULL),
+('E016','Sophia','Garcia','sophia.garcia@example.com','Active',NULL),
+('E017','Isabella','Martinez','isabella.martinez@example.com','Active',NULL),
+('E018','Mia','Rodriguez','mia.rodriguez@example.com','Active',NULL),
+('E019','Amelia','Hernandez','amelia.hernandez@example.com','On Leave',NULL),
+('E020','Evelyn','Lopez','evelyn.lopez@example.com','Active',NULL),
+('E021','James','Gonzalez','james.gonzalez@example.com','Active',NULL),
+('E022','Benjamin','Wilson','benjamin.wilson@example.com','Active',NULL),
+('E023','Lucas','Andrews','lucas.andrews@example.com','Active',NULL),
+('E024','Henry','Perez','henry.perez@example.com','Active',NULL),
+('E025','Alexander','Sanchez','alex.sanchez@example.com','Active',NULL),
+('E026','Michael','Ramirez','michael.ramirez@example.com','Active',NULL),
+('E027','Daniel','Torres','daniel.torres@example.com','Active',NULL),
+('E028','Matthew','Nguyen','matthew.nguyen@example.com','Active',NULL),
+('E029','Elijah','Khan','elijah.khan@example.com','Active',NULL),
+('E030','Ella','Murphy','ella.murphy@example.com','Active',NULL)
+ON CONFLICT (EmployeeNumber) DO NOTHING;
+
+-- Corresponding users (passwords reuse seeded hash above) and roles
+INSERT INTO users (username, password, forgot_password_link, role, employee_number)
+VALUES
+('liamanderson', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E011'),
+('noahthompson', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E012'),
+('emmawilliams', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E013'),
+('oliviabrown', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E014'),
+('avajones', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E015'),
+('sophiagarcia', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E016'),
+('isabellamartinez', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E017'),
+('miarodriguez', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E018'),
+('ameliahernandez', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E019'),
+('evelynlopez', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E020'),
+('jamesgonzalez', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E021'),
+('benjaminwilson', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E022'),
+('lucasandrews', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E023'),
+('henryperez', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E024'),
+('alexandersanchez', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E025'),
+('michaelramirez', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E026'),
+('danieltorres', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E027'),
+('matthewnguyen', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E028'),
+('elijahkhan', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E029'),
+('ellamurphy', '$2a$10$gca/UYFWZXMD/xBOLKntSeD.fFmE2IdzdqSD1qxFvcuJgDyfd17Qq', NULL, 'User', 'E030')
+ON CONFLICT (username) DO NOTHING;
+
+-- Additional competency definitions (wide coverage)
+-- Ensure base competency types exist so competency_definitions can reference them
+INSERT INTO competency_types (type_name, description) VALUES
+('Certification', 'Official certification from an accredited body.'),
+('License', 'A legal license required to perform certain tasks.'),
+('Skill', 'A demonstrated ability or skill.'),
+('Internal Training', 'A competency granted after completing internal training.'),
+('Soft Skill', 'Interpersonal and communication skills.')
+ON CONFLICT (type_name) DO NOTHING;
+
+INSERT INTO competency_definitions (competency_name, description, competency_type_name, source, expiry_period_months, is_active) VALUES
+('Electrical Safety', 'Safe working practices around electrical systems.', 'Certification', 'Custom', 24, TRUE),
+('Hazardous Materials Handling', 'Safe handling and storage of hazardous substances.', 'Certification', 'Custom', 36, TRUE),
+('Customer Interaction', 'Professional customer communication skills.', 'Customer Service', 'Custom', NULL, TRUE),
+('Quality Assurance Basics', 'Intro to QA and inspection techniques.', 'Quality', 'Custom', NULL, TRUE),
+('ISO 9001 Awareness', 'Overview of ISO 9001 principles.', 'Compliance', 'LMS', NULL, TRUE),
+('Data Security Basics', 'Fundamentals of data protection and security.', 'IT', 'LMS', NULL, TRUE),
+('Linux Server Maintenance', 'Administer basic Linux servers.', 'IT', 'Custom', NULL, TRUE),
+('Network Fundamentals', 'Networking basics for support staff.', 'IT', 'Custom', NULL, TRUE),
+('Excel Advanced', 'Advanced spreadsheet and data analysis skills.', 'Skill', 'Custom', NULL, TRUE),
+('Communication Skills', 'Effective verbal and written communication.', 'Soft Skill', 'Custom', NULL, TRUE),
+('Conflict Resolution', 'Resolve interpersonal conflicts professionally.', 'Management', 'Custom', NULL, TRUE),
+('Time Management', 'Prioritisation and personal productivity techniques.', 'Skill', 'Custom', NULL, TRUE),
+('Advanced Leadership', 'Leadership skills for senior staff.', 'Management', 'Custom', NULL, TRUE),
+('Mentoring 101', 'Basics of mentoring and coaching.', 'Management', 'Custom', NULL, TRUE),
+('Root Cause Analysis', 'Investigative techniques to find underlying causes.', 'Quality', 'Custom', NULL, TRUE),
+('Preventive Maintenance', 'Planned maintenance strategies and checks.', 'Skill', 'Custom', NULL, TRUE),
+('Emergency Response', 'Responding to emergencies and incident management.', 'Certification', 'Custom', 12, TRUE),
+('Ergonomics Awareness', 'Workplace ergonomics to reduce injuries.', 'Compliance', 'Custom', NULL, TRUE)
+ON CONFLICT (competency_name, source) DO NOTHING;
+
+-- Employment history: assign many employees to positions
+-- Ensure core job positions P001-P007 exist before assigning employment history
+INSERT INTO job_positions (position_matrix_code, job_title, description, is_active) VALUES
+('P001', 'Technician', 'Field technician', TRUE),
+('P002', 'Supervisor', 'Team supervisor', TRUE),
+('P003', 'Senior Technician', 'Leads technical projects and mentors junior technicians.', TRUE),
+('P004', 'Field Trainee', 'Entry-level position, learning on the job.', TRUE),
+('P005', 'Operations Manager', 'Manages day-to-day operations and staff.', TRUE),
+('P006', 'Safety Officer', 'Ensures compliance with safety regulations.', TRUE),
+('P007', 'Lead Engineer', 'Designs and oversees engineering projects.', FALSE)
+ON CONFLICT (position_matrix_code) DO NOTHING;
+
+INSERT INTO employment_history (employee_number, position_matrix_code, start_date, end_date, employment_type)
+VALUES
+('E011','P008','2022-03-01',NULL,'Primary'),
+('E012','P009','2021-10-15',NULL,'Primary'),
+('E013','P010','2023-01-12',NULL,'Primary'),
+('E014','P011','2020-07-01',NULL,'Primary'),
+('E015','P012','2024-02-01',NULL,'Primary'),
+('E016','P013','2022-11-01',NULL,'Primary'),
+('E017','P014','2023-06-01',NULL,'Primary'),
+('E018','P015','2021-05-20',NULL,'Primary'),
+('E019','P001','2019-09-01',NULL,'Primary'),
+('E020','P003','2020-12-01',NULL,'Primary'),
+('E021','P008','2024-01-01',NULL,'Primary'),
+('E022','P009','2023-09-01',NULL,'Primary'),
+('E023','P010','2022-08-01',NULL,'Primary'),
+('E024','P011','2021-04-01',NULL,'Primary'),
+('E025','P012','2020-06-01',NULL,'Primary'),
+('E026','P013','2019-11-01',NULL,'Primary'),
+('E027','P014','2022-02-01',NULL,'Primary'),
+('E028','P015','2023-03-01',NULL,'Primary'),
+('E029','P016','2024-05-01',NULL,'Primary'),
+('E030','P017','2021-01-01',NULL,'Primary')
+ON CONFLICT (employee_number, position_matrix_code, start_date) DO NOTHING;
+
+-- Competency prerequisites using names (safer than hard-coded IDs)
+INSERT INTO competency_prerequisites (competency_id, prerequisite_competency_id)
+SELECT c.competency_id, p.competency_id FROM (VALUES
+ ('Advanced Widget Repair','Basic Widget Repair'),
+ ('Advanced Leadership','Leadership Foundations'),
+ ('Mentoring 101','Leadership Foundations'),
+ ('Root Cause Analysis','Quality Assurance Basics')
+) AS v(cname, pname)
+JOIN competency_definitions c ON c.competency_name = v.cname
+JOIN competency_definitions p ON p.competency_name = v.pname
+ON CONFLICT DO NOTHING;
+
+-- Custom job matrix entries linking positions to competencies (use lookups)
+INSERT INTO custom_job_matrix (position_matrix_code, competency_id, requirement_status, notes, created_by)
+SELECT v.pos, cd.competency_id, v.req, NULL, v.created_by FROM (VALUES
+ ('P001','Required','First Aid Level 1','johndoe'),
+ ('P001','Required','Basic Widget Repair','johndoe'),
+ ('P003','Required','Advanced Widget Repair','johndoe'),
+ ('P002','Required','Leadership Foundations','bobbrown'),
+ ('P005','Required','Leadership Foundations','bobbrown'),
+ ('P006','Required','Confined Space Entry','johndoe'),
+ ('P009','Required','Quality Assurance Basics','pm-admin'),
+ ('P010','Required','Customer Interaction','pm-admin'),
+ ('P016','Required','Data Security Basics','it-admin'),
+ ('P016','Optional','Linux Server Maintenance','it-admin')
+) AS v(pos, req, cname, created_by)
+JOIN competency_definitions cd ON cd.competency_name = v.cname
+ON CONFLICT DO NOTHING;
+
+-- Additional custom event definitions (using competency names for grants_certificate)
+INSERT INTO custom_event_definitions (event_name, activity_description, standard_duration, grants_certificate_id, facilitator, created_by)
+SELECT v.event_name, v.evt_desc, v.dur::interval, cd.competency_id, v.fac, v.created_by FROM (VALUES
+ ('Electrical Safety Course','Covers safe electrical work and lockout/tagout procedures.','1 day','Electrical Safety','St. John','bobbrown'),
+ ('Hazmat Handling','Handling and transport of hazardous materials.','2 days','Hazardous Materials Handling','ACME Trainers','johndoe'),
+ ('Customer Service Excellence','Workshop on customer-facing best practices.','1 day','Customer Interaction','CustomerCoach','johndoe'),
+ ('Quality Inspection Bootcamp','Hands-on quality inspection training.','2 days','Quality Assurance Basics','QA Team','johndoe'),
+ ('Linux Admin Fundamentals','Intro to Linux server maintenance.','3 days','Linux Server Maintenance','IT Trainer','it-admin')
+) AS v(event_name, evt_desc, dur, cname, fac, created_by)
+LEFT JOIN competency_definitions cd ON cd.competency_name = v.cname
+ON CONFLICT DO NOTHING;
+
+-- Event prerequisites (link events by name)
+INSERT INTO custom_event_prerequisites (event_id, prerequisite_event_id)
+SELECT e.custom_event_id, p.custom_event_id FROM (VALUES
+ ('Advanced Widget Repair Workshop','Basic Widget Repair Training')
+) AS v(en, pn)
+JOIN custom_event_definitions e ON e.event_name = v.en
+JOIN custom_event_definitions p ON p.event_name = v.pn
+ON CONFLICT DO NOTHING;
+
+-- Create schedules for the new events
+INSERT INTO custom_event_schedules (custom_event_id, title, event_start_date, event_end_date, room_name, maximum_attendees, minimum_attendees, status_name, color, created_by_user_id)
+SELECT ced.custom_event_id, v.title, v.ev_start, v.ev_end, v.room, v.max, v.min, v.status, v.color, u.id FROM (
+ VALUES
+ ('Electrical Safety - May', 'Electrical Safety Course', NOW() + INTERVAL '10 days', NOW() + INTERVAL '10 days' + INTERVAL '8 hours', 'Room A', 20, 5, 'Scheduled', '#FF8A65'),
+ ('Hazmat - June', 'Hazmat Handling', NOW() + INTERVAL '25 days', NOW() + INTERVAL '27 days', 'Room B', 15, 5, 'Scheduled', '#FF7043'),
+ ('Customer Service - Online', 'Customer Service Excellence', NOW() + INTERVAL '5 days', NOW() + INTERVAL '5 days' + INTERVAL '8 hours', 'Virtual', 100, 10, 'Scheduled', '#42A5F5'),
+ ('QA Bootcamp - Past', 'Quality Inspection Bootcamp', NOW() - INTERVAL '60 days', NOW() - INTERVAL '58 days', 'Workshop Hall', 12, 4, 'Completed', '#66BB6A'),
+ ('Linux Admin - Aug', 'Linux Admin Fundamentals', NOW() + INTERVAL '40 days', NOW() + INTERVAL '42 days', 'IT Lab', 10, 2, 'Scheduled', '#8E24AA')
+ ) AS v(title, title2, ev_start, ev_end, room, max, min, status, color)
+JOIN custom_event_definitions ced ON ced.event_name = v.title2
+LEFT JOIN users u ON u.username = 'bobbrown'
+ON CONFLICT DO NOTHING;
+
+-- Map some employees directly to schedules
+INSERT INTO event_schedule_employees (custom_event_schedule_id, employee_number)
+VALUES
+((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Electrical Safety - May' LIMIT 1),'E011'),
+((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Electrical Safety - May' LIMIT 1),'E012'),
+((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Hazmat - June' LIMIT 1),'E013'),
+((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Customer Service - Online' LIMIT 1),'E014'),
+((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'QA Bootcamp - Past' LIMIT 1),'E004')
+ON CONFLICT DO NOTHING;
+
+-- Map schedule position targets (example)
+INSERT INTO event_schedule_position_targets (custom_event_schedule_id, position_matrix_code)
+VALUES
+((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Electrical Safety - May' LIMIT 1),'P001'),
+((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Linux Admin - Aug' LIMIT 1),'P016'),
+((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Customer Service - Online' LIMIT 1),'P010')
+ON CONFLICT DO NOTHING;
+
+-- Some attendance records for the past QA Bootcamp
+INSERT INTO event_attendance (custom_event_schedule_id, employee_number, attended, check_in_time, check_out_time)
+VALUES
+((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'QA Bootcamp - Past' LIMIT 1),'E004', TRUE, NOW() - INTERVAL '60 days' + INTERVAL '00:10:00', NOW() - INTERVAL '58 days' - INTERVAL '00:05:00'),
+((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'QA Bootcamp - Past' LIMIT 1),'E003', TRUE, NOW() - INTERVAL '60 days' + INTERVAL '00:08:00', NOW() - INTERVAL '58 days' - INTERVAL '00:10:00')
+ON CONFLICT DO NOTHING;
+
+-- Give a variety of employees some competencies (achievements)
+INSERT INTO employee_competencies (employee_number, competency_id, achievement_date, expiry_date, granted_by_schedule_id, notes)
+SELECT v.emp, cd.competency_id, v.ach::date, v.exp::date, s.custom_event_schedule_id, v.note FROM (
+ VALUES
+ ('E001','2024-03-05', '2027-03-05', 'First Aid Level 1','Granted via past session'),
+ ('E005','2024-06-01', NULL, 'Basic Widget Repair','Completed basic training'),
+ ('E006','2024-06-02', NULL, 'Basic Widget Repair','Completed basic training'),
+ ('E011','2024-05-15', '2026-05-15', 'Electrical Safety','Company course'),
+ ('E012','2024-06-18', '2027-06-18', 'Hazardous Materials Handling','Provider cert'),
+ ('E013','2024-04-20', NULL, 'Customer Interaction','Workshop attendance'),
+ ('E020','2023-11-01', NULL, 'Leadership Foundations','Past enrollment'),
+ ('E028','2024-01-20', NULL, 'Linux Server Maintenance','IT course')
+ ) AS v(emp, ach, exp, cname, note)
+JOIN competency_definitions cd ON cd.competency_name = v.cname
+LEFT JOIN custom_event_schedules s ON s.title LIKE '%Past%'
+ON CONFLICT DO NOTHING;
+
+-- Ensure role to user mappings exist for the newly created users (map to default 'User' role)
+INSERT INTO user_has_role (user_id, role_id)
+SELECT u.id, r.role_id FROM users u JOIN roles r ON r.role_name = 'User' WHERE u.username IN (
+ 'liamanderson','noahthompson','emmawilliams','oliviabrown','avajones','sophiagarcia','isabellamartinez','miarodriguez','ameliahernandez','evelynlopez','jamesgonzalez','benjaminwilson','lucasandrews','henryperez','alexandersanchez','michaelramirez','danieltorres','matthewnguyen','elijahkhan','ellamurphy'
+) ON CONFLICT DO NOTHING;
+
 
 -- -----------------------------------------------------------------------------
 -- Stage 1: Core Reference Data (No Dependencies)
@@ -381,10 +643,10 @@ WHERE r.role_name = 'HR' ON CONFLICT DO NOTHING;
 -- -----------------------------------------------------------------------------
 
 INSERT INTO custom_event_definitions (event_name, activity_description, standard_duration, grants_certificate_id, facilitator, created_by) VALUES
-('First Aid & CPR Recertification', 'A one-day course to renew First Aid Level 1 certification.', '8 hours', 1, 'St. John Ambulance', 'bobbrown'),
-('Basic Widget Repair Training', 'A 3-day hands-on course for new technicians.', '3 days', 5, 'John Doe', 'johndoe'),
-('Advanced Widget Repair Workshop', 'An expert-level workshop for senior staff. Prerequisite: Basic Widget Repair.', '2 days', 6, 'Mike Chen', 'johndoe'),
-('Leadership Skills Seminar', 'Interactive seminar covering communication, delegation, and conflict resolution.', '1 day', 7, 'External Consultant', 'bobbrown')
+('First Aid & CPR Recertification', 'A one-day course to renew First Aid Level 1 certification.', INTERVAL '8 hours', 1, 'St. John Ambulance', 'bobbrown'),
+('Basic Widget Repair Training', 'A 3-day hands-on course for new technicians.', INTERVAL '3 days', 5, 'John Doe', 'johndoe'),
+('Advanced Widget Repair Workshop', 'An expert-level workshop for senior staff. Prerequisite: Basic Widget Repair.', INTERVAL '2 days', 6, 'Mike Chen', 'johndoe'),
+('Leadership Skills Seminar', 'Interactive seminar covering communication, delegation, and conflict resolution.', INTERVAL '1 day', 7, 'External Consultant', 'bobbrown')
 ON CONFLICT DO NOTHING;
 
 -- Define prerequisites for events
@@ -432,8 +694,8 @@ INSERT INTO employee_competencies (employee_number, competency_id, achievement_d
 ('E002', 5, '2022-03-10', NULL, NULL, 'On-the-job training'),
 ('E006', 5, '2022-03-10', NULL, NULL, 'Trained with Jane'),
 -- Competencies from the completed event (schedule_id=1)
-('E004', 1, (SELECT (event_start_date)::date FROM custom_event_schedules WHERE custom_event_schedule_id=1), (SELECT (event_start_date)::date + INTERVAL '36 months' FROM custom_event_schedules WHERE custom_event_schedule_id=1), 1, 'Completed course.'),
-('E005', 1, (SELECT (event_start_date)::date FROM custom_event_schedules WHERE custom_event_schedule_id=1), (SELECT (event_start_date)::date + INTERVAL '36 months' FROM custom_event_schedules WHERE custom_event_schedule_id=1), 1, 'Completed course.')
+('E004', 1, (SELECT (event_start_date)::date FROM custom_event_schedules WHERE custom_event_schedule_id=1), (SELECT (event_start_date + INTERVAL '36 months')::date FROM custom_event_schedules WHERE custom_event_schedule_id=1), 1, 'Completed course.'),
+('E005', 1, (SELECT (event_start_date)::date FROM custom_event_schedules WHERE custom_event_schedule_id=1), (SELECT (event_start_date + INTERVAL '36 months')::date FROM custom_event_schedules WHERE custom_event_schedule_id=1), 1, 'Completed course.')
 ON CONFLICT (employee_number, competency_id, achievement_date) DO NOTHING;
 
 

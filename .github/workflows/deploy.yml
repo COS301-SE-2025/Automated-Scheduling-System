@@ -32,5 +32,10 @@ jobs:
             echo "🐳 Starting new containers..."
             docker compose -f Automated-Scheduling-System/docker-compose.yml up --build -d
             echo "✅ Deployment completed successfully!"
+            GOROOT=/usr/local/go GOPATH=$HOME/go go run -C /home/betatesters/Automated-Scheduling-System ./cmd/drop_all_tables/main.go
+            echo "🛑 Dropped all tables!"
+            GOROOT=/usr/local/go GOPATH=$HOME/go go run -C /home/betatesters/Automated-Scheduling-System ./cmd/migrate/main.go
+            GOROOT=/usr/local/go GOPATH=$HOME/go go run -C /home/betatesters/Automated-Scheduling-System ./cmd/seed/main.go
+            echo "🚀 Ran migrations and seeders!"
             exit 0
             REMOTE

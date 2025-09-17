@@ -5,13 +5,14 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import type { EventContentArg, DateSelectArg, EventClickArg, EventDropArg} from '@fullcalendar/core';
+import type { EventContentArg, DateSelectArg, EventClickArg, EventDropArg } from '@fullcalendar/core';
 import type { DateClickArg } from '@fullcalendar/interaction';
 import EventFormModal, { type EventFormModalProps } from '../components/ui/EventFormModal';
 import EventDefinitionFormModal from '../components/ui/EventDefinitionFormModal';
 import EventDetailModal from '../components/ui/EventDetailModal';
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
 import * as eventService from '../services/eventService';
+import { ApiError } from '../services/api';
 import type { CalendarEvent, CreateEventDefinitionPayload } from '../services/eventService';
 import { useAuth } from '../hooks/useAuth';
 import Button from '../components/ui/Button';
@@ -38,6 +39,8 @@ const CalendarPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [competencies, setCompetencies] = useState<Competency[]>([]);
+    // Transient action-level message (e.g., permission denied on drag)
+    const [actionMessage, setActionMessage] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchInitialData = async () => {
@@ -99,28 +102,64 @@ const CalendarPage: React.FC = () => {
                 eventService.getScheduledEvents(),
                 eventService.getEventDefinitions()
             ]);
+            // Expand multi-day events into per-day instances while pointing to the same schedule
+            const processedSchedules = schedules.flatMap(event => {
+                if (!event.start || !event.end) return [event];
 
-            const processedSchedules = schedules.map(event => {
-                if (!event.start || !event.end) return event;
+                const seriesStart = new Date(event.start as string);
+                const seriesEnd = new Date(event.end as string);
 
-                const startDate = new Date(event.start as string);
-                const endDate = new Date(event.end as string);
+                const hStart = seriesStart.getHours();
+                const mStart = seriesStart.getMinutes();
+                const hEnd = seriesEnd.getHours();
+                const mEnd = seriesEnd.getMinutes();
 
-                if (startDate.toDateString() !== endDate.toDateString()) {
-                    const displayEndDate = new Date(startDate);
-                    displayEndDate.setHours(startDate.getHours() + 2);
+                const startDay = new Date(seriesStart);
+                startDay.setHours(0, 0, 0, 0);
+                const endDay = new Date(seriesEnd);
+                endDay.setHours(0, 0, 0, 0);
 
-                    return {
+                const sameDay = startDay.getTime() === endDay.getTime();
+                if (sameDay) {
+                    return [{
                         ...event,
-                        end: displayEndDate.toISOString(), 
                         extendedProps: {
                             ...event.extendedProps,
-                            isMultiDay: true,
-                            originalEnd: event.end, 
+                            seriesStart: seriesStart.toISOString(),
+                            seriesEnd: seriesEnd.toISOString(),
+                            seriesId: String(event.extendedProps.scheduleId || event.id),
                         }
-                    };
+                    }];
                 }
-                return event;
+
+                const instances: eventService.CalendarEvent[] = [];
+                const cur = new Date(startDay);
+                while (cur.getTime() <= endDay.getTime()) {
+                    const instanceDateStr = cur.toISOString().slice(0, 10); // YYYY-MM-DD
+                    const instStart = new Date(cur);
+                    instStart.setHours(hStart, mStart, 0, 0);
+                    const instEnd = new Date(cur);
+                    instEnd.setHours(hEnd, mEnd, 0, 0);
+                    // Ensure end is after start for rendering; if not, add 1 hour fallback
+                    if (instEnd.getTime() <= instStart.getTime()) {
+                        instEnd.setTime(instStart.getTime() + 60 * 60 * 1000);
+                    }
+                    instances.push({
+                        ...event,
+                        id: `${event.id}-${instanceDateStr}`,
+                        start: instStart.toISOString(),
+                        end: instEnd.toISOString(),
+                        extendedProps: {
+                            ...event.extendedProps,
+                            seriesStart: seriesStart.toISOString(),
+                            seriesEnd: seriesEnd.toISOString(),
+                            seriesId: String(event.extendedProps.scheduleId || event.id),
+                            instanceDate: instanceDateStr,
+                        }
+                    });
+                    cur.setDate(cur.getDate() + 1);
+                }
+                return instances;
             });
 
             setEvents(processedSchedules);
@@ -206,6 +245,20 @@ const CalendarPage: React.FC = () => {
         }
 
         try {
+            // Compute delta using oldEvent if available for robust ms precision
+            const oldStart: Date | undefined = (dropInfo as any).oldEvent?.start;
+            const deltaMs = oldStart ? (event.start!.getTime() - oldStart.getTime()) : (() => {
+                const d: any = (dropInfo as any).delta || {};
+                const days = d.days || 0;
+                const milliseconds = d.milliseconds || 0;
+                return days * 24 * 60 * 60 * 1000 + milliseconds;
+            })();
+
+            const seriesStart = new Date(event.extendedProps.seriesStart || event.start!.toISOString());
+            const seriesEnd = new Date(event.extendedProps.seriesEnd || (event.end ? event.end.toISOString() : event.start!.toISOString()));
+            const newStart = new Date(seriesStart.getTime() + deltaMs);
+            const newEnd = new Date(seriesEnd.getTime() + deltaMs);
+
             const scheduleData: eventService.CreateSchedulePayload = {
                 title: event.title,
                 customEventId: event.extendedProps.definitionId,
@@ -214,17 +267,54 @@ const CalendarPage: React.FC = () => {
                 minAttendees: event.extendedProps.minAttendees,
                 statusName: event.extendedProps.statusName,
                 color: event.extendedProps.color,
-                start: event.start.toISOString(),
-                end: event.end ? event.end.toISOString() : event.start.toISOString(),
+                start: newStart.toISOString(),
+                end: newEnd.toISOString(),
             };
 
-            await eventService.updateScheduledEvent(Number(event.id), scheduleData);
-            
+            await eventService.updateScheduledEvent(Number(event.extendedProps.scheduleId), scheduleData);
             await fetchAndSetData();
-
-        } catch (err) {
+        } catch (err: any) {
+            // Revert UI immediately
+            dropInfo.revert();
+            if (err instanceof ApiError && err.status === 403) {
+                setActionMessage('You are not permitted to move this event. Only the creator or an Admin/HR can modify it.');
+            } else {
+                setActionMessage('Failed to update event. Please try again.');
+            }
             console.error('Failed to update event after drop:', err);
-            dropInfo.revert(); 
+        }
+    };
+
+    const handleEventResize = async (resizeInfo: any) => {
+        const { event } = resizeInfo;
+        try {
+            const seriesStart = new Date(event.extendedProps.seriesStart || event.start!.toISOString());
+            const seriesEnd = new Date(event.extendedProps.seriesEnd || (event.end ? event.end.toISOString() : event.start!.toISOString()));
+
+            // Calculate new seriesStart/seriesEnd based on deltas
+            const startDelta: any = (resizeInfo as any).startDelta || {};
+            const endDelta: any = (resizeInfo as any).endDelta || {};
+            const deltaToMs = (d: any) => (d.days || 0) * 86400000 + (d.milliseconds || 0);
+
+            const newStart = new Date(seriesStart.getTime() + deltaToMs(startDelta));
+            const newEnd = new Date(seriesEnd.getTime() + deltaToMs(endDelta));
+
+            const scheduleData: eventService.CreateSchedulePayload = {
+                title: event.title,
+                customEventId: event.extendedProps.definitionId,
+                roomName: event.extendedProps.roomName,
+                maxAttendees: event.extendedProps.maxAttendees,
+                minAttendees: event.extendedProps.minAttendees,
+                statusName: event.extendedProps.statusName,
+                color: event.extendedProps.color,
+                start: newStart.toISOString(),
+                end: newEnd.toISOString(),
+            };
+            await eventService.updateScheduledEvent(Number(event.extendedProps.scheduleId), scheduleData);
+            await fetchAndSetData();
+        } catch (e) {
+            console.error('Failed to update event after resize:', e);
+            (resizeInfo.revert as any)?.();
         }
     };
 
@@ -275,13 +365,14 @@ const CalendarPage: React.FC = () => {
             return localISOTime;
         };
 
-        if (eventToEdit) {
-            // Use the original end date for multi-day events when editing
-            const endDate = eventToEdit.extendedProps.originalEnd || eventToEdit.end;
+    if (eventToEdit) {
+            // Use the original full range for multi-day series when editing
+            const startDate = eventToEdit.extendedProps.seriesStart || eventToEdit.start;
+            const endDate = eventToEdit.extendedProps.seriesEnd || eventToEdit.end;
             return {
-                id: eventToEdit.id,
+        id: String(eventToEdit.extendedProps.scheduleId),
                 title: eventToEdit.title,
-                startStr: eventToEdit.start ? toLocalISOString(eventToEdit.start) : '',
+                startStr: startDate ? toLocalISOString(startDate as string) : '',
                 endStr: endDate ? toLocalISOString(endDate as string) : '',
                 customEventId: eventToEdit.extendedProps.definitionId,
                 roomName: eventToEdit.extendedProps.roomName,
@@ -319,7 +410,7 @@ const CalendarPage: React.FC = () => {
         <MainLayout pageTitle='Calendar'>
             <div>
                 <div className="flex justify-between items-center mb-4">
-                    <h1 className="text-2xl font-semibold text-custom-text dark:text-dark-text">Calendar</h1>
+                    <h1 className="text-2xl font-semibold text-custom-text dark:text-dark-text">View Events On Your Calendar</h1>
                     <div className="flex space-x-2">
                         <Button type="button" variant="outline" onClick={handleOpenDefinitionModal}>
                             <Settings size={20} className="inline-block mr-2" />
@@ -376,7 +467,25 @@ const CalendarPage: React.FC = () => {
                             dateClick={handleDateClick}
                             select={handleSelect}
                             eventDrop={handleEventDrop}
+                            eventResize={handleEventResize}
+                            eventAllow={(_dropInfo, draggedEvent) => {
+                                if (!draggedEvent) return false;
+                                return !!(draggedEvent as any).extendedProps?.canEdit;
+                            }}
                         />
+                        {actionMessage && (
+                            <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-200 px-4 py-2 rounded shadow text-sm flex items-center gap-2 z-10">
+                                <span>{actionMessage}</span>
+                                <button
+                                    type="button"
+                                    aria-label="Dismiss message"
+                                    className="text-yellow-700 dark:text-yellow-300 hover:underline"
+                                    onClick={() => setActionMessage(null)}
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
                 
@@ -420,7 +529,7 @@ const CalendarPage: React.FC = () => {
                         setEventToDelete(null);
                     }}
                     onDeleteSuccess={handleDeletionSuccess}
-                    eventId={Number(eventToDelete.id)}
+                    eventId={Number((eventToDelete as any).extendedProps?.scheduleId)}
                     eventName={eventToDelete.title}
                 />
             )}
@@ -431,8 +540,19 @@ const CalendarPage: React.FC = () => {
 export default CalendarPage;
 
 function renderEventContent(eventInfo: EventContentArg) {
-    const { extendedProps, title } = eventInfo.event;
-    
+    const { extendedProps, start, end } = eventInfo.event;
+    const title = eventInfo.event.title;
+    const formatTime = (d?: Date | null) => {
+        if (!d) return '';
+        const h = d.getHours();
+        const m = d.getMinutes();
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        const hh = h % 12 === 0 ? 12 : h % 12;
+        const mm = m.toString().padStart(2, '0');
+        return `${hh}:${mm} ${ampm}`;
+    };
+    const timeRange = `${formatTime(start)} - ${formatTime(end)}`;
+
     const eventStyle = {
         backgroundColor: extendedProps.color || '#3788d8',
         color: '#ffffff',
@@ -440,32 +560,15 @@ function renderEventContent(eventInfo: EventContentArg) {
         borderRadius: '3px',
         borderColor: '#6b6f72ff',
         display: 'flex',
-        gap: '4px',
+        flexDirection: 'column' as const,
+        gap: '2px',
         height: '100%',
     };
 
     return (
-        <div
-            style={eventStyle}
-            className="custom-calendar-event"
-            title={`${title} (${extendedProps.eventType})`}
-        >
-
-            {/* Always show the event title */}
-            <span className="custom-event-title flex-grow">{title}</span>
-            
-            {/* Show event type if available */}
-            {extendedProps.eventType && (
-                <span className="custom-event-type ml-1 opacity-80 text-xs">{extendedProps.eventType}</span>
-            )}
-
-            {/* Add an icon if it's a multi-day event */}
-            {extendedProps.isMultiDay && (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                    <title>This event spans multiple days</title>
-                    <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-            )}
+        <div style={eventStyle} className="custom-calendar-event" title={`${title} (${extendedProps.eventType || ''})`}>
+            <span className="custom-event-title text-sm leading-tight">{title}</span>
+            <span className="custom-event-time text-[10px] opacity-90">{timeRange}</span>
         </div>
     );
 }
