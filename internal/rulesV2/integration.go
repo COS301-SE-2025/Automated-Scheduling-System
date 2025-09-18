@@ -58,10 +58,7 @@ func (a *schedStoreAdapter) ListByTrigger(ctx context.Context, triggerType strin
 // NewRuleBackEndService creates a new integration service with all components wired
 func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 	registry := NewRegistryWithDefaults().
-		UseFactResolver(EmployeeFacts{}).
-		UseFactResolver(CompetencyFacts{}).
-		UseFactResolver(EventFacts{}).
-		UseFactResolver(DomainFacts{}).
+		UseFactResolver(UnifiedFacts{}). // single resolver
 		UseTrigger("job_position", NewTrigger(db, "job_position")).
 		UseTrigger("competency_type", NewTrigger(db, "competency_type")).
 		UseTrigger("competency", NewTrigger(db, "competency")).
@@ -70,7 +67,6 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 		UseTrigger("roles", NewTrigger(db, "roles")).
 		UseTrigger("link_job_to_competency", NewTrigger(db, "link_job_to_competency")).
 		UseTrigger("competency_prerequisite", NewTrigger(db, "competency_prerequisite")).
-		// Register new time-based trigger types for completeness
 		UseTrigger("scheduled_time", NewTrigger(db, "scheduled_time")).
 		UseTrigger("relative_time", NewTrigger(db, "relative_time")).
 		UseAction("notification", &NotificationAction{DB: db}).
