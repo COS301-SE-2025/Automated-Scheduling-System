@@ -106,6 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         'dashboard': 'dashboard',
                                         'users': 'users',
                                         'roles': 'roles',
+                                        'compliance dashboard': 'users', // Uses 'users' permission for admin access
                                         'calendar': 'calendar',
                                         'event definitions': 'event-definitions',
                                         'events': 'events',

@@ -5,7 +5,7 @@ import MainLayout from '../layouts/MainLayout';
 import FeatureGrid from '../components/ui/FeatureGrid';
 import FeatureBlock from '../components/ui/FeatureBlock';
 import { getScheduledEvents, type CalendarEvent } from '../services/eventService';
-import { CalendarClock, Users, Calendar, HelpCircle, AlertCircle, Shield, FileText, Gavel, GraduationCap } from 'lucide-react';
+import { CalendarClock, Users, Calendar, HelpCircle, AlertCircle, Shield, FileText, Gavel, GraduationCap, TrendingUp } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
     const { user } = useAuth();
@@ -99,6 +99,14 @@ const DashboardPage: React.FC = () => {
                     <Link to="/users" className="block">
                         <FeatureBlock title="Manage Users" icon={<Users size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
                             <p>Add, edit, or remove users and manage their roles and permissions across the system.</p>
+                        </FeatureBlock>
+                    </Link>
+                )}
+
+                {user?.role === 'Admin' && (
+                    <Link to="/admin/compliance" className="block">
+                        <FeatureBlock title="Compliance Dashboard" icon={<TrendingUp size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
+                            <p>Monitor company-wide competency compliance, track trends, and identify hotspots requiring attention.</p>
                         </FeatureBlock>
                     </Link>
                 )}
