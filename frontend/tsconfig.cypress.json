@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["ES2017", "DOM"],
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": false,
+    "types": ["cypress", "node"],
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "isolatedModules": false,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": ["cypress/**/*.ts", "cypress.config.ts"],
+  "exclude": ["node_modules", "dist", "**/*.d.ts"]
+}

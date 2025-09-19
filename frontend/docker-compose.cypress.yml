@@ -1,0 +1,25 @@
+version: '3.8'
+services:
+  cypress:
+    image: cypress/included:13.6.0
+    working_dir: /e2e
+    volumes:
+      - ./:/e2e
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    environment:
+      - DISPLAY=$DISPLAY
+      - CYPRESS_baseUrl=http://host.docker.internal:5173
+    command: npx cypress run
+    network_mode: host
+    
+  cypress-interactive:
+    image: cypress/included:13.6.0
+    working_dir: /e2e
+    volumes:
+      - ./:/e2e
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    environment:
+      - DISPLAY=$DISPLAY
+      - CYPRESS_baseUrl=http://host.docker.internal:5173
+    command: npx cypress open --browser chrome
+    network_mode: host
