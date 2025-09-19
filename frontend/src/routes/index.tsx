@@ -117,7 +117,7 @@ const AppRoutes: React.FC = () => {
                 <Route element={<PageGuard page="event-definitions" />}>
                     <Route path="/event-definitions" element={<EventDefinitionsPage />} />
                 </Route>
-                <Route element={<PageGuard page="users" />}>
+                <Route element={<PageGuard page="compliance dashboard" />}>
                     <Route path="/admin/compliance" element={<AdminCompliancePage />} />
                 </Route>
             </Route>
