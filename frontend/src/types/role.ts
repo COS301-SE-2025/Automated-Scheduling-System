@@ -2,6 +2,7 @@ export type AllowedPage =
   | 'dashboard'
   | 'users'
   | 'roles'
+  | 'compliance dashboard'
   | 'calendar'
   | 'event-definitions'
   | 'events'

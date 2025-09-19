@@ -62,7 +62,12 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, helpText }
     const navItems = useMemo(() => {
         if (!allowedPages) return baseNavItems; 
         return baseNavItems.filter(item => {
-            const key = item.path.replace('/', '') || 'dashboard';
+            // Derive a permission key from the path. By default use the first segment
+            // For special routes like '/admin/compliance' map to 'compliance dashboard'
+            const segments = item.path.replace(/^\//, '').split('/').filter(Boolean);
+            let key = segments[0] || 'dashboard';
+            if (item.path === '/admin/compliance') key = 'compliance dashboard';
+
             if (key === 'dashboard' || key === 'main-help' || key === 'profile') return true; 
             return allowedPages.includes(key);
         });
@@ -80,6 +85,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children, pageTitle, helpText }
         'dashboard': 'Overview of your schedules, quick links, and recent activity.',
         'users': 'Manage user accounts, view details, and update roles and access.',
         'roles': 'Create and edit roles and permissions to control page access.',
+        'compliance dashboard': 'Monitor company-wide competency compliance metrics and trends.',
         'calendar': 'View and manage scheduled events in a calendar view.',
         'event definitions': 'Define reusable event templates and settings.',
         'events': 'Browse, create, and update scheduled events.',
