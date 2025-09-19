@@ -11,5 +11,7 @@ func RegisterProfileRoutes(r *gin.Engine) {
     api.Use(auth.AuthMiddleware())
     {
         api.GET("/profile/competencies", GetEmployeeCompetencyProfile)
+        api.GET("/profile/visualization", GetEmployeeVisualizationData)
+        api.GET("/profile/admin/compliance", GetAdminComplianceData)
     }
 }
