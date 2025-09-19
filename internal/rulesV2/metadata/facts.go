@@ -11,6 +11,10 @@ func GetFactMetadata() []FactMetadata {
         trRoles       = "roles"
         trLinkJobComp = "link_job_to_competency"
         trCompPrereq  = "competency_prerequisite"
+        // added entity types supported by relative_time
+        trEmployee           = "employee"
+        trEmployeeCompetency = "employee_competency"
+        trEmploymentHistory  = "employment_history"
     )
 
     strOps := []string{"equals", "notEquals", "contains"}
@@ -240,6 +244,131 @@ func GetFactMetadata() []FactMetadata {
             Description: "Current date and time",
             Operators:   []string{"before", "after", "equals"},
             Triggers:    []string{trSchedEvent},
+        },
+
+        // Employee facts (for relative_time when entity_type=employee)
+        {
+            Name:        "employee.EmployeeNumber",
+            Type:        "string",
+            Description: "Employee unique number",
+            Operators:   strOps,
+            Triggers:    []string{trEmployee},
+        },
+        {
+            Name:        "employee.FirstName",
+            Type:        "string",
+            Description: "Employee first name",
+            Operators:   strOps,
+            Triggers:    []string{trEmployee},
+        },
+        {
+            Name:        "employee.LastName",
+            Type:        "string",
+            Description: "Employee last name",
+            Operators:   strOps,
+            Triggers:    []string{trEmployee},
+        },
+        {
+            Name:        "employee.EmployeeStatus",
+            Type:        "string",
+            Description: "Employment status",
+            Operators:   strOps,
+            Triggers:    []string{trEmployee},
+        },
+        {
+            Name:        "employee.TerminationDate",
+            Type:        "date",
+            Description: "Termination date (if any)",
+            Operators:   dateOps,
+            Triggers:    []string{trEmployee},
+        },
+
+        // Employee competency facts (for relative_time when entity_type=employee_competency)
+        {
+            Name:        "employeeCompetency.EmployeeCompetencyID",
+            Type:        "number",
+            Description: "Employee competency record ID",
+            Operators:   numOps,
+            Triggers:    []string{trEmployeeCompetency},
+        },
+        {
+            Name:        "employeeCompetency.EmployeeNumber",
+            Type:        "string",
+            Description: "Employee number",
+            Operators:   strOps,
+            Triggers:    []string{trEmployeeCompetency},
+        },
+        {
+            Name:        "employeeCompetency.CompetencyID",
+            Type:        "number",
+            Description: "Competency definition ID",
+            Operators:   append([]string{"equals", "notEquals"}, []string{"in", "notIn"}...),
+            Triggers:    []string{trEmployeeCompetency},
+        },
+        {
+            Name:        "employeeCompetency.AchievementDate",
+            Type:        "date",
+            Description: "Date achieved",
+            Operators:   dateOps,
+            Triggers:    []string{trEmployeeCompetency},
+        },
+        {
+            Name:        "employeeCompetency.ExpiryDate",
+            Type:        "date",
+            Description: "Expiry date (if applicable)",
+            Operators:   dateOps,
+            Triggers:    []string{trEmployeeCompetency},
+        },
+        {
+            Name:        "employeeCompetency.GrantedByScheduleID",
+            Type:        "number",
+            Description: "Granting schedule id (nullable)",
+            Operators:   numOps,
+            Triggers:    []string{trEmployeeCompetency},
+        },
+
+        // Employment history facts (for relative_time when entity_type=employment_history)
+        {
+            Name:        "employmentHistory.EmploymentID",
+            Type:        "number",
+            Description: "Employment record ID",
+            Operators:   numOps,
+            Triggers:    []string{trEmploymentHistory},
+        },
+        {
+            Name:        "employmentHistory.EmployeeNumber",
+            Type:        "string",
+            Description: "Employee number",
+            Operators:   strOps,
+            Triggers:    []string{trEmploymentHistory},
+        },
+        {
+            Name:        "employmentHistory.PositionMatrixCode",
+            Type:        "string",
+            Description: "Position code",
+            Operators:   strOps,
+            Triggers:    []string{trEmploymentHistory},
+        },
+        {
+            Name:        "employmentHistory.StartDate",
+            Type:        "date",
+            Description: "Employment start date",
+            Operators:   dateOps,
+            Triggers:    []string{trEmploymentHistory},
+        },
+        {
+            Name:        "employmentHistory.EndDate",
+            Type:        "date",
+            Description: "Employment end date (nullable)",
+            Operators:   dateOps,
+            Triggers:    []string{trEmploymentHistory},
+        },
+        {
+            Name:        "employmentHistory.EmploymentType",
+            Type:        "string",
+            Description: "Employment type (Primary, etc.)",
+            Operators:   strOps,
+            Triggers:    []string{trEmploymentHistory},
         },
     }
 }

@@ -61,6 +61,7 @@ const ConditionsNode: React.FC<NodeProps<ConditionsNodeData>> = ({ id, data }) =
     }, [nodeInternals, storeEdges, id]);
 
     const requirementsMet = Boolean(ruleNode && triggerNode && triggerType);
+    const isScheduledTime = triggerType === 'scheduled_time';
 
     const validIfRule = (c: Connection) => {
         if (!c.source || !c.target) return false;
@@ -99,8 +100,18 @@ const ConditionsNode: React.FC<NodeProps<ConditionsNodeData>> = ({ id, data }) =
     // Only show facts linked to the selected trigger type
     const allowedFacts = useMemo(() => {
         if (!requirementsMet || !triggerType) return [] as typeof facts;
+
+        // Special handling for relative_time: narrow by selected entity_type
+        if (triggerType === 'relative_time') {
+            const trigParams: any[] = (triggerNode?.data as any)?.parameters || [];
+            const entityType = trigParams.find(p => p.key === 'entity_type')?.value || '';
+            if (!entityType) return [] as typeof facts;
+            return facts.filter((f: any) => Array.isArray((f as any).triggers) && (f as any).triggers.includes(entityType));
+        }
+
+        // Default: filter by trigger type
         return facts.filter((f: any) => Array.isArray((f as any).triggers) && (f as any).triggers.includes(triggerType));
-    }, [facts, requirementsMet, triggerType]);
+    }, [facts, requirementsMet, triggerType, triggerNode]);
 
     const allOperators = operators.map((o) => o.name);
 
@@ -121,11 +132,13 @@ const ConditionsNode: React.FC<NodeProps<ConditionsNodeData>> = ({ id, data }) =
         update({ conditions: next });
     };
     const addRow = () => {
-        if (!requirementsMet) return;
+        if (!requirementsMet || isScheduledTime) return;
         update({ conditions: [...data.conditions, { fact: '', operator: (operators[0]?.name ?? 'equals'), value: '' }] });
     };
     const removeRow = (idx: number) => update({ conditions: data.conditions.filter((_, i) => i !== idx) });
     const onDelete = () => rf.deleteElements({ nodes: [{ id }] });
+
+    const canAdd = requirementsMet && !isScheduledTime;
 
     return (
         <div className="bg-white border-2 border-emerald-300 rounded-md shadow-md w-[34rem] text-gray-800">
@@ -143,11 +156,17 @@ const ConditionsNode: React.FC<NodeProps<ConditionsNodeData>> = ({ id, data }) =
                 <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-semibold">Conditions</span>
                     <button
-                        className={`text-xs px-2 py-0.5 border rounded ${requirementsMet ? '' : 'opacity-50 cursor-not-allowed'}`}
+                        className={`text-xs px-2 py-0.5 border rounded ${canAdd ? '' : 'opacity-50 cursor-not-allowed'}`}
                         onClick={addRow}
                         type="button"
-                        disabled={!requirementsMet}
-                        title={requirementsMet ? 'Add condition' : 'Connect to a Rule and a Trigger with a selected type'}
+                        disabled={!canAdd}
+                        title={
+                            canAdd
+                                ? 'Add condition'
+                                : isScheduledTime
+                                    ? 'Conditions are not supported for Scheduled Time triggers'
+                                    : 'Connect to a Rule and a Trigger with a selected type'
+                        }
                     >
                         <PlusCircle size={16} />
                     </button>
@@ -161,6 +180,10 @@ const ConditionsNode: React.FC<NodeProps<ConditionsNodeData>> = ({ id, data }) =
                             <li>Connect the Rule to a Trigger and select a trigger type</li>
                         </ul>
                     </div>
+                ) : isScheduledTime ? (
+                    <p className="text-xs text-gray-600 bg-emerald-50/60 border border-emerald-200 rounded p-2">
+                        Conditions are not supported for Scheduled Time triggers.
+                    </p>
                 ) : allowedFacts.length === 0 ? (
                     <p className="text-xs text-gray-400 text-center">No facts available for this trigger type.</p>
                 ) : (
