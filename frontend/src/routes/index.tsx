@@ -8,6 +8,7 @@ import NotFoundPage from '../pages/NotFoundPage';
 import UsersPage from '../pages/UsersPage';
 import DashboardPage from '../pages/DashboardPage';
 import EmployeeProfilePage from '../pages/EmployeeProfilePage';
+import AdminCompliancePage from '../pages/AdminCompliancePage';
 import CalendarPage from '../pages/CalendarPage';
 import CompetencyPage from '../pages/CompetencyPage';
 import EventsPage from '../pages/EventsPage';
@@ -115,6 +116,9 @@ const AppRoutes: React.FC = () => {
                 </Route>
                 <Route element={<PageGuard page="event-definitions" />}>
                     <Route path="/event-definitions" element={<EventDefinitionsPage />} />
+                </Route>
+                <Route element={<PageGuard page="users" />}>
+                    <Route path="/admin/compliance" element={<AdminCompliancePage />} />
                 </Route>
             </Route>
             
