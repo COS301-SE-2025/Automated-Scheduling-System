@@ -107,7 +107,7 @@ func (s *Service) UnscheduleFixedRule(key string) {
 // cronSpecFromParams creates a robfig/cron v3 spec. Returns (spec, tzPrefix, error).
 func cronSpecFromParams(p map[string]any) (string, string, error) {
     freq := strings.ToLower(fmt.Sprint(p["frequency"]))
-    tz := strings.TrimSpace(fmt.Sprint(p["timezone"]))
+    tz := strFromParams(p, "timezone")
 
     tzPrefix := ""
     // Prefer UTC offset forms like "UTC+2"/"UTC-5"
@@ -123,7 +123,7 @@ func cronSpecFromParams(p map[string]any) (string, string, error) {
     }
 
     parseTimeOfDay := func() (int, int, error) {
-        tod := strings.TrimSpace(fmt.Sprint(p["time_of_day"]))
+        tod := strFromParams(p, "time_of_day")
         if tod == "" {
             return 0, 0, nil
         }
@@ -136,7 +136,7 @@ func cronSpecFromParams(p map[string]any) (string, string, error) {
 
     switch freq {
     case "cron":
-        expr := strings.TrimSpace(fmt.Sprint(p["cron_expression"]))
+        expr := strFromParams(p, "cron_expression")
         if expr == "" {
             return "", "", fmt.Errorf("cron_expression is required for frequency=cron")
         }
@@ -175,7 +175,7 @@ func cronSpecFromParams(p map[string]any) (string, string, error) {
         }
         return fmt.Sprintf("%d %d %d * *", m, h, dom), tzPrefix, nil
     case "once", "once_off":
-        dateStr := strings.TrimSpace(fmt.Sprint(p["date"]))
+        dateStr := strFromParams(p, "date")
         if dateStr == "" {
             return "", "", fmt.Errorf("date is required for frequency=once")
         }
@@ -193,6 +193,19 @@ func cronSpecFromParams(p map[string]any) (string, string, error) {
     default:
         return "", "", fmt.Errorf("unknown frequency %q", freq)
     }
+}
+
+// strFromParams safely reads a string param; missing or nil value returns "".
+func strFromParams(p map[string]any, key string) string {
+    v, ok := p[key]
+    if !ok || v == nil {
+        return ""
+    }
+    s := strings.TrimSpace(fmt.Sprint(v))
+    if s == "" || s == "<nil>" {
+        return ""
+    }
+    return s
 }
 
 func tzPrefixFromUTCOffset(s string) (string, error) {

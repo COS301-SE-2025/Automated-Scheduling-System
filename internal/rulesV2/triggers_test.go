@@ -39,7 +39,8 @@ func TestDBTrigger_Fire_BasicKinds(t *testing.T) {
 		err := tr.Fire(context.Background(), c.params, func(ev EvalContext) error { got = ev; return nil })
 		require.NoError(t, err)
 		require.False(t, got.Now.IsZero())
-		trg := got.Data["trigger"].(map[string]any)
+		trg, ok := got.Data["trigger"].(map[string]any)
+		require.True(t, ok, "trigger payload should be a map")
 		for k, v := range c.expect {
 			require.Equal(t, v, trg[k])
 		}
@@ -49,32 +50,62 @@ func TestDBTrigger_Fire_BasicKinds(t *testing.T) {
 func TestDBTrigger_Fire_ScheduledEvent_And_Roles(t *testing.T) {
 	db := newTestDB(t)
 
-	// scheduled_event with update_field
+	// scheduled_event with update_field -> updateField
 	{
 		tr := NewTrigger(db, "scheduled_event")
 		var got EvalContext
 		params := map[string]any{"operation": "update", "update_field": "StatusName"}
 		require.NoError(t, tr.Fire(context.Background(), params, func(ev EvalContext) error { got = ev; return nil }))
-		trg := got.Data["trigger"].(map[string]any)
+		trg, ok := got.Data["trigger"].(map[string]any)
+		require.True(t, ok)
 		require.Equal(t, "scheduled_event", trg["type"])
 		require.Equal(t, "update", trg["operation"])
 		require.Equal(t, "StatusName", trg["updateField"])
 	}
 
-	// roles with update_kind
+	// scheduled_event without update_field -> updateField omitted
+	{
+		tr := NewTrigger(db, "scheduled_event")
+		var got EvalContext
+		params := map[string]any{"operation": "create"}
+		require.NoError(t, tr.Fire(context.Background(), params, func(ev EvalContext) error { got = ev; return nil }))
+		trg, ok := got.Data["trigger"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "scheduled_event", trg["type"])
+		require.Equal(t, "create", trg["operation"])
+		_, has := trg["updateField"]
+		require.False(t, has, "updateField should be omitted when not provided")
+	}
+
+	// roles with update_kind -> updateKind
 	{
 		tr := NewTrigger(db, "roles")
 		var got EvalContext
 		params := map[string]any{"operation": "update", "update_kind": "permissions"}
 		require.NoError(t, tr.Fire(context.Background(), params, func(ev EvalContext) error { got = ev; return nil }))
-		trg := got.Data["trigger"].(map[string]any)
+		trg, ok := got.Data["trigger"].(map[string]any)
+		require.True(t, ok)
 		require.Equal(t, "roles", trg["type"])
 		require.Equal(t, "update", trg["operation"])
 		require.Equal(t, "permissions", trg["updateKind"])
 	}
+
+	// roles without update_kind -> updateKind omitted
+	{
+		tr := NewTrigger(db, "roles")
+		var got EvalContext
+		params := map[string]any{"operation": "create"}
+		require.NoError(t, tr.Fire(context.Background(), params, func(ev EvalContext) error { got = ev; return nil }))
+		trg, ok := got.Data["trigger"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "roles", trg["type"])
+		require.Equal(t, "create", trg["operation"])
+		_, has := trg["updateKind"]
+		require.False(t, has, "updateKind should be omitted when not provided")
+	}
 }
 
-func TestTrigger_EmitTimeIsUTCOrValid(t *testing.T) {
+func TestTrigger_EmitTimeIsRecent(t *testing.T) {
 	db := newTestDB(t)
 	tr := NewTrigger(db, "scheduled_event")
 	var got EvalContext
