@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "title": "Team Meeting",
+    "start": "2024-01-15T10:00:00",
+    "end": "2024-01-15T11:00:00",
+    "description": "Weekly team sync",
+    "type": "meeting",
+    "attendees": ["john.doe@example.com", "jane.smith@example.com"],
+    "backgroundColor": "#3788d8"
+  },
+  {
+    "id": 2,
+    "title": "Project Review",
+    "start": "2024-01-16T14:00:00",
+    "end": "2024-01-16T15:30:00",
+    "description": "Monthly project review with stakeholders",
+    "type": "review",
+    "attendees": ["john.doe@example.com", "manager@example.com"],
+    "backgroundColor": "#f39c12"
+  },
+  {
+    "id": 3,
+    "title": "Training Session",
+    "start": "2024-01-17T09:00:00",
+    "end": "2024-01-17T12:00:00",
+    "description": "New employee training",
+    "type": "training",
+    "attendees": ["trainer@example.com", "newbie@example.com"],
+    "backgroundColor": "#27ae60"
+  },
+  {
+    "id": 4,
+    "title": "Client Call",
+    "start": "2024-01-18T13:00:00",
+    "end": "2024-01-18T14:00:00",
+    "description": "Weekly client check-in",
+    "type": "client-meeting",
+    "attendees": ["sales@example.com", "client@company.com"],
+    "backgroundColor": "#e74c3c"
+  }
+]

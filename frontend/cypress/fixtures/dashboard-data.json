@@ -1,0 +1,44 @@
+{
+  "totalUsers": 45,
+  "totalEvents": 128,
+  "activeRules": 12,
+  "recentActivities": [
+    {
+      "id": 1,
+      "type": "event_created",
+      "message": "Team Meeting scheduled for tomorrow",
+      "timestamp": "2024-01-15T10:30:00Z",
+      "user": "John Doe"
+    },
+    {
+      "id": 2,
+      "type": "user_registered",
+      "message": "New user Jane Smith registered",
+      "timestamp": "2024-01-15T09:15:00Z",
+      "user": "System"
+    },
+    {
+      "id": 3,
+      "type": "rule_updated",
+      "message": "Meeting room booking rule updated",
+      "timestamp": "2024-01-15T08:45:00Z",
+      "user": "Admin"
+    }
+  ],
+  "upcomingEvents": [
+    {
+      "id": 1,
+      "title": "Weekly Standup",
+      "start": "2024-01-16T09:00:00Z",
+      "end": "2024-01-16T09:30:00Z",
+      "type": "meeting"
+    },
+    {
+      "id": 2,
+      "title": "Project Review",
+      "start": "2024-01-16T14:00:00Z",
+      "end": "2024-01-16T15:00:00Z",
+      "type": "review"
+    }
+  ]
+}
