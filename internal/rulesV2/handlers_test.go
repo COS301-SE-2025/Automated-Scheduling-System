@@ -5,15 +5,31 @@ package rulesv2
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+// Test-only minimal rules table model for sqlite :memory:
+type testRuleRow struct {
+	ID          uint      `gorm:"primaryKey;autoIncrement"`
+	Name        string
+	TriggerType string
+	Spec        string
+	Enabled     bool
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+func (testRuleRow) TableName() string { return "rules" }
 
 // setup helpers
 
@@ -23,6 +39,9 @@ func setupRouter(t *testing.T) (*gin.Engine, *RuleBackEndService) {
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
+
+	// Ensure the rules table exists for store queries used by handlers.
+	require.NoError(t, db.AutoMigrate(&testRuleRow{}))
 
 	svc := NewRuleBackEndService(db)
 	router := gin.New()
@@ -225,7 +244,21 @@ func TestRuleCRUDAndStatus_Unit(t *testing.T) {
 
 	var createResp map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &createResp))
-	id, _ := createResp["id"].(string)
+	// ID may be numeric (float64 from JSON) or string; normalize to string
+	rawID, ok := createResp["id"]
+	require.True(t, ok, "response should have id")
+	var id string
+	switch v := rawID.(type) {
+	case float64:
+		id = strconv.FormatInt(int64(v), 10)
+	case json.Number:
+		i64, _ := v.Int64()
+		id = strconv.FormatInt(i64, 10)
+	case string:
+		id = v
+	default:
+		id = fmt.Sprintf("%v", v)
+	}
 	require.NotEmpty(t, id)
 
 	// List

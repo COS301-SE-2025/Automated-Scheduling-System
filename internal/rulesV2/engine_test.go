@@ -47,9 +47,7 @@ func (m memStore) ListByTrigger(_ context.Context, trigger string) ([]Rulev2, er
 // Build a minimal engine with defaults + facts and a place to plug actions.
 func newTestEngine(actions map[string]ActionHandler) *Engine {
 	reg := NewRegistryWithDefaults().
-		UseFactResolver(EmployeeFacts{}).
-		UseFactResolver(CompetencyFacts{}).
-		UseFactResolver(EventFacts{})
+		UseFactResolver(UnifiedFacts{}) // unified passthrough + event helpers
 
 	for k, v := range actions {
 		reg.UseAction(k, v)
@@ -96,163 +94,6 @@ func TestOperators_Basic(t *testing.T) {
 	// in (slice membership)
 	if ok, _ := reg.Operators["in"]("B", []string{"A", "B", "C"}); !ok {
 		t.Fatal(`"B" in ["A","B","C"] should be true`)
-	}
-}
-
-/* -------------------------------------------------------------------------- */
-/* Fact resolvers                                                             */
-/* -------------------------------------------------------------------------- */
-
-func TestEmployeeFacts_ActiveAndPrereqs(t *testing.T) {
-	ev := EvalContext{
-		Now: fixedNow(),
-		Data: map[string]any{
-			"employee": map[string]any{
-				"EmployeeStatus": "Active",
-				"EmployeeNumber": "E-001",
-				"HireDate":       "2024-01-10",
-			},
-			"employeeCompetencyIDs": []string{"COMP_A", "COMP_B"},
-			"competencyPrereqs": map[string][]string{
-				"COMP_X": {"COMP_A", "COMP_B"},
-			},
-		},
-	}
-	fr := EmployeeFacts{}
-
-	// employee.Active
-	v, handled, err := fr.Resolve(ev, "employee.Active")
-	if err != nil || !handled {
-		t.Fatalf("resolve employee.Active: handled=%v err=%v", handled, err)
-	}
-	if b, _ := v.(bool); !b {
-		t.Fatal("employee.Active should be true")
-	}
-
-	// employee.HasCompetencyPrerequisites[COMP_X]
-	v, handled, err = fr.Resolve(ev, "employee.HasCompetencyPrerequisites[COMP_X]")
-	if err != nil || !handled {
-		t.Fatalf("resolve prereqs: handled=%v err=%v", handled, err)
-	}
-	if b, _ := v.(bool); !b {
-		t.Fatal("HasCompetencyPrerequisites[COMP_X] should be true")
-	}
-
-	// Tenure helper (not a resolver path; direct helper)
-	if days, ok := EmployeeTenureDays(ev); !ok || days <= 0 {
-		t.Fatalf("TenureDays should be >0 (got %d, ok=%v)", days, ok)
-	}
-}
-
-func TestCompetencyFacts_DaysUntilExpiry(t *testing.T) {
-	now := fixedNow()
-	expiry := now.AddDate(0, 0, 10) // 10 days from now
-	ev := EvalContext{
-		Now: now,
-		Data: map[string]any{
-			"competency": map[string]any{
-				"ID":         "COMP_X",
-				"ExpiryDate": expiry.Format(time.RFC3339),
-			},
-			"jobRequiredCompetencyIDs": []string{"COMP_X"},
-		},
-	}
-	fr := CompetencyFacts{}
-
-	// IsRequiredForCurrentJob
-	v, handled, err := fr.Resolve(ev, "competency.IsRequiredForCurrentJob")
-	if err != nil || !handled {
-		t.Fatalf("resolve IsRequiredForCurrentJob: handled=%v err=%v", handled, err)
-	}
-	if b, _ := v.(bool); !b {
-		t.Fatal("competency.IsRequiredForCurrentJob should be true")
-	}
-
-	// DaysUntilExpiry
-	v, handled, err = fr.Resolve(ev, "competency.DaysUntilExpiry")
-	if err != nil || !handled {
-		t.Fatalf("resolve DaysUntilExpiry: handled=%v err=%v", handled, err)
-	}
-	days, ok := v.(int)
-	if !ok || days != 10 {
-		t.Fatalf("DaysUntilExpiry expected 10, got %v (%T)", v, v)
-	}
-}
-
-func TestCompetencyFacts_DaysUntilExpiry_MissingExpiryHandledFalse(t *testing.T) {
-	now := fixedNow()
-	ev := EvalContext{
-		Now: now,
-		Data: map[string]any{
-			"competency": map[string]any{
-				"ID": "COMP_NOEXP",
-				// No ExpiryDate provided
-			},
-		},
-	}
-	fr := CompetencyFacts{}
-	v, handled, err := fr.Resolve(ev, "competency.DaysUntilExpiry")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if handled {
-		t.Fatalf("expected handled=false when ExpiryDate missing, got true with value=%v", v)
-	}
-
-	// Also ensure the engine treats condition as not matched rather than erroring
-	r := Rulev2{
-		Name:       "test-missing-expiry",
-		Trigger:    TriggerSpec{Type: "competency"},
-		Conditions: []Condition{{Fact: "competency.DaysUntilExpiry", Operator: "lessThan", Value: 30}},
-		Actions:    []ActionSpec{{Type: "nop", Parameters: map[string]any{"x": 1}}},
-	}
-	reg := NewRegistryWithDefaults()
-	reg.UseFactResolver(CompetencyFacts{})
-		reg.UseAction("nop", testActionFunc(func(EvalContext, map[string]any) error { return nil }))
-	eng := &Engine{R: reg}
-	// Should not error; should simply skip actions
-	if err := eng.EvaluateOnce(ev, r); err != nil {
-		t.Fatalf("engine should not error when fact unhandled: %v", err)
-	}
-}
-
-func TestEventFacts_WaitlistAndTaskAge(t *testing.T) {
-	now := fixedNow()
-	created := now.AddDate(0, 0, -3) // 3 days ago
-	ev := EvalContext{
-		Now: now,
-		Data: map[string]any{
-			"eventSchedule": map[string]any{
-				"ID":         123,
-				"StatusName": "Full",
-			},
-			"waitlistCount": 2,
-			"task": map[string]any{
-				"Type":      "Training Suggestion",
-				"Status":    "Pending",
-				"CreatedAt": created.Format(time.RFC3339),
-			},
-		},
-	}
-	fr := EventFacts{}
-
-	// waitlist.HasAttendees
-	v, handled, err := fr.Resolve(ev, "waitlist.HasAttendees")
-	if err != nil || !handled {
-		t.Fatalf("resolve waitlist.HasAttendees: handled=%v err=%v", handled, err)
-	}
-	if b, _ := v.(bool); !b {
-		t.Fatal("HasAttendees should be true")
-	}
-
-	// task.AgeInDays
-	v, handled, err = fr.Resolve(ev, "task.AgeInDays")
-	if err != nil || !handled {
-		t.Fatalf("resolve task.AgeInDays: handled=%v err=%v", handled, err)
-	}
-	days, ok := v.(int)
-	if !ok || days != 3 {
-		t.Fatalf("task.AgeInDays expected 3, got %v", v)
 	}
 }
 
@@ -507,7 +348,7 @@ func (t tinyTrigger) Fire(_ context.Context, _ map[string]any, emit func(EvalCon
 func TestEngine_RunRule_WithTrigger(t *testing.T) {
 	stub := &capturingAction{}
 	reg := NewRegistryWithDefaults().
-		UseFactResolver(EmployeeFacts{}).
+		UseFactResolver(UnifiedFacts{}). // changed
 		UseAction("STUB", stub).
 		UseTrigger("TINY", tinyTrigger{
 			Emits: []EvalContext{

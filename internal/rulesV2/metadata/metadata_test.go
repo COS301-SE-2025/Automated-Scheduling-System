@@ -296,3 +296,171 @@ func TestMetadataCompleteness(t *testing.T) {
         assert.NotEmpty(t, operator.Types)
     }
 }
+
+func TestScheduledTimeTriggerMetadata(t *testing.T) {
+    triggers := GetTriggerMetadata()
+
+    var sched *TriggerMetadata
+    for _, tr := range triggers {
+        if tr.Type == "scheduled_time" {
+            tmp := tr
+            sched = &tmp
+            break
+        }
+    }
+    if assert.NotNil(t, sched, "scheduled_time trigger should exist") {
+        var freq, tz *Parameter
+        for i := range sched.Parameters {
+            p := sched.Parameters[i]
+            if p.Name == "frequency" {
+                freq = &p
+            }
+            if p.Name == "timezone" {
+                tz = &p
+            }
+        }
+        if assert.NotNil(t, freq, "frequency parameter required") {
+            assert.Equal(t, "string", freq.Type)
+            assert.True(t, freq.Required)
+            // Expect canonical options
+            opts := map[any]bool{}
+            for _, o := range freq.Options {
+                opts[o] = true
+            }
+            assert.True(t, opts["hourly"])
+            assert.True(t, opts["daily"])
+            assert.True(t, opts["weekly"])
+            assert.True(t, opts["monthly"])
+            assert.True(t, opts["once"])
+            assert.True(t, opts["cron"])
+            assert.Len(t, freq.Options, 6)
+        }
+        if assert.NotNil(t, tz, "timezone parameter required") {
+            assert.Equal(t, "string", tz.Type)
+            assert.False(t, tz.Required)
+            // Range -12..14 inclusive -> 27 options, including UTC+0
+            assert.GreaterOrEqual(t, len(tz.Options), 27)
+            seen := map[any]bool{}
+            for _, o := range tz.Options {
+                seen[o] = true
+            }
+            assert.True(t, seen["UTC+0"])
+            assert.True(t, seen["UTC+2"])
+            assert.True(t, seen["UTC-5"])
+        }
+    }
+}
+
+func TestRelativeTimeTriggerMetadata(t *testing.T) {
+    triggers := GetTriggerMetadata()
+
+    var rel *TriggerMetadata
+    for _, tr := range triggers {
+        if tr.Type == "relative_time" {
+            tmp := tr
+            rel = &tmp
+            break
+        }
+    }
+    if assert.NotNil(t, rel, "relative_time trigger should exist") {
+        var entity, dateField, dir, value, unit *Parameter
+        for i := range rel.Parameters {
+            p := rel.Parameters[i]
+            switch p.Name {
+            case "entity_type":
+                entity = &p
+            case "date_field":
+                dateField = &p
+            case "offset_direction":
+                dir = &p
+            case "offset_value":
+                value = &p
+            case "offset_unit":
+                unit = &p
+            }
+        }
+        if assert.NotNil(t, entity, "entity_type parameter required") {
+            assert.Equal(t, "string", entity.Type)
+            assert.True(t, entity.Required)
+            opts := map[any]bool{}
+            for _, o := range entity.Options {
+                opts[o] = true
+            }
+            assert.True(t, opts["scheduled_event"])
+            assert.True(t, opts["employee"])
+            assert.True(t, opts["employee_competency"])
+            assert.True(t, opts["employment_history"])
+        }
+        if assert.NotNil(t, dateField, "date_field parameter required") {
+            assert.Equal(t, "string", dateField.Type)
+            assert.True(t, dateField.Required)
+            opts := map[any]bool{}
+            for _, o := range dateField.Options {
+                opts[o] = true
+            }
+            assert.True(t, opts["event_start_date"])
+            assert.True(t, opts["event_end_date"])
+            assert.True(t, opts["expiry_date"])
+            assert.True(t, opts["termination_date"])
+            assert.True(t, opts["start_date"])
+        }
+        if assert.NotNil(t, dir, "offset_direction parameter required") {
+            assert.Equal(t, "string", dir.Type)
+            assert.True(t, dir.Required)
+            opts := map[any]bool{}
+            for _, o := range dir.Options {
+                opts[o] = true
+            }
+            assert.True(t, opts["before"])
+            assert.True(t, opts["after"])
+        }
+        if assert.NotNil(t, value, "offset_value parameter required") {
+            assert.Equal(t, "integer", value.Type)
+            assert.True(t, value.Required)
+        }
+        if assert.NotNil(t, unit, "offset_unit parameter required") {
+            assert.Equal(t, "string", unit.Type)
+            assert.True(t, unit.Required)
+            opts := map[any]bool{}
+            for _, o := range unit.Options {
+                opts[o] = true
+            }
+            assert.True(t, opts["minutes"])
+            assert.True(t, opts["hours"])
+            assert.True(t, opts["days"])
+            assert.True(t, opts["weeks"])
+            assert.True(t, opts["months"])
+        }
+    }
+}
+
+func TestRelativeEntityFacts(t *testing.T) {
+    facts := GetFactMetadata()
+
+    // Helper to check presence and trigger mapping
+    requireFactWithTrigger := func(name, trigger string) {
+        var f *FactMetadata
+        for i := range facts {
+            if facts[i].Name == name {
+                tmp := facts[i]
+                f = &tmp
+                break
+            }
+        }
+        if assert.NotNil(t, f, "missing fact %s", name) {
+            found := false
+            for _, tr := range f.Triggers {
+                if tr == trigger {
+                    found = true
+                    break
+                }
+            }
+            assert.True(t, found, "fact %s should be available for trigger %s", name, trigger)
+        }
+    }
+
+    requireFactWithTrigger("employee.FirstName", "employee")
+    requireFactWithTrigger("employee.TerminationDate", "employee")
+    requireFactWithTrigger("employeeCompetency.ExpiryDate", "employee_competency")
+    requireFactWithTrigger("employmentHistory.StartDate", "employment_history")
+}
