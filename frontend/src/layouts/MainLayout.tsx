@@ -15,7 +15,8 @@ import {
     GraduationCap,
     HelpCircle,
     Shield,
-    User
+    User,
+    TrendingUp
 } from 'lucide-react';
 
 
@@ -24,6 +25,7 @@ const baseNavItems: NavItem[] = [
     { path: '/profile', label: 'Profile', icon: <User size={20} /> },
     { path: '/users', label: 'Users', icon: <Users size={20} /> },
     { path: '/roles', label: 'Roles', icon: <Shield size={20} /> },
+    { path: '/admin/compliance', label: 'Compliance Dashboard', icon: <TrendingUp size={20} /> },
     { path: '/calendar', label: 'Calendar', icon: <Calendar size={20} /> },
     { path: '/event-definitions', label: 'Event Definitions', icon: <FileText size={20} /> },
     { path: '/events', label: 'Events', icon: <ListChecks size={20} /> },
