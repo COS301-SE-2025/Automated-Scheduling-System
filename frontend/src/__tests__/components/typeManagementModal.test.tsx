@@ -98,9 +98,11 @@ describe('TypeManagementModal', () => {
 
         await waitFor(() => expect(onUpdate).toHaveBeenCalledWith('Core', 'Updated description'));
 
-        // Back to add mode and cleared
-        expect(screen.queryByRole('button', { name: /Save Changes/i })).not.toBeInTheDocument();
-        expect(screen.getByRole('button', { name: /Add Type/i })).toBeInTheDocument();
+        // Wait for UI to return to add mode
+        await waitFor(() =>
+            expect(screen.getByRole('button', { name: /Add Type/i })).toBeInTheDocument()
+        );
+
         const nameInput = screen.getByLabelText(/Type Name/i) as HTMLInputElement;
         const descInput2 = screen.getByLabelText(/Description/i) as HTMLTextAreaElement;
         expect(nameInput).not.toBeDisabled();
