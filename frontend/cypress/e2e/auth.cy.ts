@@ -51,7 +51,7 @@ describe('Authentication Flow', () => {
     it('should successfully login with valid credentials', () => {
       cy.visit('/login');
       
-      cy.get('input[type="email"]').type('john.doe@exapmle.com');
+      cy.get('input[type="email"]').type('john.doe@example.com');
       cy.get('input[type="password"]').type('Pa$$w0rd!');
       cy.get('button[type="submit"]').click();
       
@@ -107,8 +107,8 @@ describe('Authentication Flow', () => {
 
     it('should navigate back to login', () => {
       cy.visit('/forgot-password');
-      // Look for any link that goes back to login
-      cy.get('a').contains('Sign in').click();
+      // Look for the "Back to login" link
+      cy.contains('Back to login').click();
       cy.url().should('include', '/login');
     });
   });
