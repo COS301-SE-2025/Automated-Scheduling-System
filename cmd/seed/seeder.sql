@@ -222,7 +222,7 @@ INSERT INTO roles (role_name, description) VALUES ('HR', 'Human Resources role w
 -- Admin gets all pages
 INSERT INTO role_permissions (role_id, page)
 SELECT r.role_id, p.page FROM roles r CROSS JOIN (VALUES
- ('dashboard'), ('users'), ('roles'), ('calendar'), ('event-definitions'), ('events'), ('rules'), ('competencies'), ('main-help')
+ ('dashboard'), ('users'), ('roles'), ('compliance dashboard'), ('calendar'), ('event-definitions'), ('events'), ('rules'), ('competencies'), ('main-help')
 ) AS p(page)
 WHERE r.role_name = 'Admin';
 
