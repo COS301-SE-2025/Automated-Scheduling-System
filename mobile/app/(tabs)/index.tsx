@@ -1,14 +1,14 @@
 import * as React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
-import { getScheduledEvents, type UpcomingEvent } from '@/services/events';
+import { getScheduledEvents, type MobileEvent } from '@/services/events';
 import { colors } from '@/constants/colors';
 import { useRouter } from 'expo-router';
 
 export default function DashboardScreen() {
 	const { user } = useAuth();
 	const router = useRouter();
-	const [upcoming, setUpcoming] = React.useState<UpcomingEvent[]>([]);
+	const [upcoming, setUpcoming] = React.useState<MobileEvent[]>([]);
 	const [loading, setLoading] = React.useState(true);
 	const [error, setError] = React.useState<string | null>(null);
 
