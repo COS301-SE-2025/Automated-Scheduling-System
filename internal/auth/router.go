@@ -10,5 +10,7 @@ func RegisterAuthRoutes(r *gin.Engine) {
 	api.POST("/forgot-password", generateResetLinkHandler)
 	api.POST("/reset-password", resetPasswordHandler)
 	api.GET("/reset-password/:resetToken", resetPasswordPageHandler)
+
+	// Protected endpoints: middleware must be declared before handler
 	api.GET("/profile", AuthMiddleware(), ProfileHandler)
 }

@@ -19,24 +19,35 @@ npm install
 ```
 3. Start the dev server:
 ```
-npm start
+npx expo start
 ```
 4. Open on device with the QR code or on emulator.
 
 ## Screens
-- Dashboard (default tab): shows basic counts from mock data.
-- Calendar: groups mock events by date.
-- Events: lists mock events with status and attendees.
-- Event Definitions: lists mock definitions and whether required.
-- Profile: placeholder for user settings.
+- Auth: Login, Signup, Forgot Password (placeholders for full backend integration)
+- Dashboard (tab)
+- Calendar (tab)
+- Events (tab)
+- Event Definitions (tab)
+- Profile (tab)
 
-## Mock Data
-Under `src/mock/data.ts`. Replace with real API calls later via `src/services/api.ts`.
+## Design System
+Basic UI components live under `src/components/ui`:
+- `Button` – primary / outline / danger variants
+- `TextField` – labeled input with error state
+- `MessageBox` – contextual messages (error, success, info)
+- `BrandHeader` – product/company heading
+- `HelpTooltip` – static help copy placeholder
 
-## Structure
-- `app/` - file-based routing via expo-router (tabs)
-- `src/services/api.ts` - axios client configured from env
+Color palette in `src/constants/colors.ts` mirrors web naming (primary, secondary, third, surface, border, semantic colors, and dark placeholders).
 
-## Notes
-- Uses `expo-router` Tabs with two screens: Home and Profile.
-- Home screen fetches `/rules/metadata` and lists the top-level keys.
+## Auth Flow
+- Unauthenticated users are redirected to `/(auth)/login`.
+- Successful login stores a token (SecureStore on native; local fallback) and fetches `/profile`.
+- Tabs are only accessible with a token.
+
+## Next Steps
+- Replace mock events with live API calls.
+- Hook up Forgot Password & Signup endpoints.
+- Add theming/dark mode parity with web.
+- Reuse validation logic (e.g., zod) for inputs.

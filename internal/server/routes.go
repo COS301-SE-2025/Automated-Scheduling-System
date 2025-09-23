@@ -23,18 +23,18 @@ import (
 func (s *Server) RegisterRoutes() http.Handler {
 	r := gin.Default()
 
-	// This middleware should run first to handle OPTIONS requests and add
-	// CORS headers to all responses, even error responses from other middleware.
+	// CORS (original static configuration restored)
 	r.Use(cors.New(cors.Config{
 		AllowOrigins: []string{
 			"http://localhost:5173",
 			"http://127.0.0.1:5173",
-			"http://schedulingsystem.app", // Production
+			"http://localhost:8081",
+			"http://127.0.0.1:8081",
+			"http://schedulingsystem.app",
 			"https://schedulingsystem.app",
-			"http://schedulingsystem.me", // Production
+			"http://schedulingsystem.me",
 			"https://schedulingsystem.me",
 		},
-
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},

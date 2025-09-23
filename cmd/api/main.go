@@ -57,6 +57,14 @@ func main() {
 
 	dbConnection := database.New().Gorm()
 
+	// Validate JWT secret early
+	// jwtSecret := os.Getenv("JWT_SECRET")
+	// if len(jwtSecret) == 0 {
+	// 	log.Println("[WARN] JWT_SECRET is empty. Tokens are being signed with an empty key. Set JWT_SECRET in .env.")
+	// } else if len(jwtSecret) < 32 {
+	// 	log.Printf("[WARN] JWT_SECRET length (%d) is weak; use >=32 random bytes for production.\n", len(jwtSecret))
+	// }
+
 	auth.DB = dbConnection
 	user.DB = dbConnection
 	event.DB = dbConnection
