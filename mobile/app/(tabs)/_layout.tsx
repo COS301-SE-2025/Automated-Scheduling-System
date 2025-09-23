@@ -1,11 +1,18 @@
 import { Tabs, Redirect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/contexts/AuthContext';
+import { ActivityIndicator, View } from 'react-native';
 
 export default function TabsLayout() {
-  const { token } = useAuth();
+  const { token, busy } = useAuth();
+  if (busy) {
+    return (
+      <View style={{ flex:1, alignItems:'center', justifyContent:'center' }}>
+        <ActivityIndicator />
+      </View>
+    );
+  }
   if (!token) return <Redirect href="/(auth)/login" />;
-
   return (
     <Tabs screenOptions={{ headerShown: true }}>
       <Tabs.Screen
