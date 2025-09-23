@@ -34,10 +34,26 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({ data, loading, erro
     );
   }
 
-  // Handle 100% completion case
-  const isFullyCompleted = data.completionOverview.completionRate === 100;
+  // Check if user has no competencies assigned (no job position or no requirements)
+  if (!data.competencyBreakdown || data.competencyBreakdown.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <div className="max-w-md mx-auto">
+          <div className="text-6xl mb-4">📋</div>
+          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            No Competencies Assigned Yet
+          </h3>
+          <p className="text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+            Your competency requirements will appear here once you are assigned to a job position. 
+            Contact your supervisor or HR department if you believe this is an error.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-  // Colors for different statuses
+  const isFullyCompleted = data.completionOverview?.completionRate === 100;
+
   const statusColors = {
     completed: '#10B981', // green
     required: '#F59E0B',   // amber
@@ -46,15 +62,15 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({ data, loading, erro
     archived: '#6B7280'    // gray
   };
 
-  // Prepare data for charts
-  const pieData = data.statusBreakdown.map(item => ({
+  // Prepare data for charts with null safety
+  const pieData = (data.statusBreakdown || []).map(item => ({
     name: item.label,
     value: item.count,
     color: statusColors[item.status as keyof typeof statusColors] || '#6B7280'
   }));
 
-  // Group competencies by type for bar chart
-  const competencyTypeData = data.competencyBreakdown.reduce((acc, item) => {
+  // Group competencies by type for bar chart with null safety
+  const competencyTypeData = (data.competencyBreakdown || []).reduce((acc, item) => {
     const existing = acc.find(x => x.name === item.competencyTypeName);
     if (existing) {
       existing[item.status] = (existing[item.status] || 0) + 1;
@@ -71,7 +87,8 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({ data, loading, erro
 
   // Custom label function for pie chart
   const renderLabel = (entry: any) => {
-    const percent = ((entry.value / data.completionOverview.totalRequired) * 100).toFixed(1);
+    const totalRequired = data.completionOverview?.totalRequired || 1;
+    const percent = ((entry.value / totalRequired) * 100).toFixed(1);
     return `${percent}%`;
   };
 
@@ -81,21 +98,21 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({ data, loading, erro
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
           <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
-            {data.completionOverview.totalRequired}
+            {data.completionOverview?.totalRequired || 0}
           </div>
           <div className="text-sm text-blue-600 dark:text-blue-400">Total Required</div>
         </div>
         
         <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
           <div className="text-2xl font-bold text-green-700 dark:text-green-300">
-            {data.completionOverview.totalCompleted}
+            {data.completionOverview?.totalCompleted || 0}
           </div>
           <div className="text-sm text-green-600 dark:text-green-400">Completed</div>
         </div>
         
         <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
           <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">
-            {data.completionOverview.totalOutstanding}
+            {data.completionOverview?.totalOutstanding || 0}
           </div>
           <div className="text-sm text-amber-600 dark:text-amber-400">Outstanding</div>
         </div>
@@ -110,7 +127,7 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({ data, loading, erro
               ? 'text-emerald-700 dark:text-emerald-300' 
               : 'text-gray-700 dark:text-gray-300'
           }`}>
-            {data.completionOverview.completionRate.toFixed(1)}%
+            {(data.completionOverview?.completionRate || 0).toFixed(1)}%
           </div>
           <div className={`text-sm ${
             isFullyCompleted 
@@ -247,7 +264,7 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({ data, loading, erro
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-dark-input">
-              {data.competencyBreakdown.length === 0 ? (
+              {!data.competencyBreakdown || data.competencyBreakdown.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-3 py-4 text-sm text-gray-500 text-center">
                     No competencies found
@@ -304,7 +321,7 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({ data, loading, erro
       </div>
 
       {/* No data state for new users */}
-      {data.completionOverview.totalRequired === 0 && (
+      {(data.completionOverview?.totalRequired || 0) === 0 && (
         <div className="text-center py-12">
           <div className="mx-auto w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
             <div className="text-4xl text-gray-400">📊</div>
