@@ -1,14 +1,17 @@
 import * as React from 'react';
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
-import { getScheduledEvents, type UpcomingEvent } from '@/services/events';
+import { getScheduledEvents, type MobileEvent } from '@/services/events';
 import { colors } from '@/constants/colors';
+import Button from '@/components/ui/Button';
+import DetailModal from '@/components/ui/DetailModal';
 
 export default function EventsScreen() {
   const { user } = useAuth();
-  const [events, setEvents] = React.useState<UpcomingEvent[]>([]);
+  const [events, setEvents] = React.useState<MobileEvent[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [selected, setSelected] = React.useState<MobileEvent | null>(null);
 
   const load = React.useCallback(async () => {
     try {
@@ -55,14 +58,30 @@ export default function EventsScreen() {
         data={events}
         keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => (
-          <View style={styles.card}>
+          <TouchableOpacity activeOpacity={0.9} onPress={() => setSelected(item)} style={styles.card}>
             <Text style={styles.title}>{item.title}</Text>
             <Text style={styles.meta}>
               {new Date(item.start).toLocaleString()} — {new Date(item.end).toLocaleString()}
             </Text>
-          </View>
+            <View style={styles.actions}><Button title="View" variant="outline" onPress={() => setSelected(item)} /></View>
+          </TouchableOpacity>
         )}
       />
+      <DetailModal visible={!!selected} onClose={() => setSelected(null)} title={selected ? `View: ${selected.title}` : undefined}>
+        {selected && (
+          <View style={{ gap: 8 }}>
+            <Text style={styles.detailRow}><Text style={styles.detailLabel}>Event Type: </Text>{selected.eventType || '—'}</Text>
+            <Text style={styles.detailRow}><Text style={styles.detailLabel}>Status: </Text>{selected.statusName || '—'}</Text>
+            <Text style={styles.detailRow}><Text style={styles.detailLabel}>Starts: </Text>{new Date(selected.start).toLocaleString()}</Text>
+            <Text style={styles.detailRow}><Text style={styles.detailLabel}>Ends: </Text>{new Date(selected.end).toLocaleString()}</Text>
+            <Text style={styles.detailRow}><Text style={styles.detailLabel}>Location: </Text>{selected.roomName || '—'}</Text>
+            <Text style={styles.detailRow}><Text style={styles.detailLabel}>Created On: </Text>{new Date(selected.creationDate).toLocaleString()}</Text>
+            <Text style={styles.detailRow}><Text style={styles.detailLabel}>Targets: </Text>{selected.relevantParties || 'Unassigned'}</Text>
+            <Text style={styles.detailRow}><Text style={styles.detailLabel}>Employees: </Text>{(selected.employees?.length ?? 0)}</Text>
+            <Text style={styles.detailRow}><Text style={styles.detailLabel}>Positions: </Text>{(selected.positions?.length ?? 0)}</Text>
+          </View>
+        )}
+      </DetailModal>
     </View>
   );
 }
@@ -70,9 +89,12 @@ export default function EventsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16, paddingTop: 24 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
-  card: { padding: 12, borderRadius: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, marginBottom: 12 },
-  title: { fontSize: 16, fontWeight: '600', color: colors.text },
+  card: { padding: 16, borderRadius: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.primary, marginBottom: 12 },
+  title: { fontSize: 16, fontWeight: '700', color: colors.primary },
   meta: { color: colors.muted, marginTop: 4 },
+  actions: { marginTop: 12, alignSelf: 'flex-start' },
+  detailRow: { color: colors.text },
+  detailLabel: { fontWeight: '700', color: colors.text },
   reloadBtn: { marginTop: 8, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, backgroundColor: colors.primary },
   reloadText: { color: 'white', fontWeight: '600' },
 });

@@ -14,6 +14,7 @@ interface ButtonProps {
 export const Button: React.FC<ButtonProps> = ({ title, onPress, disabled, loading, variant = 'primary', style }) => {
   const variantStyle =
     variant === 'outline' ? styles.outline : variant === 'danger' ? styles.danger : styles.primary;
+  const labelStyle = variant === 'outline' ? styles.labelOutline : styles.label;
 
   return (
     <Pressable
@@ -28,7 +29,7 @@ export const Button: React.FC<ButtonProps> = ({ title, onPress, disabled, loadin
         style,
       ]}
     >
-      {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.label}>{title}</Text>}
+      {loading ? <ActivityIndicator color={variant === 'outline' ? colors.text : '#fff'} /> : <Text style={labelStyle}>{title}</Text>}
     </Pressable>
   );
 };
@@ -49,6 +50,7 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.6 },
   pressed: { opacity: 0.85 },
   label: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  labelOutline: { color: colors.text, fontWeight: '600', fontSize: 16 },
 });
 
 export default Button;
