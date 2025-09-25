@@ -1,9 +1,10 @@
 import * as React from 'react';
 import { View, Text, FlatList, StyleSheet, TextInput, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { getEventDefinitions, type EventDefinition } from '@/services/eventDefinitions';
+import { getEventDefinitions, createEventDefinition, updateEventDefinition, deleteEventDefinition, type EventDefinition } from '@/services/eventDefinitions';
 import { colors } from '@/constants/colors';
 import Button from '@/components/ui/Button';
 import DetailModal from '@/components/ui/DetailModal';
+import EventDefinitionFormModal from '@/components/ui/EventDefinitionFormModal';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function EventDefinitionsScreen() {
@@ -14,6 +15,8 @@ export default function EventDefinitionsScreen() {
   const [query, setQuery] = React.useState('');
   const [facilitator, setFacilitator] = React.useState('');
   const [selected, setSelected] = React.useState<EventDefinition | null>(null);
+  const [showCreateModal, setShowCreateModal] = React.useState(false);
+  const [editingDefinition, setEditingDefinition] = React.useState<EventDefinition | null>(null);
 
   const load = React.useCallback(async () => {
     if (!user) {
@@ -51,6 +54,64 @@ export default function EventDefinitionsScreen() {
   }, [list, query, facilitator]);
 
   const canCreateDefinitions = permissions?.includes('event-definitions') || user?.role === 'Admin' || user?.role === 'HR' || true; // Allow all users to create for mobile
+
+  const handleCreateDefinition = async (formData: {
+    EventName: string;
+    ActivityDescription: string;
+    durationAmount: number;
+    durationUnit: 'minutes' | 'hours' | 'days';
+    Facilitator: string;
+  }) => {
+    try {
+      const standardDuration = `${formData.durationAmount} ${formData.durationUnit}`;
+      await createEventDefinition({
+        EventName: formData.EventName,
+        ActivityDescription: formData.ActivityDescription,
+        StandardDuration: standardDuration,
+        Facilitator: formData.Facilitator,
+      });
+      await load(); // Refresh the list
+      setShowCreateModal(false);
+    } catch (error) {
+      throw error; // Let the modal handle the error
+    }
+  };
+
+  const handleUpdateDefinition = async (formData: {
+    EventName: string;
+    ActivityDescription: string;
+    durationAmount: number;
+    durationUnit: 'minutes' | 'hours' | 'days';
+    Facilitator: string;
+  }) => {
+    if (!editingDefinition) return;
+    
+    try {
+      const standardDuration = `${formData.durationAmount} ${formData.durationUnit}`;
+      await updateEventDefinition(editingDefinition.CustomEventID, {
+        EventName: formData.EventName,
+        ActivityDescription: formData.ActivityDescription,
+        StandardDuration: standardDuration,
+        Facilitator: formData.Facilitator,
+      });
+      await load(); // Refresh the list
+      setEditingDefinition(null);
+    } catch (error) {
+      throw error; // Let the modal handle the error
+    }
+  };
+
+  const handleDeleteDefinition = async () => {
+    if (!editingDefinition) return;
+    
+    try {
+      await deleteEventDefinition(editingDefinition.CustomEventID);
+      await load(); // Refresh the list
+      setEditingDefinition(null);
+    } catch (error) {
+      throw error; // Let the modal handle the error
+    }
+  };
 
   if (!user) {
     return (
@@ -92,6 +153,15 @@ export default function EventDefinitionsScreen() {
             : 'Event templates you have created'
           }
         </Text>
+        {canCreateDefinitions && (
+          <View style={styles.headerActions}>
+            <Button 
+              title="Create Event Type" 
+              variant="primary" 
+              onPress={() => setShowCreateModal(true)} 
+            />
+          </View>
+        )}
       </View>
 
       <View style={styles.filters}>
@@ -158,6 +228,13 @@ export default function EventDefinitionsScreen() {
               )}
               <View style={styles.actions}>
                 <Button title="View Details" variant="outline" onPress={() => setSelected(item)} />
+                {(canCreateDefinitions || user?.id === parseInt(item.CreatedBy)) && (
+                  <Button 
+                    title="Edit" 
+                    variant="primary" 
+                    onPress={() => setEditingDefinition(item)} 
+                  />
+                )}
               </View>
             </TouchableOpacity>
           )}
@@ -184,6 +261,20 @@ export default function EventDefinitionsScreen() {
           </View>
         )}
       </DetailModal>
+
+      <EventDefinitionFormModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onSave={handleCreateDefinition}
+      />
+
+      <EventDefinitionFormModal
+        visible={!!editingDefinition}
+        onClose={() => setEditingDefinition(null)}
+        onSave={handleUpdateDefinition}
+        onDelete={handleDeleteDefinition}
+        initialData={editingDefinition || undefined}
+      />
     </View>
   );
 }
@@ -194,6 +285,7 @@ const styles = StyleSheet.create({
   header: { marginBottom: 16 },
   headerTitle: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: 4 },
   headerSubtitle: { fontSize: 14, color: colors.muted },
+  headerActions: { marginTop: 12, alignSelf: 'flex-start' },
   filters: { flexDirection: 'column', gap: 8, marginBottom: 16 },
   input: { 
     borderWidth: 1, 
@@ -232,7 +324,7 @@ const styles = StyleSheet.create({
   description: { color: colors.text, marginBottom: 8, fontSize: 14, lineHeight: 20 },
   metaSmall: { color: colors.muted, marginBottom: 2, fontSize: 12 },
   createdBy: { color: colors.primary, fontSize: 12, fontWeight: '600', marginTop: 2 },
-  actions: { marginTop: 12, alignSelf: 'flex-start' },
+  actions: { marginTop: 12, flexDirection: 'row', gap: 8, alignSelf: 'flex-start' },
   detailRow: { color: colors.text, fontSize: 14 },
   detailLabel: { fontWeight: '700', color: colors.text },
   retryBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, backgroundColor: colors.primary },
