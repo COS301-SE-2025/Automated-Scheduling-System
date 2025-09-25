@@ -42,6 +42,7 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({
   });
   const [errors, setErrors] = React.useState<Partial<Record<keyof EventDefinitionFormData, string>>>({});
   const [loading, setLoading] = React.useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = React.useState(false);
 
   const isEditMode = !!initialData;
 
@@ -82,7 +83,7 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({
       }
       setErrors({});
     }
-  }, [visible, initialData]);
+  }, [visible, initialData, onDelete]);
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof EventDefinitionFormData, string>> = {};
@@ -115,32 +116,28 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({
 
   const handleDelete = async () => {
     if (!onDelete) return;
+    setShowDeleteConfirmation(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!onDelete) return;
     
-    Alert.alert(
-      'Delete Event Definition',
-      'Are you sure you want to delete this event definition? This action cannot be undone.',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            setLoading(true);
-            try {
-              await onDelete();
-              onClose();
-            } catch (error) {
-              Alert.alert('Error', 'Failed to delete event definition. Please try again.');
-            } finally {
-              setLoading(false);
-            }
-          }
-        }
-      ]
-    );
+    setShowDeleteConfirmation(false);
+    setLoading(true);
+    
+    try {
+      await onDelete();
+      onClose();
+    } catch (error) {
+      console.error('Delete failed:', error);
+      Alert.alert('Error', 'Failed to delete event definition. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirmation(false);
   };
 
   const updateField = <K extends keyof EventDefinitionFormData>(
@@ -249,12 +246,12 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({
               onPress={onClose}
               disabled={loading}
             />
-            {isEditMode && onDelete && (
+            {isEditMode && (
               <Button
                 title="Delete"
                 variant="danger"
                 onPress={handleDelete}
-                disabled={loading}
+                disabled={loading || !onDelete}
               />
             )}
             <Button
@@ -266,6 +263,37 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({
           </View>
         </View>
       </ScrollView>
+
+      {/* Custom Delete Confirmation Modal */}
+      <DetailModal
+        visible={showDeleteConfirmation}
+        onClose={cancelDelete}
+        title="Delete Event Definition"
+      >
+        <View style={styles.confirmationContainer}>
+          <Text style={styles.confirmationText}>
+            Are you sure you want to delete this event definition?
+          </Text>
+          <Text style={styles.confirmationSubtext}>
+            This action cannot be undone.
+          </Text>
+          
+          <View style={styles.confirmationActions}>
+            <Button
+              title="Cancel"
+              variant="outline"
+              onPress={cancelDelete}
+              disabled={loading}
+            />
+            <Button
+              title={loading ? 'Deleting...' : 'Delete'}
+              variant="danger"
+              onPress={confirmDelete}
+              disabled={loading}
+            />
+          </View>
+        </View>
+      </DetailModal>
     </DetailModal>
   );
 };
@@ -360,6 +388,27 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: 'flex-end',
     marginTop: 16,
+  },
+  confirmationContainer: {
+    padding: 16,
+    gap: 16,
+  },
+  confirmationText: {
+    fontSize: 16,
+    color: colors.text,
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  confirmationSubtext: {
+    fontSize: 14,
+    color: colors.muted,
+    textAlign: 'center',
+  },
+  confirmationActions: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'center',
+    marginTop: 8,
   },
 });
 
