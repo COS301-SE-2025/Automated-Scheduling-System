@@ -272,7 +272,7 @@ export default function EventDefinitionsScreen() {
         visible={!!editingDefinition}
         onClose={() => setEditingDefinition(null)}
         onSave={handleUpdateDefinition}
-        onDelete={handleDeleteDefinition}
+        onDelete={editingDefinition ? handleDeleteDefinition : undefined}
         initialData={editingDefinition || undefined}
       />
     </View>
