@@ -12,6 +12,7 @@ import { ApiError } from '../services/api';
 import { getAllRoles } from '../services/roleService';
 import Button from '../components/ui/Button';
 import type { Competency } from '../types/competency';
+import { getAllJobPositions, type JobPosition } from '../services/jobPositionService';
 
 const UsersPage: React.FC = () => {
     // Page-level state
@@ -34,7 +35,8 @@ const UsersPage: React.FC = () => {
     const [modalApiError, setModalApiError] = useState<string | null>(null);
     const [allRoleNames, setAllRoleNames] = useState<string[]>([]);
     const [allCompetencies, setAllCompetencies] = useState<Competency[]>([]);
-    const [expandedUserId, setExpandedUserId] = useState<number | null>(null);
+    const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
+    const [expandedUserPanel, setExpandedUserPanel] = useState<{ userId: number; panel: 'competencies' | 'positions' } | null>(null);
 
     // Fetch initial user data
     useEffect(() => {
@@ -61,6 +63,8 @@ const UsersPage: React.FC = () => {
                     const derived = Array.from(new Set(apiUsers.map(u => u.role)));
                     setAllRoleNames(derived.sort());
                 }
+                const positions = await getAllJobPositions().catch(() => []);
+                setJobPositions(positions);
             } catch (err) {
                 if (err instanceof ApiError) {
                     setPageError(err.data?.error || err.message);
@@ -200,10 +204,16 @@ const UsersPage: React.FC = () => {
                     isLoading={isLoading}
                     onEdit={handleOpenEditModal}
                     onDelete={(user) => alert(`Delete functionality for ${user.name} is not yet implemented.`)}
-                    // NEW props
                     allCompetencies={allCompetencies}
-                    expandedUserId={expandedUserId}
-                    onToggleExpand={(id) => setExpandedUserId(prev => prev === id ? null : id)}
+                    jobPositions={jobPositions}
+                    expandedUserPanel={expandedUserPanel}
+                    onTogglePanel={(userId, panel) =>
+                        setExpandedUserPanel(prev =>
+                            prev && prev.userId === userId && prev.panel === panel
+                                ? null
+                                : { userId, panel }
+                        )
+                    }
                 />
             </div>
 
@@ -213,7 +223,6 @@ const UsersPage: React.FC = () => {
                 onSave={handleSaveUser}
                 mode={modalMode}
                 user={editingUser}
-                // 4. Pass the modalApiError state as a prop
                 apiError={modalApiError}
             />
         </MainLayout>
