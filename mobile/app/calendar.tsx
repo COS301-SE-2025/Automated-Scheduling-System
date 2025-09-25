@@ -38,27 +38,78 @@ function expandMultiDayWithDates(events: MobileEventWithDates[]): EventWithMeta[
       continue;
     }
     
-    // Ensure end is after start
-    const eventStart = seriesStart;
-    const eventEnd = seriesEnd.getTime() > seriesStart.getTime() 
-      ? seriesEnd 
-      : new Date(seriesStart.getTime() + 60*60*1000); // Add 1 hour if end is not after start
+    // Check if this is a multi-day event
+    const startDay = new Date(seriesStart);
+    startDay.setHours(0, 0, 0, 0);
+    const endDay = new Date(seriesEnd);
+    endDay.setHours(0, 0, 0, 0);
+    const sameDay = startDay.getTime() === endDay.getTime();
     
-    // For calendar library compatibility, create a simple event format
-    const calendarEvent: EventWithMeta = {
-      id: String(e.id),
-      title: e.title || 'Untitled Event',
-      start: eventStart,
-      end: eventEnd,
-      color: e.color || '#3788d8',
-      original: {
-        ...e,
-        start: e.start.toISOString(),
-        end: e.end.toISOString()
-      },
-    };
-    
-    out.push(calendarEvent);
+    if (sameDay) {
+      // Single day event - create one instance
+      const eventEnd = seriesEnd.getTime() > seriesStart.getTime() 
+        ? seriesEnd 
+        : new Date(seriesStart.getTime() + 60*60*1000);
+      
+      out.push({
+        id: String(e.id),
+        title: e.title || 'Untitled Event',
+        start: seriesStart,
+        end: eventEnd,
+        color: e.color || '#3788d8',
+        original: {
+          ...e,
+          start: e.start.toISOString(),
+          end: e.end.toISOString()
+        },
+      });
+    } else {
+      // Multi-day event - create instances for each day
+      const originalHours = seriesStart.getHours();
+      const originalMinutes = seriesStart.getMinutes();
+      const endHours = seriesEnd.getHours();
+      const endMinutes = seriesEnd.getMinutes();
+      const currentDay = new Date(startDay);
+      
+      while (currentDay.getTime() <= endDay.getTime()) {
+        const dayStart = new Date(currentDay);
+        const dayEnd = new Date(currentDay);
+        
+        if (currentDay.getTime() === startDay.getTime()) {
+          // First day - use original start time
+          dayStart.setHours(originalHours, originalMinutes, 0, 0);
+          dayEnd.setHours(23, 59, 59, 999); // End of day
+        } else if (currentDay.getTime() === endDay.getTime()) {
+          // Last day - use original end time
+          dayStart.setHours(0, 0, 0, 0); // Start of day
+          dayEnd.setHours(endHours, endMinutes, 0, 0);
+        } else {
+          // Middle days - full day
+          dayStart.setHours(0, 0, 0, 0);
+          dayEnd.setHours(23, 59, 59, 999);
+        }
+        
+        // Ensure end is after start
+        if (dayEnd.getTime() <= dayStart.getTime()) {
+          dayEnd.setTime(dayStart.getTime() + 60*60*1000);
+        }
+        
+        out.push({
+          id: `${e.id}-${currentDay.toISOString().slice(0, 10)}`,
+          title: e.title || 'Untitled Event',
+          start: dayStart,
+          end: dayEnd,
+          color: e.color || '#3788d8',
+          original: {
+            ...e,
+            start: e.start.toISOString(),
+            end: e.end.toISOString()
+          },
+        });
+        
+        currentDay.setDate(currentDay.getDate() + 1);
+      }
+    }
   }
   
   return out;
