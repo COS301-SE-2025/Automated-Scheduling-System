@@ -114,16 +114,16 @@ type AddPrerequisiteRequest struct {
 // =====================================================================
 
 // EmployeeCompetency tracks a specific competency achieved by an employee.
-type EmployeeCompetency struct {
-	EmployeeCompetencyID   int       `gorm:"primaryKey" json:"employeeCompetencyID"`
-	EmployeeNumber         string    `gorm:"column:employee_number" json:"employeeNumber"`
-	CompetencyID           int       `gorm:"column:competency_id" json:"competencyID"`
-	AchievementDate        time.Time `gorm:"column:achievement_date" json:"achievementDate"`
-	ExpiryDate             *time.Time `gorm:"column:expiry_date" json:"expiryDate"`
-	GrantedByScheduleID    *int      `gorm:"column:granted_by_schedule_id" json:"grantedByScheduleID"`
-	Notes                  string    `gorm:"column:notes" json:"notes"`
-}
+// type EmployeeCompetency struct {
+// 	EmployeeCompetencyID   int       `gorm:"primaryKey" json:"employeeCompetencyID"`
+// 	EmployeeNumber         string    `gorm:"column:employee_number" json:"employeeNumber"`
+// 	CompetencyID           int       `gorm:"column:competency_id" json:"competencyID"`
+// 	AchievementDate        time.Time `gorm:"column:achievement_date" json:"achievementDate"`
+// 	ExpiryDate             *time.Time `gorm:"column:expiry_date" json:"expiryDate"`
+// 	GrantedByScheduleID    *int      `gorm:"column:granted_by_schedule_id" json:"grantedByScheduleID"`
+// 	Notes                  string    `gorm:"column:notes" json:"notes"`
+// }
 
-func (EmployeeCompetency) TableName() string {
-	return "employee_competencies"
-}
+// func (EmployeeCompetency) TableName() string {
+// 	return "employee_competencies"
+// }

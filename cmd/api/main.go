@@ -21,6 +21,7 @@ import (
 	rulesv2 "Automated-Scheduling-Project/internal/rulesV2"
 	"Automated-Scheduling-Project/internal/server"
 	"Automated-Scheduling-Project/internal/user"
+	"Automated-Scheduling-Project/internal/employee_competencies"
 )
 
 func gracefulShutdown(apiServer *http.Server, rulesService *rulesv2.RuleBackEndService, done chan bool) {
@@ -64,6 +65,7 @@ func main() {
 	jobposition.DB = dbConnection
 	role.DB = dbConnection
 	profile.DB = dbConnection
+	employee_competencies.DB = dbConnection
 
 	// Initialize RulesV2 Backend Service
 	rulesService := rulesv2.NewRuleBackEndService(dbConnection)

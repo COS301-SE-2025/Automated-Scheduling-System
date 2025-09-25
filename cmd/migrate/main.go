@@ -30,9 +30,7 @@ func main() {
 
 	// 3) Build a minimal registry
 	reg := rules.NewRegistryWithDefaults().
-		UseFactResolver(rules.EmployeeFacts{}).
-		UseFactResolver(rules.CompetencyFacts{}).
-		UseFactResolver(rules.EventFacts{})
+		UseFactResolver(rules.UnifiedFacts{})
 
 	// Register a simple console action so we can see results without email/webhooks
 	reg.UseAction("CONSOLE", consoleAction{})
