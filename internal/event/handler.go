@@ -803,28 +803,42 @@ func grantCompetenciesForCompletedSchedule(scheduleID int) {
 	}
 
 	// Remove grants for employees no longer marked attended for this schedule
-	// then insert grants for currently attended employees (idempotent behavior)
-	// 1) Delete rows for this schedule where employee is not in the attended set
 	if len(empSet) > 0 {
-		// Build slice for NOT IN clause
 		empList := make([]string, 0, len(empSet))
 		for e := range empSet {
 			empList = append(empList, e)
 		}
 		DB.Exec("DELETE FROM employee_competencies WHERE granted_by_schedule_id = ? AND employee_number NOT IN ?", scheduleID, empList)
 	} else {
-		// If no attendees, remove any existing grants from this schedule
 		DB.Exec("DELETE FROM employee_competencies WHERE granted_by_schedule_id = ?", scheduleID)
 	}
 
-	// 2) Insert EmployeeCompetency for each attended employee if not already present for this schedule
+	// Preload competency definition for expiry calculation
+	var compDef models.CompetencyDefinition
+	_ = DB.First(&compDef, compID).Error
+
+	now := time.Now().UTC()
+	achDate := now
+
+	var expiry *time.Time
+	if compDef.ExpiryPeriodMonths != nil {
+		e := achDate.AddDate(0, *compDef.ExpiryPeriodMonths, 0)
+		expiry = &e
+	}
+
 	for emp := range empSet {
-		// check existing record for this competency & schedule
 		var cnt int64
-		DB.Table("employee_competencies").Where("employee_number = ? AND competency_id = ? AND (granted_by_schedule_id = ? OR granted_by_schedule_id IS NULL)", emp, compID, scheduleID).Count(&cnt)
-		// grant new record
+		DB.Table("employee_competencies").
+			Where("employee_number = ? AND competency_id = ? AND granted_by_schedule_id = ?", emp, compID, scheduleID).
+			Count(&cnt)
 		if cnt == 0 {
-			ec := models.EmployeeCompetency{EmployeeNumber: emp, CompetencyID: compID, AchievementDate: time.Now(), GrantedByScheduleID: &scheduleID}
+			ec := models.EmployeeCompetency{
+				EmployeeNumber:      emp,
+				CompetencyID:        compID,
+				AchievementDate:     &achDate,
+				ExpiryDate:          expiry,
+				GrantedByScheduleID: &scheduleID,
+			}
 			_ = DB.Create(&ec).Error
 		}
 	}
