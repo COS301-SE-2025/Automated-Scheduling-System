@@ -3,7 +3,7 @@ import apiClient from './api';
 export interface JobPosition {
     positionMatrixCode: string;
     jobTitle: string;
-    description?: string;
+    description: string;
     isActive: boolean;
     creationDate: string;
 }
