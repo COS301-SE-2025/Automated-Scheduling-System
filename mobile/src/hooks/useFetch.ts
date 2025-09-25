@@ -18,9 +18,9 @@ export function useFetch<T = any>(url: string) {
     }
 
     api.get<ApiResponse<T>>(url)
-        .then((res: ApiResponse<T>) => {
+        .then((res) => {
             if (!mounted) return;
-            setData(res.data as T);
+            setData(res.data.data as T);
         })
         .catch((err: ApiError) => {
             if (!mounted) return;
