@@ -6,9 +6,8 @@ on:
     branches: [dev]
 
 jobs:
-  build:
+  build_and_unit_test:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go
@@ -47,3 +46,84 @@ jobs:
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
 
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-app-build
+          path: |
+            # Upload the compiled Go application binary produced by `make build`
+            # The Makefile builds the binary as `main` in the repository root.
+            ./main
+
+  performance-test:
+    needs: build_and_unit_test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: scheduling_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      # These env vars are used by the application to connect to Postgres
+      BLUEPRINT_DB_HOST: localhost
+      BLUEPRINT_DB_PORT: 5432
+      BLUEPRINT_DB_USERNAME: postgres
+      BLUEPRINT_DB_PASSWORD: postgres
+      BLUEPRINT_DB_DATABASE: scheduling_db
+      BLUEPRINT_DB_SCHEMA: public
+      PORT: 8080
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: my-app-build
+
+      - name: Wait for Postgres to be ready
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client
+          # Wait until postgres accepts connections
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Waiting for Postgres..."
+            sleep 1
+          done
+
+      - name: Run DB migrations & seed
+        run: |
+          # Run migration step (this uses the same DB env vars defined above)
+          go run cmd/migrate/main.go
+          # Seed the database
+          go run cmd/seed/main.go
+
+      - name: Run Application in Background
+        run: |
+          # Make the downloaded binary executable and start it
+          chmod +x ./main
+          ./main &
+
+      - name: Run JMeter Performance Test
+        uses: rbhadti94/apache-jmeter-action@v0.6.0
+        with:
+          testFilePath: jmeter/tests/api-test-plan.jmx
+          outputReportsFolder: jmeter/reports/
+          jmeterVersion: '5.6.3'
+
+      - name: Upload JMeter reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-reports
+          path: jmeter/reports/

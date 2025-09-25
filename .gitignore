@@ -39,4 +39,10 @@ shell.nix
 .pgdata
 .pgsocket
 
+# JMeter
 temp
+jmeter.log
+apache-jmeter-5.6.3
+jmeter-report
+results.jtl
+jmeter/reports/results.jtl
