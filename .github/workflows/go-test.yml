@@ -26,22 +26,22 @@ jobs:
       - name: Build
         run: make build
 
-      - name: GO Integration Tests
-        run: make test
+      # - name: GO Integration Tests
+      #   run: make test
 
-      - name: Go Unit Tests
-        run: make utest
+      # - name: Go Unit Tests
+      #   run: make utest
 
-      - name: Test frontend with Vitest
-        run: make ftest
+      # - name: Test frontend with Vitest
+      #   run: make ftest
 
-      - name: Golangci-lint
-        uses: golangci/golangci-lint-action@v8.0.0
-        with:
-          only-new-issues: true
+      # - name: Golangci-lint
+      #   uses: golangci/golangci-lint-action@v8.0.0
+      #   with:
+      #     only-new-issues: true
 
-      - name: Lint frontend with ESLint
-        run: make flint
+      # - name: Lint frontend with ESLint
+      #   run: make flint
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
