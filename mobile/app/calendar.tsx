@@ -2,9 +2,10 @@ import * as React from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Calendar as RNCalendar, type ICalendarEventBase } from 'react-native-big-calendar';
 import { useRouter } from 'expo-router';
-import { getScheduledEvents, type MobileEvent } from '@/services/events';
+import { getScheduledEvents, createScheduledEvent, type MobileEvent } from '@/services/events';
 import { colors } from '@/constants/colors';
 import DetailModal from '@/components/ui/DetailModal';
+import EventScheduleFormModal from '@/components/ui/EventScheduleFormModal';
 import Button from '@/components/ui/Button';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -206,6 +207,7 @@ export default function CalendarScreen() {
   const [sourceEvents, setSourceEvents] = React.useState<MobileEvent[]>([]);
   const [events, setEvents] = React.useState<EventWithMeta[]>([]);
   const [selected, setSelected] = React.useState<MobileEvent | null>(null);
+  const [showScheduleModal, setShowScheduleModal] = React.useState(false);
 
   const load = React.useCallback(async () => {
     if (!user) {
@@ -294,6 +296,36 @@ export default function CalendarScreen() {
   const canCreateDefinitions = permissions?.includes('event-definitions') || user?.role === 'Admin' || user?.role === 'HR';
   const canCreateSchedules = true; // All authenticated users can schedule events
 
+  const handleScheduleEvent = async (formData: {
+    title: string;
+    customEventId: number;
+    start: string;
+    end: string;
+    roomName: string;
+    maximumAttendees: number;
+    minimumAttendees: number;
+    statusName: string;
+    color: string;
+  }) => {
+    try {
+      await createScheduledEvent({
+        title: formData.title,
+        customEventId: formData.customEventId,
+        eventStartDate: formData.start,
+        eventEndDate: formData.end,
+        roomName: formData.roomName,
+        maximumAttendees: formData.maximumAttendees,
+        minimumAttendees: formData.minimumAttendees,
+        statusName: formData.statusName,
+        color: formData.color,
+      });
+      await load(); // Refresh the calendar
+      setShowScheduleModal(false);
+    } catch (error) {
+      throw error; // Let the modal handle the error
+    }
+  };
+
   if (!user) {
     return (
       <View style={styles.center}>
@@ -321,7 +353,7 @@ export default function CalendarScreen() {
                 <Button 
                   title="Schedule Event" 
                   variant="primary" 
-                  onPress={() => router.push('/events')} 
+                  onPress={() => setShowScheduleModal(true)} 
                 />
               )}
             </View>
@@ -441,6 +473,12 @@ export default function CalendarScreen() {
           </View>
         )}
       </DetailModal>
+
+      <EventScheduleFormModal
+        visible={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+        onSave={handleScheduleEvent}
+      />
     </View>
   );
 }
