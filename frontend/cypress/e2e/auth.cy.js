@@ -1,17 +1,3 @@
-/**
- * SETUP INSTRUCTIONS:
- * 
- * Before running these tests, you need to:
- * 1. Create a test user account in your database
- * 2. Replace 'YOUR_TEST_EMAIL_HERE@example.com' with the actual test email
- * 3. Replace 'YOUR_TEST_PASSWORD_HERE' with the actual test password
- * 4. Make sure your development server is running on localhost:5173
- * 
- * Example test credentials (replace with your actual ones):
- * - Email: testuser@example.com
- * - Password: TestPass123!
- */
-
 describe('Authentication Flow', () => {
   beforeEach(() => {
     // Clear any existing auth state
@@ -29,7 +15,7 @@ describe('Authentication Flow', () => {
 
     it('should show validation errors for invalid inputs', () => {
       cy.visit('/login');
-      
+
       // Try to submit empty form
       cy.get('button[type="submit"]').click();
       // Check for validation messages (adjust selectors based on your implementation)
@@ -38,23 +24,23 @@ describe('Authentication Flow', () => {
 
     it('should show error for invalid credentials', () => {
       cy.visit('/login');
-      
+
       // Use obviously fake credentials that won't exist
       cy.get('input[type="email"]').type('nonexistent@fakeemail.com');
       cy.get('input[type="password"]').type('wrongpassword123');
       cy.get('button[type="submit"]').click();
-      
+
       // Wait for error message to appear (adjust timeout as needed)
       cy.contains('Login Failed', { timeout: 10000 }).should('be.visible');
     });
 
     it('should successfully login with valid credentials', () => {
       cy.visit('/login');
-      
+
       cy.get('input[type="email"]').type('john.doe@example.com');
       cy.get('input[type="password"]').type('Pa$$w0rd!');
       cy.get('button[type="submit"]').click();
-      
+
       // Should redirect to dashboard after successful login
       cy.url().should('include', '/dashboard', { timeout: 10000 });
     });
@@ -85,7 +71,7 @@ describe('Authentication Flow', () => {
 
     it('should redirect unauthenticated users from other protected routes', () => {
       const protectedRoutes = ['/users', '/calendar', '/events', '/rules', '/roles'];
-      
+
       protectedRoutes.forEach(route => {
         cy.visit(route);
         // Give it some time to redirect

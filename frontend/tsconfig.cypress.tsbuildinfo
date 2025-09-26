@@ -1,0 +1,1 @@
+{"root":["./cypress/support/commands.ts","./cypress/support/cypress.d.ts","./cypress/support/e2e.ts","./cypress.config.cjs"],"errors":true,"version":"5.8.3"}

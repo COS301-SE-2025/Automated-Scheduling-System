@@ -1,0 +1,29 @@
+[
+  {
+    "CustomEventID": 1,
+    "EventName": "Team Meeting",
+    "ActivityDescription": "Weekly team sync",
+    "StandardDuration": "1h",
+    "Facilitator": "John Doe",
+    "CreatedBy": "admin",
+    "CreationDate": "2024-01-01T10:00:00Z"
+  },
+  {
+    "CustomEventID": 2,
+    "EventName": "Project Review",
+    "ActivityDescription": "Monthly project review with stakeholders",
+    "StandardDuration": "1.5h",
+    "Facilitator": "Jane Smith",
+    "CreatedBy": "admin",
+    "CreationDate": "2024-01-01T10:00:00Z"
+  },
+  {
+    "CustomEventID": 3,
+    "EventName": "Training Session",
+    "ActivityDescription": "New employee training",
+    "StandardDuration": "3h",
+    "Facilitator": "Training Team",
+    "CreatedBy": "hr",
+    "CreationDate": "2024-01-01T10:00:00Z"
+  }
+]
