@@ -43,12 +43,19 @@ export default function EventDefinitionsScreen() {
     }
   }, [user]); // Removed load from dependencies to prevent infinite loop
 
-  const facilitators = React.useMemo(() => Array.from(new Set(list.map(d => d.Facilitator).filter(Boolean))).sort(), [list]);
+  const facilitators = React.useMemo(
+    () => Array.from(new Set(list.map(d => d.Facilitator?.trim()).filter(Boolean))).sort(),
+    [list]
+  );
   const filtered = React.useMemo(() => {
     const term = query.trim().toLowerCase();
+    const facTerm = facilitator.trim().toLowerCase();
     return list.filter(d => {
-      const matchesSearch = !term || d.EventName.toLowerCase().includes(term) || d.ActivityDescription.toLowerCase().includes(term);
-      const matchesFac = !facilitator || d.Facilitator === facilitator;
+      const name = d.EventName || '';
+      const desc = d.ActivityDescription || '';
+      const fac = (d.Facilitator || '').toLowerCase();
+      const matchesSearch = !term || name.toLowerCase().includes(term) || desc.toLowerCase().includes(term);
+      const matchesFac = !facTerm || fac.includes(facTerm);
       return matchesSearch && matchesFac;
     });
   }, [list, query, facilitator]);
