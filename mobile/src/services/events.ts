@@ -95,13 +95,13 @@ export async function getScheduledEvents(): Promise<MobileEvent[]> {
 // Create a new event schedule - only for employees to schedule themselves
 export async function createScheduledEvent(payload: CreateEventSchedulePayload): Promise<MobileEvent[]> {
   const { data } = await api.post<BackendScheduledEvent[]>('event-schedules', {
-    customEventID: payload.customEventId,
+    customEventId: payload.customEventId,
     title: payload.title,
-    eventStartDate: payload.eventStartDate,
-    eventEndDate: payload.eventEndDate,
+    start: payload.eventStartDate,
+    end: payload.eventEndDate,
     roomName: payload.roomName,
-    maximumAttendees: payload.maximumAttendees,
-    minimumAttendees: payload.minimumAttendees,
+    maxAttendees: payload.maximumAttendees,
+    minAttendees: payload.minimumAttendees,
     statusName: payload.statusName || 'Scheduled',
     color: payload.color,
     employeeNumbers: payload.employeeNumbers || [],
@@ -134,13 +134,13 @@ export async function createScheduledEvent(payload: CreateEventSchedulePayload):
 // Update an event schedule - only for creators
 export async function updateScheduledEvent(scheduleId: number, payload: Partial<CreateEventSchedulePayload>): Promise<MobileEvent[]> {
   const { data } = await api.put<BackendScheduledEvent[]>(`event-schedules/${scheduleId}`, {
-    customEventID: payload.customEventId,
+    customEventId: payload.customEventId,
     title: payload.title,
-    eventStartDate: payload.eventStartDate,
-    eventEndDate: payload.eventEndDate,
+    start: payload.eventStartDate,
+    end: payload.eventEndDate,
     roomName: payload.roomName,
-    maximumAttendees: payload.maximumAttendees,
-    minimumAttendees: payload.minimumAttendees,
+    maxAttendees: payload.maximumAttendees,
+    minAttendees: payload.minimumAttendees,
     statusName: payload.statusName,
     color: payload.color,
     employeeNumbers: payload.employeeNumbers,

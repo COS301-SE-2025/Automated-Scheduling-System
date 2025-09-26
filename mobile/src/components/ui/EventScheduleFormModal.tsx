@@ -93,12 +93,12 @@ const EventScheduleFormModal: React.FC<EventScheduleFormModalProps> = ({
         // Set default start/end times (current time + 1 hour)
         const now = new Date();
         const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
-        
+        // Use full RFC3339 / ISO strings so backend Gin binding to time.Time succeeds
         setFormData({
           title: '',
           customEventId: 0,
-          start: now.toISOString().slice(0, 16), // Format for datetime-local input
-          end: oneHourLater.toISOString().slice(0, 16),
+          start: now.toISOString(),
+          end: oneHourLater.toISOString(),
           roomName: '',
           maximumAttendees: 0,
           minimumAttendees: 0,
@@ -164,7 +164,16 @@ const EventScheduleFormModal: React.FC<EventScheduleFormModalProps> = ({
       await onSave(formData);
       onClose();
     } catch (error) {
-      Alert.alert('Error', 'Failed to save event. Please try again.');
+      // Attempt to surface backend validation errors for easier debugging
+      let message = 'Failed to save event. Please try again.';
+      // @ts-ignore runtime narrowing
+      if (error?.response?.data) {
+        // @ts-ignore
+        const data = error.response.data;
+        if (typeof data === 'string') message = data;
+        else if (data.error) message = String(data.error);
+      }
+      Alert.alert('Error', message);
     } finally {
       setLoading(false);
     }
