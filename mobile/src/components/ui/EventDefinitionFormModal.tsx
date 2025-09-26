@@ -24,6 +24,7 @@ interface EventDefinitionFormModalProps {
     StandardDuration?: string;
     Facilitator?: string;
   };
+  presentation?: 'sheet' | 'fullscreen';
 }
 
 const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({
@@ -31,7 +32,8 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({
   onClose,
   onSave,
   onDelete,
-  initialData
+  initialData,
+  presentation = 'sheet'
 }) => {
   const [formData, setFormData] = React.useState<EventDefinitionFormData>({
     EventName: '',
@@ -155,6 +157,7 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({
       visible={visible}
       onClose={onClose}
       title={isEditMode ? 'Edit Event Definition' : 'Create Event Definition'}
+      presentation={presentation}
     >
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.form}>
@@ -269,6 +272,7 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({
         visible={showDeleteConfirmation}
         onClose={cancelDelete}
         title="Delete Event Definition"
+        presentation={presentation}
       >
         <View style={styles.confirmationContainer}>
           <Text style={styles.confirmationText}>

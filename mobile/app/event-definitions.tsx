@@ -266,6 +266,8 @@ export default function EventDefinitionsScreen() {
         visible={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onSave={handleCreateDefinition}
+        // Fullscreen for better Android reliability
+        presentation="fullscreen"
       />
 
       <EventDefinitionFormModal
@@ -274,6 +276,7 @@ export default function EventDefinitionsScreen() {
         onSave={handleUpdateDefinition}
         onDelete={editingDefinition ? handleDeleteDefinition : undefined}
         initialData={editingDefinition || undefined}
+        presentation="fullscreen"
       />
     </View>
   );

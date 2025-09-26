@@ -34,13 +34,15 @@ interface EventScheduleFormModalProps {
     statusName?: string;
     color?: string;
   };
+  presentation?: 'sheet' | 'fullscreen';
 }
 
 const EventScheduleFormModal: React.FC<EventScheduleFormModalProps> = ({
   visible,
   onClose,
   onSave,
-  initialData
+  initialData,
+  presentation = 'sheet'
 }) => {
   const [formData, setFormData] = React.useState<EventScheduleFormData>({
     title: '',
@@ -228,6 +230,7 @@ const EventScheduleFormModal: React.FC<EventScheduleFormModalProps> = ({
         visible={visible}
         onClose={onClose}
         title={isEditMode ? 'Edit Event' : 'Schedule Event'}
+        presentation={presentation}
       >
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
           <View style={styles.form}>
@@ -253,15 +256,41 @@ const EventScheduleFormModal: React.FC<EventScheduleFormModalProps> = ({
               </Text>
               <TouchableOpacity
                 style={[styles.picker, errors.customEventId && styles.inputError]}
-                onPress={() => setShowEventTypePicker(true)}
+                onPress={() => setShowEventTypePicker(prev => !prev)}
               >
                 <Text style={[styles.pickerText, !selectedEventType && styles.pickerPlaceholder]}>
                   {selectedEventType ? selectedEventType.EventName : 'Select event type'}
                 </Text>
-                <Text style={styles.pickerArrow}>▼</Text>
+                <Text style={styles.pickerArrow}>{showEventTypePicker ? '▲' : '▼'}</Text>
               </TouchableOpacity>
               {errors.customEventId && (
                 <Text style={styles.errorText}>{errors.customEventId}</Text>
+              )}
+              {showEventTypePicker && (
+                <View style={styles.inlinePickerContainer}>
+                  <ScrollView style={styles.inlinePickerScroll} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+                    {eventDefinitions.length === 0 ? (
+                      <Text style={styles.emptyText}>No event types available</Text>
+                    ) : (
+                      eventDefinitions.map((definition) => (
+                        <TouchableOpacity
+                          key={definition.CustomEventID}
+                          style={[
+                            styles.pickerOption,
+                            formData.customEventId === definition.CustomEventID && styles.pickerOptionSelected
+                          ]}
+                          onPress={() => {
+                            updateField('customEventId', definition.CustomEventID);
+                            setShowEventTypePicker(false);
+                          }}
+                        >
+                          <Text style={styles.pickerOptionTitle}>{definition.EventName}</Text>
+                          <Text style={styles.pickerOptionSubtitle}>{definition.StandardDuration}</Text>
+                        </TouchableOpacity>
+                      ))
+                    )}
+                  </ScrollView>
+                </View>
               )}
             </View>
 
@@ -421,35 +450,6 @@ const EventScheduleFormModal: React.FC<EventScheduleFormModalProps> = ({
         </ScrollView>
       </DetailModal>
 
-      {/* Event Type Picker Modal */}
-      <DetailModal
-        visible={showEventTypePicker}
-        onClose={() => setShowEventTypePicker(false)}
-        title="Select Event Type"
-      >
-        <ScrollView style={styles.pickerModal}>
-          {eventDefinitions.length === 0 ? (
-            <Text style={styles.emptyText}>No event types available</Text>
-          ) : (
-            eventDefinitions.map((definition) => (
-              <TouchableOpacity
-                key={definition.CustomEventID}
-                style={[
-                  styles.pickerOption,
-                  formData.customEventId === definition.CustomEventID && styles.pickerOptionSelected
-                ]}
-                onPress={() => {
-                  updateField('customEventId', definition.CustomEventID);
-                  setShowEventTypePicker(false);
-                }}
-              >
-                <Text style={styles.pickerOptionTitle}>{definition.EventName}</Text>
-                <Text style={styles.pickerOptionSubtitle}>{definition.StandardDuration}</Text>
-              </TouchableOpacity>
-            ))
-          )}
-        </ScrollView>
-      </DetailModal>
 
       {/* Date Time Pickers */}
       {showStartDatePicker && (
@@ -636,6 +636,18 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: 'flex-end',
     marginTop: 16,
+  },
+  inlinePickerContainer: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    marginTop: 4,
+    maxHeight: 240,
+    overflow: 'hidden',
+  },
+  inlinePickerScroll: {
+    maxHeight: 240,
   },
 });
 
