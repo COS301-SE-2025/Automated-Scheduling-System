@@ -63,7 +63,7 @@ func TestCreateJobMatrixEntryHandler(t *testing.T) {
 		Notes:              "Critical competency",
 	}
 
-	// Mock the validation queries first (these happen before the insert)
+	// Validation queries (before transaction)
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT count(*) FROM "job_positions" WHERE position_matrix_code = $1`)).
 		WithArgs("POS001").
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
@@ -72,23 +72,60 @@ func TestCreateJobMatrixEntryHandler(t *testing.T) {
 		WithArgs(1).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 
-	// Mock database insert
+	// Transaction begins
 	mock.ExpectBegin()
+
+	// Insert into custom_job_matrix
 	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO "custom_job_matrix"`)).
 		WithArgs(
 			requestBody.PositionMatrixCode,
 			requestBody.CompetencyID,
 			requestBody.RequirementStatus,
 			requestBody.Notes,
-			sqlmock.AnyArg(), // createdBy
-			sqlmock.AnyArg(), // creationDate
+			sqlmock.AnyArg(), // created_by
+			sqlmock.AnyArg(), // creation_date
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"custom_matrix_id"}).AddRow(1))
+
+	// Load competency (tx.First) before bulk-assign
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT * FROM "competency_definitions" WHERE competency_id = $1 ORDER BY "competency_definitions"."competency_id" LIMIT $2`,
+	)).
+		WithArgs(1, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"competency_id"}).AddRow(1))
+
+	// Bulk-assign employee_competencies (Exec)
+	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO employee_competencies`)).
+		WithArgs(
+			1,                  // competency_id
+			nil,                // achievement_date (NULL)
+			nil,                // expiry_date (NULL)
+			sqlmock.AnyArg(),   // notes
+			"POS001",           // position_matrix_code
+			1,                  // competency_id in NOT EXISTS
+		).
+		WillReturnResult(sqlmock.NewResult(0, 3))
+
+	// Load job position for trigger (tx.First)
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT * FROM "job_positions" WHERE position_matrix_code = $1 ORDER BY "job_positions"."position_matrix_code" LIMIT $2`,
+	)).
+		WithArgs("POS001", 1).
+		WillReturnRows(sqlmock.NewRows([]string{"position_matrix_code"}).AddRow("POS001"))
+
+	// Load competency again for trigger (tx.First)
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT * FROM "competency_definitions" WHERE competency_id = $1 ORDER BY "competency_definitions"."competency_id" LIMIT $2`,
+	)).
+		WithArgs(1, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"competency_id"}).AddRow(1))
+
+	// Commit transaction
 	mock.ExpectCommit()
 
 	// Create context and perform request
 	c, w := ctxWithJSON(t, db, "POST", "/job-requirements", requestBody)
-	c.Set("email", "admin@example.com") // Set email for createdBy
+	c.Set("email", "admin@example.com") // createdBy
 
 	CreateJobMatrixEntryHandler(c)
 
@@ -176,40 +213,3 @@ func TestUpdateJobMatrixEntryHandler(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-// func TestDeleteJobMatrixEntryHandler(t *testing.T) {
-// 	gin.SetMode(gin.TestMode)
-// 	db, mock := newMockDB(t)
-
-// 	// Handler loads the entry and preloads related objects before deleting
-// 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "custom_job_matrix" WHERE "custom_job_matrix"."custom_matrix_id" = $1 ORDER BY "custom_job_matrix"."custom_matrix_id" LIMIT $2`)).
-// 		WithArgs("1", 1).
-// 		WillReturnRows(sqlmock.NewRows([]string{"custom_matrix_id", "position_matrix_code", "competency_id"}).AddRow(1, "POS001", 1))
-// 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "job_positions" WHERE "job_positions"."position_matrix_code" = $1`)).
-// 		WithArgs("POS001").
-// 		WillReturnRows(sqlmock.NewRows([]string{"position_matrix_code"}).AddRow("POS001"))
-// 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "competency_definitions" WHERE "competency_definitions"."competency_id" = $1`)).
-// 		WithArgs(1).
-// 		WillReturnRows(sqlmock.NewRows([]string{"competency_id"}).AddRow(1))
-
-// 	// Mock soft delete (GORM soft delete updates deleted_at)
-// 	mock.ExpectBegin()
-// 	mock.ExpectExec(regexp.QuoteMeta(`UPDATE "custom_job_matrix" SET "deleted_at"=$1 WHERE "custom_job_matrix"."custom_matrix_id" = $2 AND "custom_job_matrix"."deleted_at" IS NULL`)).
-// 		WithArgs(sqlmock.AnyArg(), "1").
-// 		WillReturnResult(sqlmock.NewResult(1, 1))
-// 	mock.ExpectCommit()
-
-// 	// Create context and perform request
-// 	c, w := ctxWithJSON(t, db, "DELETE", "/job-requirements/1", nil)
-// 	c.Params = []gin.Param{{Key: "matrixID", Value: "1"}}
-
-// 	DeleteJobMatrixEntryHandler(c)
-
-// 	// Assertions
-// 	require.Equal(t, http.StatusOK, w.Code)
-// 	require.NoError(t, mock.ExpectationsWereMet())
-
-// 	var response map[string]string
-// 	err := json.Unmarshal(w.Body.Bytes(), &response)
-// 	require.NoError(t, err)
-// 	require.Equal(t, "Job requirement entry deleted successfully", response["message"])
-// }
