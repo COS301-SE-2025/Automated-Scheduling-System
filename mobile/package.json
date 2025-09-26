@@ -41,6 +41,9 @@
     "plugins": [
       "expo-router"
     ],
+    "android": {
+      "package": "com.cos301.automatedscheduling"
+    },
     "extra": {
       "router": {
         "origin": false

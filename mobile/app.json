@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "7edd0263-fa18-4567-b4fd-321e4d9621d7"
+      }
+    },
+    "android": {
+      "package": "com.marcopax.automatedschedulingmobile"
+    }
+  }
+}
