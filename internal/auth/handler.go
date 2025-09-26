@@ -141,18 +141,18 @@ func ProfileHandler(c *gin.Context) {
 	emailInterface, exists := c.Get("email")
 
 	if !exists {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not extract email from token"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Could not extract email from token"})
 		return
 	}
 	email, ok := emailInterface.(string)
 	if !ok {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Invalid email format"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email format"})
 		return
 	}
 
 	var extendedEmployee models.ExtendedEmployee
 	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("Useraccountemail = ?", email).First(&extendedEmployee).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		return
 	}
 
