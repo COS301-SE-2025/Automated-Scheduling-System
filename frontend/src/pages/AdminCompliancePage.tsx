@@ -128,7 +128,7 @@ const AdminCompliancePage: React.FC = () => {
         <ComplianceTrends data={data.trendData} />
 
         {/* Status Distribution */}
-        <div className="bg-white dark:bg-dark-div p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+        {/* <div className="bg-white dark:bg-dark-div p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
           <h3 className="text-lg font-semibold text-custom-text dark:text-dark-text mb-4">
             Overall Status Distribution
           </h3>
@@ -144,7 +144,7 @@ const AdminCompliancePage: React.FC = () => {
               </div>
             ))}
           </div>
-        </div>
+        </div> */}
 
         {/* Large datasets warning */}
         {data.companyOverview.totalEmployees > 100 && (
