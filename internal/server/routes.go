@@ -14,6 +14,7 @@ import (
 	"Automated-Scheduling-Project/internal/employee_competencies"
 	"Automated-Scheduling-Project/internal/employment_history"
 
+	"fmt"
 	"net/http"
 
 	"github.com/gin-contrib/cors"
@@ -25,18 +26,19 @@ func (s *Server) RegisterRoutes() http.Handler {
 
 	// CORS (original static configuration restored)
 	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{
-			"http://localhost:5173",
-			"http://127.0.0.1:5173",
-			"http://localhost:8081",
-			"http://127.0.0.1:8081",
-			"http://172.27.170.118:8081",
-			"http://schedulingsystem.app",
-			"https://schedulingsystem.app",
-			"http://schedulingsystem.me",
-			"https://schedulingsystem.me",
-			"https://trp7ate-anonymous-8081.exp.direct",
-		},
+		AllowAllOrigins: true,
+		// AllowOrigins: []string{
+		// 	"http://localhost:5173",
+		// 	"http://127.0.0.1:5173",
+		// 	"http://localhost:8081",
+		// 	"http://127.0.0.1:8081",
+		// 	"http://172.27.170.118:8081",
+		// 	"http://schedulingsystem.app",
+		// 	"https://schedulingsystem.app",
+		// 	"http://schedulingsystem.me",
+		// 	"https://schedulingsystem.me",
+		// 	"https://trp7ate-anonymous-8081.exp.direct",
+		// },
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},

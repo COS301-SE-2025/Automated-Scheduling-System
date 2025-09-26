@@ -22,6 +22,10 @@ type Server struct {
 
 func NewServer(rulesService *rulesv2.RuleBackEndService) *http.Server {
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
+	if port == 0 {
+		port = 8080 // Default to 8080 if PORT is not set or invalid
+	}
+	
 	NewServer := &Server{
 		port: port,
 
@@ -31,7 +35,7 @@ func NewServer(rulesService *rulesv2.RuleBackEndService) *http.Server {
 
 	// Declare Server config
 	server := &http.Server{
-		Addr:         fmt.Sprintf(":%d", NewServer.port),
+		Addr:         fmt.Sprintf("0.0.0.0:%d", NewServer.port),
 		Handler:      NewServer.RegisterRoutes(),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
