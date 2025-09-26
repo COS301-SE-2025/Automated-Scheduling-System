@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, useWindowDimensions, Platform, ScrollView } from 'react-native';
 import { Calendar as RNCalendar, type ICalendarEventBase } from 'react-native-big-calendar';
 import { useRouter } from 'expo-router';
 import { getScheduledEvents, createScheduledEvent, type MobileEvent } from '@/services/events';
@@ -401,47 +401,96 @@ export default function CalendarScreen() {
             goNext={goNext}
             goToday={goToday}
           />
-          <RNCalendar
-            // Let calendar fill available space minus header + padding.
-            height={Platform.OS === 'web' ? 660 : 600}
-            mode={mode}
-            date={date}
-            events={events}
-            onPressEvent={handlePressEvent}
-            onPressCell={handlePressCell}
-            renderEvent={(event: EventWithMeta) => {
-              return (
-                <View style={{
-                  flex: 1,
-                  margin: 1,
-                  padding: 4,
-                  backgroundColor: event.color || '#3788d8',
-                  borderRadius: 4,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  minHeight: 18,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.2,
-                  shadowRadius: 1,
-                  elevation: 2,
-                }}>
-                  <Text style={{ 
-                    color: 'white', 
-                    fontWeight: '600', 
-                    fontSize: 10,
-                    textAlign: 'center',
-                    textShadowColor: 'rgba(0,0,0,0.7)',
-                    textShadowOffset: { width: 0, height: 1 },
-                    textShadowRadius: 1,
-                  }} numberOfLines={1}>
-                    {event.title}
-                  </Text>
-                </View>
-              );
-            }}
-            swipeEnabled
-          />
+          {/* Scrollable wrapper for month view to allow viewing full grid + natural scrolling on web mobile emulation */}
+          {mode === 'month' ? (
+            <ScrollView 
+              style={styles.monthScroll}
+              contentContainerStyle={styles.monthScrollContent}
+              showsVerticalScrollIndicator
+            >
+              <RNCalendar
+                height={Platform.OS === 'web' ? 880 : 860}
+                mode={mode}
+                date={date}
+                events={events}
+                onPressEvent={handlePressEvent}
+                onPressCell={handlePressCell}
+                renderEvent={(event: EventWithMeta) => {
+                  return (
+                    <View style={{
+                      flex: 1,
+                      margin: 1,
+                      padding: 4,
+                      backgroundColor: event.color || '#3788d8',
+                      borderRadius: 4,
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      minHeight: 18,
+                      shadowColor: '#000',
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: 0.2,
+                      shadowRadius: 1,
+                      elevation: 2,
+                    }}>
+                      <Text style={{ 
+                        color: 'white', 
+                        fontWeight: '600', 
+                        fontSize: 10,
+                        textAlign: 'center',
+                        textShadowColor: 'rgba(0,0,0,0.7)',
+                        textShadowOffset: { width: 0, height: 1 },
+                        textShadowRadius: 1,
+                      }} numberOfLines={1}>
+                        {event.title}
+                      </Text>
+                    </View>
+                  );
+                }}
+                swipeEnabled
+              />
+            </ScrollView>
+          ) : (
+            <RNCalendar
+              height={mode === 'week' ? 660 : 600}
+              mode={mode}
+              date={date}
+              events={events}
+              onPressEvent={handlePressEvent}
+              onPressCell={handlePressCell}
+              renderEvent={(event: EventWithMeta) => {
+                return (
+                  <View style={{
+                    flex: 1,
+                    margin: 1,
+                    padding: 4,
+                    backgroundColor: event.color || '#3788d8',
+                    borderRadius: 4,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    minHeight: 18,
+                    shadowColor: '#000',
+                    shadowOffset: { width: 0, height: 1 },
+                    shadowOpacity: 0.2,
+                    shadowRadius: 1,
+                    elevation: 2,
+                  }}>
+                    <Text style={{ 
+                      color: 'white', 
+                      fontWeight: '600', 
+                      fontSize: 10,
+                      textAlign: 'center',
+                      textShadowColor: 'rgba(0,0,0,0.7)',
+                      textShadowOffset: { width: 0, height: 1 },
+                      textShadowRadius: 1,
+                    }} numberOfLines={1}>
+                      {event.title}
+                    </Text>
+                  </View>
+                );
+              }}
+              swipeEnabled
+            />
+          )}
         </View>
       )}
 
@@ -543,6 +592,8 @@ const styles = StyleSheet.create({
   calendarWrap: { flex: 1, backgroundColor: colors.surface, margin: 16, borderRadius: 12, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
   veil: { position: 'absolute', top: 8, right: 8, zIndex: 10, backgroundColor: '#ffffffcc', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   veilText: { fontSize: 12, color: '#374151' },
+  monthScroll: { flexGrow: 0, maxHeight: 880 },
+  monthScrollContent: { paddingBottom: 12 },
   // Toolbar (responsive)
   toolbarContainer: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.surface },
   toolbarStacked: { paddingBottom: 10 },
