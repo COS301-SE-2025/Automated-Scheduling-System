@@ -538,7 +538,8 @@ function ResponsiveToolbar({ headerTitle, mode, setMode, goPrev, goNext, goToday
 
   return (
     <View style={[styles.toolbarContainer, stacked && styles.toolbarStacked]}> 
-      <View style={[styles.toolbarRow, stacked && styles.rowSpacing]}> 
+      {/* Row 1: navigation buttons */}
+      <View style={[styles.toolbarRow, stacked && styles.rowSpacing, stacked && styles.navRowStacked]}> 
         <View style={styles.navGroup}>
           <ToolbarButton label="Prev" onPress={goPrev} accessibilityLabel="Previous period" />
           <ToolbarButton label="Today" onPress={goToday} />
@@ -549,26 +550,49 @@ function ResponsiveToolbar({ headerTitle, mode, setMode, goPrev, goNext, goToday
             <Text style={styles.title}>{headerTitle}</Text>
           </View>
         )}
-        <View style={styles.modeGroup}>
-          {(['month','week','day'] as ViewMode[]).map(m => (
-            <TouchableOpacity
-              key={m}
-              onPress={() => setMode(m)}
-              style={[styles.modeBtn, mode === m && styles.modeBtnActive]}
-              accessibilityRole="button"
-              accessibilityState={{ selected: mode === m }}
-            >
-              <Text style={[styles.modeText, mode === m && styles.modeTextActive]}>
-                {m === 'month' ? 'Month' : m === 'week' ? 'Week' : 'Day'}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {!stacked && (
+          <View style={styles.modeGroup}>
+            {(['month','week','day'] as ViewMode[]).map(m => (
+              <TouchableOpacity
+                key={m}
+                onPress={() => setMode(m)}
+                style={[styles.modeBtn, mode === m && styles.modeBtnActive]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: mode === m }}
+              >
+                <Text style={[styles.modeText, mode === m && styles.modeTextActive]}>
+                  {m === 'month' ? 'Month' : m === 'week' ? 'Week' : 'Day'}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </View>
       {stacked && (
-        <View style={[styles.toolbarRow, styles.titleRowStacked]}> 
-          <Text style={styles.title}>{headerTitle}</Text>
-        </View>
+        <>
+          {/* Row 2: title centered */}
+          <View style={[styles.toolbarRow, styles.titleRowStacked, styles.rowSpacing]}> 
+            <Text style={styles.title}>{headerTitle}</Text>
+          </View>
+          {/* Row 3: mode buttons full width */}
+          <View style={[styles.toolbarRow, styles.modeRowStacked]}> 
+            <View style={styles.modeGroup}>
+              {(['month','week','day'] as ViewMode[]).map(m => (
+                <TouchableOpacity
+                  key={m}
+                  onPress={() => setMode(m)}
+                  style={[styles.modeBtn, mode === m && styles.modeBtnActive]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: mode === m }}
+                >
+                  <Text style={[styles.modeText, mode === m && styles.modeTextActive]}>
+                    {m === 'month' ? 'Month' : m === 'week' ? 'Week' : 'Day'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </>
       )}
     </View>
   );
@@ -600,10 +624,12 @@ const styles = StyleSheet.create({
   toolbarRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   rowSpacing: { marginBottom: 8 },
   navGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  navRowStacked: { justifyContent: 'center' },
   navBtn: { minWidth: 64, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#f3f4f6', borderRadius: 8, borderWidth: 1, borderColor: colors.border },
   navBtnText: { color: '#374151', fontWeight: '600', fontSize: 14 },
   titleWrap: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
   titleRowStacked: { justifyContent: 'center' },
+  modeRowStacked: { justifyContent: 'center' },
   title: { fontSize: 18, fontWeight: '700', color: colors.text },
   modeGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   modeBtn: { minWidth: 70, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: 'transparent', borderRadius: 8, borderWidth: 1, borderColor: colors.border },
