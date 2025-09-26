@@ -2,78 +2,90 @@ export const tokenKey = 'auth_token';
 export const userKey = 'auth_user';
 export const permissionsKey = 'auth_permissions';
 
-async function setWeb(key: string, value: string | null) {
-  if (typeof localStorage === 'undefined') return;
-  if (value) localStorage.setItem(key, value);
-  else localStorage.removeItem(key);
-}
+// In-memory cache so we can synchronously read the token for axios interceptors.
+let memoryToken: string | null = null;
 
-async function getWeb(key: string): Promise<string | null> {
+// Optional / dynamic requires so code still works in web + native without bundler issues.
+let secureStore: typeof import('expo-secure-store') | null = null;
+try { secureStore = require('expo-secure-store'); } catch {}
+
+let asyncStorage: typeof import('@react-native-async-storage/async-storage').default | null = null;
+try { asyncStorage = require('@react-native-async-storage/async-storage').default; } catch {}
+
+// Browser (web) helpers
+async function setBrowser(key: string, value: string | null) {
+  if (typeof localStorage === 'undefined') return;
+  if (value == null) localStorage.removeItem(key); else localStorage.setItem(key, value);
+}
+async function getBrowser(key: string): Promise<string | null> {
   if (typeof localStorage === 'undefined') return null;
   return localStorage.getItem(key);
 }
 
-let secureStore: typeof import('expo-secure-store') | null = null;
-try { secureStore = require('expo-secure-store'); } catch {}
-
-export async function setTokenAsync(token: string | null) {
+// Generic layered set/get: SecureStore > AsyncStorage > Browser localStorage
+async function layeredSet(key: string, value: string | null) {
+  // Highest priority: SecureStore (only for sensitive data; we'll still use it for all for simplicity)
   if (secureStore?.isAvailableAsync && (await secureStore.isAvailableAsync())) {
-    if (token) await secureStore.setItemAsync(tokenKey, token);
-    else await secureStore.deleteItemAsync(tokenKey);
-  } else {
-    await setWeb(tokenKey, token);
+    if (value == null) await secureStore.deleteItemAsync(key); else await secureStore.setItemAsync(key, value);
+    return;
   }
+  // Native non-secure fallback
+  if (asyncStorage) {
+    if (value == null) await asyncStorage.removeItem(key); else await asyncStorage.setItem(key, value);
+    return;
+  }
+  // Web fallback
+  await setBrowser(key, value);
+}
+
+async function layeredGet(key: string): Promise<string | null> {
+  if (secureStore?.isAvailableAsync && (await secureStore.isAvailableAsync())) {
+    return await secureStore.getItemAsync(key);
+  }
+  if (asyncStorage) {
+    return await asyncStorage.getItem(key);
+  }
+  return await getBrowser(key);
+}
+
+// Token helpers -----------------------------------------------------------
+export async function setTokenAsync(token: string | null) {
+  memoryToken = token; // keep in sync for sync access
+  await layeredSet(tokenKey, token);
 }
 
 export async function getTokenAsync(): Promise<string | null> {
-  if (secureStore?.isAvailableAsync && (await secureStore.isAvailableAsync())) {
-    return await secureStore.getItemAsync(tokenKey);
-  }
-  return await getWeb(tokenKey);
+  const t = await layeredGet(tokenKey);
+  memoryToken = t; // prime cache
+  return t;
 }
 
+// User helpers ------------------------------------------------------------
 export async function setUserAsync(user: any) {
   const userStr = user ? JSON.stringify(user) : null;
-  if (secureStore?.isAvailableAsync && (await secureStore.isAvailableAsync())) {
-    if (userStr) await secureStore.setItemAsync(userKey, userStr);
-    else await secureStore.deleteItemAsync(userKey);
-  } else {
-    await setWeb(userKey, userStr);
-  }
+  await layeredSet(userKey, userStr);
 }
 
 export async function getUserAsync(): Promise<any | null> {
-  let userStr: string | null = null;
-  if (secureStore?.isAvailableAsync && (await secureStore.isAvailableAsync())) {
-    userStr = await secureStore.getItemAsync(userKey);
-  } else {
-    userStr = await getWeb(userKey);
-  }
+  const userStr = await layeredGet(userKey);
   return userStr ? JSON.parse(userStr) : null;
 }
 
+// Permissions helpers -----------------------------------------------------
 export async function setPermissionsAsync(permissions: string[] | null) {
   const permStr = permissions ? JSON.stringify(permissions) : null;
-  if (secureStore?.isAvailableAsync && (await secureStore.isAvailableAsync())) {
-    if (permStr) await secureStore.setItemAsync(permissionsKey, permStr);
-    else await secureStore.deleteItemAsync(permissionsKey);
-  } else {
-    await setWeb(permissionsKey, permStr);
-  }
+  await layeredSet(permissionsKey, permStr);
 }
 
 export async function getPermissionsAsync(): Promise<string[] | null> {
-  let permStr: string | null = null;
-  if (secureStore?.isAvailableAsync && (await secureStore.isAvailableAsync())) {
-    permStr = await secureStore.getItemAsync(permissionsKey);
-  } else {
-    permStr = await getWeb(permissionsKey);
-  }
+  const permStr = await layeredGet(permissionsKey);
   return permStr ? JSON.parse(permStr) : null;
 }
 
-// sync helpers used by interceptor; best-effort from web storage
+// Synchronous accessor used by axios interceptor. Falls back to browser localStorage
+// ONLY if memory cache not yet primed (e.g., during very first app load on web before async init completes).
 export function getToken(): string | null {
-  if (typeof localStorage === 'undefined') return null;
-  return localStorage.getItem(tokenKey);
+  if (memoryToken != null) return memoryToken;
+  if (typeof localStorage !== 'undefined') return localStorage.getItem(tokenKey);
+  return null;
 }
