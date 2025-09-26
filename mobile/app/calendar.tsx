@@ -322,6 +322,7 @@ export default function CalendarScreen() {
       await load(); // Refresh the calendar
       setShowScheduleModal(false);
     } catch (error) {
+      // @ts-ignore
       throw error; // Let the modal handle the error
     }
   };
