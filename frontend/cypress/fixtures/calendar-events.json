@@ -1,42 +1,68 @@
 [
   {
-    "id": 1,
-    "title": "Team Meeting",
-    "start": "2024-01-15T10:00:00",
-    "end": "2024-01-15T11:00:00",
-    "description": "Weekly team sync",
-    "type": "meeting",
-    "attendees": ["john.doe@example.com", "jane.smith@example.com"],
-    "backgroundColor": "#3788d8"
+    "CustomEventScheduleID": 1,
+    "CustomEventID": 1,
+    "Title": "Team Meeting",
+    "EventStartDate": "2024-01-15T10:00:00Z",
+    "EventEndDate": "2024-01-15T11:00:00Z",
+    "RoomName": "Conference Room A",
+    "MaximumAttendees": 10,
+    "MinimumAttendees": 5,
+    "StatusName": "Scheduled",
+    "CreationDate": "2024-01-10T10:00:00Z",
+    "color": "#3788d8",
+    "CustomEventDefinition": {
+      "CustomEventID": 1,
+      "EventName": "Team Meeting",
+      "ActivityDescription": "Weekly team sync",
+      "StandardDuration": "1h",
+      "Facilitator": "John Doe",
+      "CreatedBy": "admin",
+      "CreationDate": "2024-01-01T10:00:00Z"
+    }
   },
   {
-    "id": 2,
-    "title": "Project Review",
-    "start": "2024-01-16T14:00:00",
-    "end": "2024-01-16T15:30:00",
-    "description": "Monthly project review with stakeholders",
-    "type": "review",
-    "attendees": ["john.doe@example.com", "manager@example.com"],
-    "backgroundColor": "#f39c12"
+    "CustomEventScheduleID": 2,
+    "CustomEventID": 2,
+    "Title": "Project Review",
+    "EventStartDate": "2024-01-16T14:00:00Z",
+    "EventEndDate": "2024-01-16T15:30:00Z",
+    "RoomName": "Meeting Room B",
+    "MaximumAttendees": 8,
+    "MinimumAttendees": 3,
+    "StatusName": "Scheduled",
+    "CreationDate": "2024-01-10T10:00:00Z",
+    "color": "#f39c12",
+    "CustomEventDefinition": {
+      "CustomEventID": 2,
+      "EventName": "Project Review",
+      "ActivityDescription": "Monthly project review with stakeholders",
+      "StandardDuration": "1.5h",
+      "Facilitator": "Jane Smith",
+      "CreatedBy": "admin",
+      "CreationDate": "2024-01-01T10:00:00Z"
+    }
   },
   {
-    "id": 3,
-    "title": "Training Session",
-    "start": "2024-01-17T09:00:00",
-    "end": "2024-01-17T12:00:00",
-    "description": "New employee training",
-    "type": "training",
-    "attendees": ["trainer@example.com", "newbie@example.com"],
-    "backgroundColor": "#27ae60"
-  },
-  {
-    "id": 4,
-    "title": "Client Call",
-    "start": "2024-01-18T13:00:00",
-    "end": "2024-01-18T14:00:00",
-    "description": "Weekly client check-in",
-    "type": "client-meeting",
-    "attendees": ["sales@example.com", "client@company.com"],
-    "backgroundColor": "#e74c3c"
+    "CustomEventScheduleID": 3,
+    "CustomEventID": 3,
+    "Title": "Training Session",
+    "EventStartDate": "2024-01-17T09:00:00Z",
+    "EventEndDate": "2024-01-17T12:00:00Z",
+    "RoomName": "Training Room",
+    "MaximumAttendees": 15,
+    "MinimumAttendees": 8,
+    "StatusName": "Scheduled",
+    "CreationDate": "2024-01-10T10:00:00Z",
+    "color": "#27ae60",
+    "CustomEventDefinition": {
+      "CustomEventID": 3,
+      "EventName": "Training Session",
+      "ActivityDescription": "New employee training",
+      "StandardDuration": "3h",
+      "Facilitator": "Training Team",
+      "CreatedBy": "hr",
+      "CreationDate": "2024-01-01T10:00:00Z"
+    }
   }
 ]

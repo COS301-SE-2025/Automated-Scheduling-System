@@ -13,18 +13,14 @@ function loginUser(email, password) {
 
 // Mock auth helper
 function mockAuthentication(token = 'mock-token') {
-  cy.window().then((win) => {
-    win.localStorage.setItem('authToken', token);
-  });
+  cy.window().its('localStorage').invoke('setItem', 'authToken', token);
 }
 
 // Clean state helper
 function cleanSlate() {
   cy.clearLocalStorage();
   cy.clearCookies();
-  cy.window().then((win) => {
-    win.sessionStorage.clear();
-  });
+  cy.window().its('sessionStorage').invoke('clear');
 }
 
 // Export helpers for use in tests

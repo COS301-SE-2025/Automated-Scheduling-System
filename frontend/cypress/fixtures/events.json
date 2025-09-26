@@ -1,0 +1,62 @@
+[
+  {
+    "id": "1",
+    "title": "Team Standup",
+    "start": "2025-09-24T09:00:00Z",
+    "end": "2025-09-24T09:30:00Z",
+    "allDay": false,
+    "extendedProps": {
+      "scheduleId": 1,
+      "definitionId": 1,
+      "eventType": "Meeting",
+      "roomName": "Conference Room A",
+      "maxAttendees": 10,
+      "minAttendees": 5,
+      "statusName": "Scheduled",
+      "creationDate": "2025-09-20T10:00:00Z",
+      "facilitator": "John Doe",
+      "relevantParties": "Development Team",
+      "color": "#3788d8"
+    }
+  },
+  {
+    "id": "2", 
+    "title": "Project Review",
+    "start": "2025-09-25T14:00:00Z",
+    "end": "2025-09-25T15:30:00Z",
+    "allDay": false,
+    "extendedProps": {
+      "scheduleId": 2,
+      "definitionId": 2,
+      "eventType": "Review",
+      "roomName": "Meeting Room B",
+      "maxAttendees": 8,
+      "minAttendees": 3,
+      "statusName": "Scheduled", 
+      "creationDate": "2025-09-20T10:00:00Z",
+      "facilitator": "Jane Smith",
+      "relevantParties": "Project Team",
+      "color": "#f39c12"
+    }
+  },
+  {
+    "id": "3",
+    "title": "Training Session",
+    "start": "2025-09-26T10:00:00Z", 
+    "end": "2025-09-26T12:00:00Z",
+    "allDay": false,
+    "extendedProps": {
+      "scheduleId": 3,
+      "definitionId": 3,
+      "eventType": "Training",
+      "roomName": "Training Room",
+      "maxAttendees": 15,
+      "minAttendees": 8,
+      "statusName": "Scheduled",
+      "creationDate": "2025-09-20T10:00:00Z",
+      "facilitator": "Training Team",
+      "relevantParties": "All Staff",
+      "color": "#27ae60"
+    }
+  }
+]
