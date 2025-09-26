@@ -69,70 +69,56 @@ func GetEmployeeCompetencyProfile(c *gin.Context) {
     prof.Employee.PositionCode = curPos.Code
     prof.Employee.PositionTitle = curPos.Title
 
-    // Completed: from employee_competencies join competency_definitions
-    rows := []struct {
-        ID int; Name, Type string; Desc string; Expires *int; IsActive bool; Ach time.Time; Exp *time.Time
+    // Get all assigned competencies (both completed and required)
+    allRows := []struct {
+        ID int; Name, Type string; Desc string; Expires *int; IsActive bool; Ach *time.Time; Exp *time.Time
     }{}
     DB.Table("employee_competencies ec").
         Select("cd.competency_id as id, cd.competency_name as name, cd.competency_type_name as type, cd.description as desc, cd.expiry_period_months as expires, cd.is_active as is_active, ec.achievement_date as ach, ec.expiry_date as exp").
         Joins("JOIN competency_definitions cd ON cd.competency_id = ec.competency_id").
-        Where("ec.employee_number = ?", ext.Employee.Employeenumber).Scan(&rows)
-    now := time.Now()
-    for _, r := range rows {
-        status := "Valid"
-        if !r.IsActive { status = "Archived" }
-        if r.Exp != nil {
-            if r.Exp.Before(now) { status = "Expired" } else if r.Exp.Sub(now).Hours() <= 24*60 { status = "Expires Soon" }
-        }
-        prof.Completed = append(prof.Completed, CompetencyBrief{
-            CompetencyID: r.ID,
-            CompetencyName: r.Name,
-            CompetencyTypeName: r.Type,
-            Description: r.Desc,
-            ExpiryPeriodMonths: r.Expires,
-            IsActive: r.IsActive,
-            AchievementDate: &r.Ach,
-            ExpiryDate: r.Exp,
-            Status: status,
-        })
-    }
-
-    // Required: from custom_job_matrix for current position, active competencies, excluding completed
-    completedSet := map[int]struct{}{}
-    for _, ccc := range prof.Completed { completedSet[ccc.CompetencyID] = struct{}{} }
+        Where("ec.employee_number = ?", ext.Employee.Employeenumber).Scan(&allRows)
     
-    if curPos.Code != "" {
-        // Use a raw SQL query to ensure we get the data correctly
-        reqRows := []struct {
-            CompetencyID       int    `gorm:"column:competency_id"`
-            CompetencyName     string `gorm:"column:competency_name"`
-            CompetencyTypeName string `gorm:"column:competency_type_name"`
-            Description        string `gorm:"column:description"`
-            ExpiryPeriodMonths *int   `gorm:"column:expiry_period_months"`
-            IsActive           bool   `gorm:"column:is_active"`
-        }{}
-        
-        DB.Table("custom_job_matrix cjm").
-            Select("cd.competency_id, cd.competency_name, cd.competency_type_name, cd.description, cd.expiry_period_months, cd.is_active").
-            Joins("JOIN competency_definitions cd ON cd.competency_id = cjm.competency_id").
-            Where("cjm.position_matrix_code = ? AND cjm.requirement_status = ? AND cd.is_active = ?", curPos.Code, "Required", true).
-            Scan(&reqRows)
-        
-        for _, r := range reqRows {
-            if _, done := completedSet[r.CompetencyID]; done { continue }
+    now := time.Now()
+    for _, r := range allRows {
+        // If achievement_date is not null, it's completed
+        if r.Ach != nil {
+            status := "Valid"
+            if !r.IsActive { 
+                status = "Archived" 
+            }
+            if r.Exp != nil {
+                if r.Exp.Before(now) { 
+                    status = "Expired" 
+                } else if r.Exp.Sub(now).Hours() <= 24*60 { 
+                    status = "Expires Soon" 
+                }
+            }
+            prof.Completed = append(prof.Completed, CompetencyBrief{
+                CompetencyID: r.ID,
+                CompetencyName: r.Name,
+                CompetencyTypeName: r.Type,
+                Description: r.Desc,
+                ExpiryPeriodMonths: r.Expires,
+                IsActive: r.IsActive,
+                AchievementDate: r.Ach,
+                ExpiryDate: r.Exp,
+                Status: status,
+            })
+        } else {
+            // If achievement_date is null, it's required but not completed
             // Get prerequisites for this competency
             var prereqIDs []int
             DB.Table("competency_prerequisites cp").
                 Select("cp.prerequisite_competency_id").
-                Where("cp.competency_id = ?", r.CompetencyID).
+                Where("cp.competency_id = ?", r.ID).
                 Pluck("prerequisite_competency_id", &prereqIDs)
             
             prof.Required = append(prof.Required, CompetencyBrief{
-                CompetencyID: r.CompetencyID,
-                CompetencyName: r.CompetencyName,
-                CompetencyTypeName: r.CompetencyTypeName,
-                Description: r.Description,
-                ExpiryPeriodMonths: r.ExpiryPeriodMonths,
+                CompetencyID: r.ID,
+                CompetencyName: r.Name,
+                CompetencyTypeName: r.Type,
+                Description: r.Desc,
+                ExpiryPeriodMonths: r.Expires,
                 IsActive: r.IsActive,
                 Prerequisites: prereqIDs,
             })
@@ -176,14 +162,14 @@ func GetEmployeeVisualizationData(c *gin.Context) {
 	vizData.Employee.PositionCode = curPos.Code
 	vizData.Employee.PositionTitle = curPos.Title
 
-	// Get completed competencies with status
-	completedRows := []struct {
-		ID int; Name, Type string; IsActive bool; Ach time.Time; Exp *time.Time
+	// Get all assigned competencies (both completed and pending)
+	allCompetencyRows := []struct {
+		ID int; Name, Type string; IsActive bool; Ach *time.Time; Exp *time.Time
 	}{}
 	DB.Table("employee_competencies ec").
 		Select("cd.competency_id as id, cd.competency_name as name, cd.competency_type_name as type, cd.is_active as is_active, ec.achievement_date as ach, ec.expiry_date as exp").
 		Joins("JOIN competency_definitions cd ON cd.competency_id = ec.competency_id").
-		Where("ec.employee_number = ?", ext.Employee.Employeenumber).Scan(&completedRows)
+		Where("ec.employee_number = ?", ext.Employee.Employeenumber).Scan(&allCompetencyRows)
 
 	now := time.Now()
 	completedSet := map[int]struct{}{}
@@ -191,24 +177,35 @@ func GetEmployeeVisualizationData(c *gin.Context) {
 		"completed":     0,
 		"expired":       0,
 		"expires_soon":  0,
+		"required":      0,
 	}
 
-	for _, r := range completedRows {
-		completedSet[r.ID] = struct{}{}
-		
-		status := "completed"
+	for _, r := range allCompetencyRows {
+		var status string
 		var daysUntilExpiry *int
 		
-		if !r.IsActive {
-			status = "archived"
-		} else if r.Exp != nil {
-			daysUntil := int(r.Exp.Sub(now).Hours() / 24)
-			daysUntilExpiry = &daysUntil
+		// If achievement_date is null, competency is assigned but not completed
+		if r.Ach == nil {
+			status = "required"
+		} else {
+			// Mark as completed for tracking
+			completedSet[r.ID] = struct{}{}
 			
-			if r.Exp.Before(now) {
-				status = "expired"
-			} else if daysUntil <= 60 { // Expires within 60 days
-				status = "expires_soon"
+			if !r.IsActive {
+				status = "archived"
+			} else if r.Exp != nil {
+				daysUntil := int(r.Exp.Sub(now).Hours() / 24)
+				daysUntilExpiry = &daysUntil
+				
+				if r.Exp.Before(now) {
+					status = "expired"
+				} else if daysUntil <= 60 { // Expires within 60 days
+					status = "expires_soon"
+				} else {
+					status = "completed"
+				}
+			} else {
+				status = "completed"
 			}
 		}
 
@@ -219,58 +216,27 @@ func GetEmployeeVisualizationData(c *gin.Context) {
 			CompetencyName:     r.Name,
 			CompetencyTypeName: r.Type,
 			Status:             status,
-			AchievementDate:    &r.Ach,
+			AchievementDate:    r.Ach,
 			ExpiryDate:         r.Exp,
 			DaysUntilExpiry:    daysUntilExpiry,
 		})
 	}
 
-	// Get required competencies (not yet completed)
-	var requiredCount int
-	if curPos.Code != "" {
-		reqRows := []struct {
-			CompetencyID       int    `gorm:"column:competency_id"`
-			CompetencyName     string `gorm:"column:competency_name"`
-			CompetencyTypeName string `gorm:"column:competency_type_name"`
-		}{}
-		
-		DB.Table("custom_job_matrix cjm").
-			Select("cd.competency_id, cd.competency_name, cd.competency_type_name").
-			Joins("JOIN competency_definitions cd ON cd.competency_id = cjm.competency_id").
-			Where("cjm.position_matrix_code = ? AND cjm.requirement_status = ? AND cd.is_active = ?", curPos.Code, "Required", true).
-			Scan(&reqRows)
-
-		for _, r := range reqRows {
-			if _, done := completedSet[r.CompetencyID]; done { 
-				continue 
-			}
-			requiredCount++
-			
-			vizData.CompetencyBreakdown = append(vizData.CompetencyBreakdown, models.CompetencyVisualizationItem{
-				CompetencyID:       r.CompetencyID,
-				CompetencyName:     r.CompetencyName,
-				CompetencyTypeName: r.CompetencyTypeName,
-				Status:             "required",
-			})
-		}
-	}
-
-	// Calculate completion overview
-	totalCompleted := len(completedRows)
-	totalRequired := totalCompleted + requiredCount
+	// Calculate completion overview based on individual assignments
+	totalAssigned := len(allCompetencyRows)
+	totalCompleted := len(completedSet)
+	totalRequired := statusCounts["required"]
 	completionRate := 0.0
-	if totalRequired > 0 {
-		completionRate = float64(totalCompleted) / float64(totalRequired) * 100
+	if totalAssigned > 0 {
+		completionRate = float64(totalCompleted) / float64(totalAssigned) * 100
 	}
 
-	vizData.CompletionOverview.TotalRequired = totalRequired
+	vizData.CompletionOverview.TotalRequired = totalAssigned
 	vizData.CompletionOverview.TotalCompleted = totalCompleted
 	vizData.CompletionOverview.CompletionRate = completionRate
-	vizData.CompletionOverview.TotalOutstanding = requiredCount
+	vizData.CompletionOverview.TotalOutstanding = totalRequired
 
 	// Status breakdown for pie chart
-	statusCounts["required"] = requiredCount
-	
 	for status, count := range statusCounts {
 		if count > 0 {
 			label := strings.Title(strings.ReplaceAll(status, "_", " "))
@@ -333,27 +299,29 @@ func GetAdminComplianceData(c *gin.Context) {
 	var totalCompetencies int64
 	DB.Model(&models.CompetencyDefinition{}).Where("is_active = ?", true).Count(&totalCompetencies)
 
-	// Calculate total required assignments (based on current positions)
+	// Calculate total assigned competencies (individual assignments)
 	type requirementCount struct { Total int }
 	var totalReq requirementCount
-	query := `
+	assignQuery := `
 		SELECT COUNT(*) as total
-		FROM employment_history eh
-		JOIN custom_job_matrix cjm ON cjm.position_matrix_code = eh.position_matrix_code
-		JOIN competency_definitions cd ON cd.competency_id = cjm.competency_id
-		WHERE (eh.end_date IS NULL OR eh.end_date > NOW())
-		AND cjm.requirement_status = 'Required'
-		AND cd.is_active = true
+		FROM employee_competencies ec
+		JOIN competency_definitions cd ON cd.competency_id = ec.competency_id
+		JOIN employee e ON e.EmployeeNumber = ec.employee_number
+		WHERE cd.is_active = true 
+		AND e.employeestatus != 'Terminated'
 	`
-	DB.Raw(query).Scan(&totalReq)
+	DB.Raw(assignQuery).Scan(&totalReq)
 
-	// Calculate total completed assignments
+	// Calculate total completed assignments (where achievement_date is not null)
 	var totalComp requirementCount
 	compQuery := `
 		SELECT COUNT(*) as total
 		FROM employee_competencies ec
 		JOIN competency_definitions cd ON cd.competency_id = ec.competency_id
-		WHERE cd.is_active = true
+		JOIN employee e ON e.EmployeeNumber = ec.employee_number
+		WHERE cd.is_active = true 
+		AND e.employeestatus != 'Terminated'
+		AND ec.achievement_date IS NOT NULL
 	`
 	DB.Raw(compQuery).Scan(&totalComp)
 
@@ -379,21 +347,19 @@ func GetAdminComplianceData(c *gin.Context) {
 
 	deptQuery := `
 		SELECT 
-			jp.position_matrix_code as position_code,
-			jp.job_title as position_title,
+			COALESCE(jp.position_matrix_code, 'UNASSIGNED') as position_code,
+			COALESCE(jp.job_title, 'No Position') as position_title,
 			COUNT(DISTINCT eh.employee_number) as employee_count,
-			COUNT(DISTINCT CASE WHEN cjm.requirement_status = 'Required' THEN cjm.competency_id END) as required_count,
-			COUNT(DISTINCT ec.competency_id) as completed_count
-		FROM job_positions jp
-		LEFT JOIN employment_history eh ON eh.position_matrix_code = jp.position_matrix_code 
-			AND (eh.end_date IS NULL OR eh.end_date > NOW())
-		LEFT JOIN custom_job_matrix cjm ON cjm.position_matrix_code = jp.position_matrix_code 
-			AND cjm.requirement_status = 'Required'
-		LEFT JOIN employee_competencies ec ON ec.employee_number = eh.employee_number 
-			AND ec.competency_id = cjm.competency_id
-		WHERE jp.is_active = true
+			COUNT(DISTINCT ec.competency_id) as required_count,
+			COUNT(DISTINCT CASE WHEN ec.achievement_date IS NOT NULL THEN ec.competency_id END) as completed_count
+		FROM employment_history eh
+		JOIN employee e ON e.EmployeeNumber = eh.employee_number
+		LEFT JOIN job_positions jp ON jp.position_matrix_code = eh.position_matrix_code
+		LEFT JOIN employee_competencies ec ON ec.employee_number = eh.employee_number
+		WHERE (eh.end_date IS NULL OR eh.end_date > NOW())
+		AND e.employeestatus != 'Terminated'
 		GROUP BY jp.position_matrix_code, jp.job_title
-		ORDER BY jp.job_title
+		ORDER BY jp.job_title NULLS LAST
 	`
 	DB.Raw(deptQuery).Scan(&departmentRows)
 
@@ -428,19 +394,16 @@ func GetAdminComplianceData(c *gin.Context) {
 			cd.competency_id,
 			cd.competency_name,
 			cd.competency_type_name,
-			COUNT(DISTINCT cjm.custom_matrix_id) as total_required,
-			COUNT(DISTINCT ec.employee_competency_id) as total_completed
+			COUNT(DISTINCT ec.employee_competency_id) as total_required,
+			COUNT(DISTINCT CASE WHEN ec.achievement_date IS NOT NULL THEN ec.employee_competency_id END) as total_completed
 		FROM competency_definitions cd
-		JOIN custom_job_matrix cjm ON cjm.competency_id = cd.competency_id 
-			AND cjm.requirement_status = 'Required'
-		JOIN employment_history eh ON eh.position_matrix_code = cjm.position_matrix_code 
-			AND (eh.end_date IS NULL OR eh.end_date > NOW())
-		LEFT JOIN employee_competencies ec ON ec.competency_id = cd.competency_id 
-			AND ec.employee_number = eh.employee_number
+		JOIN employee_competencies ec ON ec.competency_id = cd.competency_id
+		JOIN employee e ON e.EmployeeNumber = ec.employee_number
 		WHERE cd.is_active = true
+		AND e.employeestatus != 'Terminated'
 		GROUP BY cd.competency_id, cd.competency_name, cd.competency_type_name
-		HAVING COUNT(DISTINCT cjm.custom_matrix_id) > 0
-		ORDER BY (COUNT(DISTINCT cjm.custom_matrix_id) - COUNT(DISTINCT ec.employee_competency_id)) DESC
+		HAVING COUNT(DISTINCT ec.employee_competency_id) > 0
+		ORDER BY (COUNT(DISTINCT ec.employee_competency_id) - COUNT(DISTINCT CASE WHEN ec.achievement_date IS NOT NULL THEN ec.employee_competency_id END)) DESC
 		LIMIT 10
 	`
 	DB.Raw(hotspotQuery).Scan(&hotspotRows)
@@ -472,21 +435,17 @@ func GetAdminComplianceData(c *gin.Context) {
 	statusQuery := `
 		SELECT 
 			CASE 
+				WHEN ec.achievement_date IS NULL THEN 'required'
 				WHEN ec.expiry_date IS NOT NULL AND ec.expiry_date < NOW() THEN 'expired'
 				WHEN ec.expiry_date IS NOT NULL AND ec.expiry_date <= NOW() + INTERVAL '60 days' THEN 'expires_soon'
-				WHEN ec.employee_competency_id IS NOT NULL THEN 'completed'
-				ELSE 'required'
+				ELSE 'completed'
 			END as status,
 			COUNT(*) as count
-		FROM (
-			SELECT DISTINCT eh.employee_number, cjm.competency_id
-			FROM employment_history eh
-			JOIN custom_job_matrix cjm ON cjm.position_matrix_code = eh.position_matrix_code
-			WHERE (eh.end_date IS NULL OR eh.end_date > NOW())
-			AND cjm.requirement_status = 'Required'
-		) required_assignments
-		LEFT JOIN employee_competencies ec ON ec.employee_number = required_assignments.employee_number 
-			AND ec.competency_id = required_assignments.competency_id
+		FROM employee_competencies ec
+		JOIN competency_definitions cd ON cd.competency_id = ec.competency_id
+		JOIN employee e ON e.EmployeeNumber = ec.employee_number
+		WHERE cd.is_active = true
+		AND e.employeestatus != 'Terminated'
 		GROUP BY status
 	`
 	DB.Raw(statusQuery).Scan(&statusRows)
