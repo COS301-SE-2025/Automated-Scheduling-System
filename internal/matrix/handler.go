@@ -202,13 +202,33 @@ func DeleteJobMatrixEntryHandler(c *gin.Context) {
 	// fire trigger: link_job_to_competency remove
 	fireLinkJobToCompetency(c, "remove", map[string]any{"State": "inactive"}, jp, cd)
 
-	result := DB.Delete(&models.CustomJobMatrix{}, idStr)
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete job requirement"})
-		return
-	}
-	if result.RowsAffected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Job requirement entry not found"})
+	// Also remove auto-assigned competencies for employees currently in this position
+	note := fmt.Sprintf("Auto-assigned because position %s linked to competency %d", entry.PositionMatrixCode, entry.CompetencyID)
+
+	if err := DB.Transaction(func(tx *gorm.DB) error {
+		// Delete only auto-assigned rows for current incumbents of the position
+		if err := tx.Exec(`
+			DELETE FROM employee_competencies ec
+			USING employment_history eh
+			WHERE ec.employee_number = eh.employee_number
+			  AND eh.position_matrix_code = ?
+			  AND eh.start_date <= CURRENT_DATE
+			  AND (eh.end_date IS NULL OR eh.end_date >= CURRENT_DATE)
+			  AND ec.competency_id = ?
+			  AND ec.achievement_date IS NULL
+			  AND ec.granted_by_schedule_id IS NULL
+			  AND ec.notes = ?
+		`, entry.PositionMatrixCode, entry.CompetencyID, note).Error; err != nil {
+			return err
+		}
+
+		// Finally delete the matrix link
+		if err := tx.Delete(&models.CustomJobMatrix{}, idStr).Error; err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove job requirement: " + err.Error()})
 		return
 	}
 
