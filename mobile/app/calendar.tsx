@@ -519,6 +519,7 @@ export default function CalendarScreen() {
         visible={showScheduleModal}
         onClose={() => setShowScheduleModal(false)}
         onSave={handleScheduleEvent}
+        presentation="fullscreen"
       />
     </View>
   );

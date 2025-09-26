@@ -14,7 +14,6 @@ import (
 	"Automated-Scheduling-Project/internal/employee_competencies"
 	"Automated-Scheduling-Project/internal/employment_history"
 
-	"fmt"
 	"net/http"
 
 	"github.com/gin-contrib/cors"
