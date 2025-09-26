@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
 import { Calendar as RNCalendar, type ICalendarEventBase } from 'react-native-big-calendar';
 import { useRouter } from 'expo-router';
 import { getScheduledEvents, createScheduledEvent, type MobileEvent } from '@/services/events';
@@ -393,25 +393,17 @@ export default function CalendarScreen() {
           {loading && (
             <View style={styles.veil}><Text style={styles.veilText}>Refreshing…</Text></View>
           )}
-          <View style={styles.toolbar}>
-            <View style={styles.toolbarLeft}>
-              <TouchableOpacity onPress={goPrev} style={styles.navBtn}><Text style={styles.navBtnText}>Prev</Text></TouchableOpacity>
-              <TouchableOpacity onPress={goToday} style={styles.navBtn}><Text style={styles.navBtnText}>Today</Text></TouchableOpacity>
-              <TouchableOpacity onPress={goNext} style={styles.navBtn}><Text style={styles.navBtnText}>Next</Text></TouchableOpacity>
-            </View>
-            <View style={{ flex: 1, alignItems: 'center' }}>
-              <Text style={styles.title}>{headerTitle}</Text>
-            </View>
-            <View style={styles.modes}>
-              {(['month','week','day'] as ViewMode[]).map(m => (
-                <TouchableOpacity key={m} onPress={() => setMode(m)} style={[styles.modeBtn, mode===m && styles.modeBtnActive]}>
-                  <Text style={[styles.modeText, mode===m && styles.modeTextActive]}>{m === 'day' ? 'Day' : m === 'week' ? 'Week' : 'Month'}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
+          <ResponsiveToolbar 
+            headerTitle={headerTitle}
+            mode={mode}
+            setMode={setMode}
+            goPrev={goPrev}
+            goNext={goNext}
+            goToday={goToday}
+          />
           <RNCalendar
-            height={650}
+            // Let calendar fill available space minus header + padding.
+            height={Platform.OS === 'web' ? 660 : 600}
             mode={mode}
             date={date}
             events={events}
@@ -422,7 +414,7 @@ export default function CalendarScreen() {
                 <View style={{
                   flex: 1,
                   margin: 1,
-                  padding: 3,
+                  padding: 4,
                   backgroundColor: event.color || '#3788d8',
                   borderRadius: 4,
                   justifyContent: 'center',
@@ -437,7 +429,7 @@ export default function CalendarScreen() {
                   <Text style={{ 
                     color: 'white', 
                     fontWeight: '600', 
-                    fontSize: 9,
+                    fontSize: 10,
                     textAlign: 'center',
                     textShadowColor: 'rgba(0,0,0,0.7)',
                     textShadowOffset: { width: 0, height: 1 },
@@ -483,6 +475,64 @@ export default function CalendarScreen() {
   );
 }
 
+// Responsive toolbar extracted for clarity & reusability
+function ResponsiveToolbar({ headerTitle, mode, setMode, goPrev, goNext, goToday }: {
+  headerTitle: string;
+  mode: ViewMode;
+  setMode: (m: ViewMode) => void;
+  goPrev: () => void;
+  goNext: () => void;
+  goToday: () => void;
+}) {
+  const { width } = useWindowDimensions();
+  const stacked = width < 500; // breakpoint for stacking
+
+  return (
+    <View style={[styles.toolbarContainer, stacked && styles.toolbarStacked]}> 
+      <View style={[styles.toolbarRow, stacked && styles.rowSpacing]}> 
+        <View style={styles.navGroup}>
+          <ToolbarButton label="Prev" onPress={goPrev} accessibilityLabel="Previous period" />
+          <ToolbarButton label="Today" onPress={goToday} />
+          <ToolbarButton label="Next" onPress={goNext} accessibilityLabel="Next period" />
+        </View>
+        {!stacked && (
+          <View style={styles.titleWrap}> 
+            <Text style={styles.title}>{headerTitle}</Text>
+          </View>
+        )}
+        <View style={styles.modeGroup}>
+          {(['month','week','day'] as ViewMode[]).map(m => (
+            <TouchableOpacity
+              key={m}
+              onPress={() => setMode(m)}
+              style={[styles.modeBtn, mode === m && styles.modeBtnActive]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: mode === m }}
+            >
+              <Text style={[styles.modeText, mode === m && styles.modeTextActive]}>
+                {m === 'month' ? 'Month' : m === 'week' ? 'Week' : 'Day'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+      {stacked && (
+        <View style={[styles.toolbarRow, styles.titleRowStacked]}> 
+          <Text style={styles.title}>{headerTitle}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function ToolbarButton({ label, onPress, accessibilityLabel }: { label: string; onPress: () => void; accessibilityLabel?: string; }) {
+  return (
+    <TouchableOpacity onPress={onPress} style={styles.navBtn} accessibilityRole="button" accessibilityLabel={accessibilityLabel || label}>
+      <Text style={styles.navBtnText}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
   header: { paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   h1: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 8 },
@@ -493,15 +543,21 @@ const styles = StyleSheet.create({
   calendarWrap: { flex: 1, backgroundColor: colors.surface, margin: 16, borderRadius: 12, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
   veil: { position: 'absolute', top: 8, right: 8, zIndex: 10, backgroundColor: '#ffffffcc', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   veilText: { fontSize: 12, color: '#374151' },
-  toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.surface },
-  toolbarLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  navBtn: { paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#f3f4f6', borderRadius: 6, borderWidth: 1, borderColor: colors.border },
-  navBtnText: { color: '#374151', fontWeight: '600' },
-  title: { fontSize: 16, fontWeight: '700', color: colors.text },
-  modes: { flexDirection: 'row', gap: 6 },
-  modeBtn: { paddingHorizontal: 10, paddingVertical: 6, backgroundColor: 'transparent', borderRadius: 6, borderWidth: 1, borderColor: colors.border },
+  // Toolbar (responsive)
+  toolbarContainer: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.surface },
+  toolbarStacked: { paddingBottom: 10 },
+  toolbarRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  rowSpacing: { marginBottom: 8 },
+  navGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  navBtn: { minWidth: 64, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#f3f4f6', borderRadius: 8, borderWidth: 1, borderColor: colors.border },
+  navBtnText: { color: '#374151', fontWeight: '600', fontSize: 14 },
+  titleWrap: { flex: 1, alignItems: 'center', paddingHorizontal: 8 },
+  titleRowStacked: { justifyContent: 'center' },
+  title: { fontSize: 18, fontWeight: '700', color: colors.text },
+  modeGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  modeBtn: { minWidth: 70, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: 'transparent', borderRadius: 8, borderWidth: 1, borderColor: colors.border },
   modeBtnActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  modeText: { color: colors.text, fontWeight: '600' },
+  modeText: { color: colors.text, fontWeight: '600', fontSize: 14 },
   modeTextActive: { color: 'white' },
   detailRow: { color: colors.text },
   detailLabel: { color: colors.text, fontWeight: '700' },
