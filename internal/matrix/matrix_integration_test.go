@@ -22,7 +22,13 @@ func setupTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&models.JobPosition{}, &models.CompetencyDefinition{}, &models.CustomJobMatrix{}))
+	require.NoError(t, db.AutoMigrate(
+		&models.JobPosition{},
+		&models.CompetencyDefinition{},
+		&models.CustomJobMatrix{},
+		&models.EmployeeCompetency{},
+		&models.EmploymentHistory{},
+	))
 
 	DB = db
 	RulesSvc = nil
