@@ -14,10 +14,11 @@ type UserResponse struct {
 }
 
 type AddUserRequest struct {
-	Username string `json:"username" binding:"required"`
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=8"`
-	Role     string `json:"role" binding:"required"`
+	Username    string  `json:"username" binding:"required"`
+	Email       string  `json:"email" binding:"required,email"`
+	Password    string  `json:"password" binding:"required,min=8"`
+	Role        string  `json:"role" binding:"required"`
+	PhoneNumber *string `json:"phonenumber,omitempty"`
 }
 type UpdateUserRequest struct {
 	Email *string `json:"email,omitempty"`
