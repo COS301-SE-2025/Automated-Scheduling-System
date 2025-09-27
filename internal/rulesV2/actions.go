@@ -39,8 +39,18 @@ func (a *NotificationAction) Execute(ctx EvalContext, params map[string]any) err
 		}
 	}
 
-	if len(recipients) == 0 || subject == "" || message == "" {
-		return fmt.Errorf("notification requires recipients, subject, and message")
+	missing := []string{}
+	if len(recipients) == 0 {
+		missing = append(missing, "recipients")
+	}
+	if subject == "" {
+		missing = append(missing, "subject")
+	}
+	if message == "" {
+		missing = append(missing, "message")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("notification requires: %v", missing)
 	}
 
 	if notificationType == "" {
@@ -76,7 +86,14 @@ func (a *NotificationAction) Execute(ctx EvalContext, params map[string]any) err
 				log.Printf("Failed to find employee %s: %v", employeeNumber, err)
 				return fmt.Errorf("failed to find employee %s: %w", employeeNumber, err)
 			}
-			employeeSMS := employee.PhoneNumber
+			var employeeSMS string
+			// Only send sms if the employee has a phone number
+			if employee.PhoneNumber != nil {
+				employeeSMS = *employee.PhoneNumber
+			} else {
+				log.Printf("Employee %s has no phone number, skipping SMS", employeeNumber)
+				continue
+			}
 
 			smsWithSubject := subject + "\n\n" + message
 			err := a.sendSMS(employeeSMS, smsWithSubject)
