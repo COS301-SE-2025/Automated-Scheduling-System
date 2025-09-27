@@ -620,7 +620,7 @@ func TestCheckEmployeesHaveCompetency_Ok_Unit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db, mock := newMockDB(t)
 	// DB returns only E002 has competency
-	mock.ExpectQuery(`SELECT .*employee_number.*FROM "employee_competencies" WHERE competency_id = \$1 AND employee_number IN \(\$2,\$3\) GROUP BY .*employee_number.*`).
+	mock.ExpectQuery(`SELECT .*employee_number.*FROM "employee_competencies" WHERE competency_id = \$1 AND employee_number IN \(\$2,\$3\)( AND achievement_date IS NOT NULL)? GROUP BY .*employee_number.*`).
 		WithArgs(5, "E001", "E002").
 		WillReturnRows(sqlmock.NewRows([]string{"employee_number"}).AddRow("E002"))
 
