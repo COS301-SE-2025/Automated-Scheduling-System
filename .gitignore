@@ -43,3 +43,6 @@ frontend/flake.nix
 temp
 
 coverage
+# No NixOS related files should ever be tracked
+**/*.nix
+flake.lock

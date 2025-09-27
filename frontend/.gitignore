@@ -26,3 +26,6 @@ dist-ssr
 
 # Ignore cypress screenshots
 cypress/screenshots/
+# No NixOS related files should ever be tracked
+**/*.nix
+flake.lock
