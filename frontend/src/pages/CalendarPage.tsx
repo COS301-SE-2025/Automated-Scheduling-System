@@ -470,7 +470,7 @@ const CalendarPage: React.FC = () => {
                             eventResize={handleEventResize}
                             eventAllow={(_dropInfo, draggedEvent) => {
                                 if (!draggedEvent) return false;
-                                return !!(draggedEvent as any).extendedProps?.canEdit;
+                                return (draggedEvent as any).extendedProps?.canEdit === true;
                             }}
                         />
                         {actionMessage && (

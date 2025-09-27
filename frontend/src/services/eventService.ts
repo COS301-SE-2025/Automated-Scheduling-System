@@ -103,31 +103,43 @@ export const deleteEventDefinition = async (definitionId: number): Promise<void>
 // --- Event Schedule API Calls (for the calendar) ---
 export const getScheduledEvents = async (): Promise<CalendarEvent[]> => {
     const response = await api<BackendScheduledEvent[]>('event-schedules');
-    return response.map(event => ({
-        id: String(event.CustomEventScheduleID),
-        title: event.Title,
-        start: event.EventStartDate,
-        end: event.EventEndDate,
-        allDay: false,
-        extendedProps: {
-            scheduleId: event.CustomEventScheduleID,
-            definitionId: event.CustomEventID,
-            eventType: event.CustomEventDefinition.EventName,
-            roomName: event.RoomName,
-            maxAttendees: event.MaximumAttendees,
-            minAttendees: event.MinimumAttendees,
-            statusName: event.StatusName,
-            creationDate: event.CreationDate,
-            facilitator: event.CustomEventDefinition.Facilitator,
-            relevantParties: buildRelevantParties(event),
-            employees: (event.Employees || []).map((e: any) => e.employee_number ?? e.EmployeeNumber),
-            positions: (event.Positions || []).map((p: any) => p.position_matrix_code ?? p.PositionMatrixCode),
-            color: event.color,
-            canEdit: event.canEdit,
-            canDelete: event.canDelete,
-            creatorUserId: event.creatorUserId,
-        }
-    }));
+
+    // Robust boolean coercion to avoid truthy string values like 'false'
+    const toBool = (v: any): boolean => v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
+
+    return response.map(raw => {
+        const canEdit = toBool((raw as any).canEdit ?? (raw as any).CanEdit);
+        const canDelete = toBool((raw as any).canDelete ?? (raw as any).CanDelete);
+        return {
+            id: String(raw.CustomEventScheduleID),
+            title: raw.Title,
+            start: raw.EventStartDate,
+            end: raw.EventEndDate,
+            allDay: false,
+            editable: canEdit,
+            // Per-event editability hints for FullCalendar (in addition to eventAllow guards)
+            startEditable: canEdit,
+            durationEditable: canEdit,
+            extendedProps: {
+                scheduleId: raw.CustomEventScheduleID,
+                definitionId: raw.CustomEventID,
+                eventType: raw.CustomEventDefinition.EventName,
+                roomName: raw.RoomName,
+                maxAttendees: raw.MaximumAttendees,
+                minAttendees: raw.MinimumAttendees,
+                statusName: raw.StatusName,
+                creationDate: raw.CreationDate,
+                facilitator: raw.CustomEventDefinition.Facilitator,
+                relevantParties: buildRelevantParties(raw),
+                employees: (raw.Employees || []).map((e: any) => e.employee_number ?? e.EmployeeNumber),
+                positions: (raw.Positions || []).map((p: any) => p.position_matrix_code ?? p.PositionMatrixCode),
+                color: raw.color,
+                canEdit,
+                canDelete,
+                creatorUserId: (raw as any).creatorUserId ?? (raw as any).CreatorID,
+            }
+        } as CalendarEvent;
+    });
 };
 
 const buildRelevantParties = (event: BackendScheduledEvent): string => {
