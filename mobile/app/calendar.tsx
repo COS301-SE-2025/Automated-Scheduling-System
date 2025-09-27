@@ -410,7 +410,8 @@ export default function CalendarScreen() {
               showsVerticalScrollIndicator
             >
               <RNCalendar
-                height={Platform.OS === 'web' ? 880 : 860}
+                // Increased overall month height so each week row (and thus each event block) has more vertical space
+                height={Platform.OS === 'web' ? 1180 : 1120}
                 mode={mode}
                 date={date}
                 events={events}
@@ -420,13 +421,14 @@ export default function CalendarScreen() {
                   return (
                     <View style={{
                       flex: 1,
-                      margin: 1,
-                      padding: 4,
+                      margin: 2,
+                      paddingVertical: 6,
+                      paddingHorizontal: 8,
                       backgroundColor: event.color || '#3788d8',
-                      borderRadius: 4,
-                      justifyContent: 'center',
-                      alignItems: 'center',
-                      minHeight: 18,
+                      borderRadius: 8,
+                      justifyContent: 'flex-start',
+                      alignItems: 'flex-start',
+                      minHeight: 48,
                       shadowColor: '#000',
                       shadowOffset: { width: 0, height: 1 },
                       shadowOpacity: 0.2,
@@ -436,12 +438,13 @@ export default function CalendarScreen() {
                       <Text style={{ 
                         color: 'white', 
                         fontWeight: '600', 
-                        fontSize: 10,
-                        textAlign: 'center',
+                        fontSize: 13,
+                        lineHeight: 16,
+                        textAlign: 'left',
                         textShadowColor: 'rgba(0,0,0,0.7)',
                         textShadowOffset: { width: 0, height: 1 },
                         textShadowRadius: 1,
-                      }} numberOfLines={1}>
+                      }} numberOfLines={15}>
                         {event.title}
                       </Text>
                     </View>
@@ -618,7 +621,7 @@ const styles = StyleSheet.create({
   calendarWrap: { flex: 1, backgroundColor: colors.surface, margin: 16, borderRadius: 12, borderWidth: 1, borderColor: colors.border, overflow: 'hidden' },
   veil: { position: 'absolute', top: 8, right: 8, zIndex: 10, backgroundColor: '#ffffffcc', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   veilText: { fontSize: 12, color: '#374151' },
-  monthScroll: { flexGrow: 0, maxHeight: 880 },
+  monthScroll: { flexGrow: 0, maxHeight: 1180 },
   monthScrollContent: { paddingBottom: 12 },
   // Toolbar (responsive)
   toolbarContainer: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border, backgroundColor: colors.surface },
