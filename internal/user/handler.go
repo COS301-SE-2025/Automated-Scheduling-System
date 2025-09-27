@@ -54,7 +54,8 @@ func AddUserHandler(c *gin.Context) {
 	}
 
 	var extendedEmployee models.ExtendedEmployee
-	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("UserAccountEmail = ?", req.Email).First(&extendedEmployee).Error; err != nil {
+	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("Useraccountemail = ?", req.Email).First(&extendedEmployee).Error; err != nil {
+		// fmt.Printf("DEBUG AddUserHandler: failed to find employee for email %s: %v\n", req.Email, err)
 		c.JSON(http.StatusNotFound, gin.H{"message": "Cannot add user, email not found."})
 		return
 	}

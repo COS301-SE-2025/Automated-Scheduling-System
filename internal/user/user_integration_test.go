@@ -3,6 +3,7 @@
 package user
 
 import (
+	"Automated-Scheduling-Project/internal/database/gen_models"
 	"Automated-Scheduling-Project/internal/database/models"
 	"bytes"
 	"encoding/json"
@@ -18,19 +19,6 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
-
-type Employee struct {
-	Employeenumber   string `gorm:"primaryKey"`
-	Firstname        string
-	Lastname         string
-	Useraccountemail string `gorm:"unique"`
-	Employeestatus   string
-	TerminationDate  *string `gorm:"column:TerminationDate"`
-}
-
-func (Employee) TableName() string {
-	return "employee"
-}
 
 type User struct {
 	ID                 uint `gorm:"primaryKey"`
@@ -61,7 +49,7 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		Logger: silentLogger,
 	})
 	require.NoError(t, err, "Failed to connect to in-memory database")
-	require.NoError(t, db.AutoMigrate(&Employee{}, &User{}, &models.Role{}, &models.UserHasRole{}), "Schema migration failed")
+	require.NoError(t, db.AutoMigrate(&gen_models.Employee{}, &User{}, &models.Role{}, &models.UserHasRole{}), "Schema migration failed")
 
 	DB = db
 	return db
@@ -71,7 +59,7 @@ func seedUsersAndEmployees(t *testing.T, db *gorm.DB) (adminUser User, regularUs
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(TestPassword), bcrypt.DefaultCost)
 	require.NoError(t, err)
 
-	employees := []Employee{
+	employees := []gen_models.Employee{
 		{Employeenumber: AdminEmployeeNum, Firstname: "Admin", Lastname: "User", Useraccountemail: AdminEmail, Employeestatus: "Active"},
 		{Employeenumber: UserEmployeeNum, Firstname: "Regular", Lastname: "User", Useraccountemail: UserEmail, Employeestatus: "Active"},
 		{Employeenumber: UnusedEmployeeNum, Firstname: "New", Lastname: "Employee", Useraccountemail: UnusedEmail, Employeestatus: "Active"},
