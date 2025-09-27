@@ -1,133 +1,143 @@
 package profile
 
 import (
-    "Automated-Scheduling-Project/internal/database/gen_models"
-    "Automated-Scheduling-Project/internal/database/models"
-    "net/http"
-    "sort"
-    "strings"
-    "time"
+	"Automated-Scheduling-Project/internal/database/gen_models"
+	"Automated-Scheduling-Project/internal/database/models"
+	"net/http"
+	"sort"
+	"strings"
+	"time"
 
-    "github.com/gin-gonic/gin"
-    "gorm.io/gorm"
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 var DB *gorm.DB
 
 type CompetencyBrief struct {
-    CompetencyID       int       `json:"competencyID"`
-    CompetencyName     string    `json:"competencyName"`
-    CompetencyTypeName string    `json:"competencyTypeName"`
-    Description        string    `json:"description"`
-    ExpiryPeriodMonths *int      `json:"expiryPeriodMonths"`
-    IsActive           bool      `json:"isActive"`
-    AchievementDate    *time.Time `json:"achievementDate,omitempty"`
-    ExpiryDate         *time.Time `json:"expiryDate,omitempty"`
-    Status             string    `json:"status,omitempty"` // Valid | Expires Soon | Expired | Archived
-    Prerequisites      []int     `json:"prerequisites,omitempty"`
+	CompetencyID       int        `json:"competencyID"`
+	CompetencyName     string     `json:"competencyName"`
+	CompetencyTypeName string     `json:"competencyTypeName"`
+	Description        string     `json:"description"`
+	ExpiryPeriodMonths *int       `json:"expiryPeriodMonths"`
+	IsActive           bool       `json:"isActive"`
+	AchievementDate    *time.Time `json:"achievementDate,omitempty"`
+	ExpiryDate         *time.Time `json:"expiryDate,omitempty"`
+	Status             string     `json:"status,omitempty"` // Valid | Expires Soon | Expired | Archived
+	Prerequisites      []int      `json:"prerequisites,omitempty"`
 }
 
 type EmployeeCompetencyProfile struct {
-    Employee struct {
-        EmployeeNumber string `json:"employeeNumber"`
-        Name           string `json:"name"`
-        PositionCode   string `json:"positionCode"`
-        PositionTitle  string `json:"positionTitle"`
-    } `json:"employee"`
-    Completed []CompetencyBrief `json:"completed"`
-    Required  []CompetencyBrief `json:"required"`
+	Employee struct {
+		EmployeeNumber string  `json:"employeeNumber"`
+		Name           string  `json:"name"`
+		PositionCode   string  `json:"positionCode"`
+		PositionTitle  string  `json:"positionTitle"`
+		Email          string  `json:"email"`
+		Phone          *string `json:"phone,omitempty"`
+	} `json:"employee"`
+	Completed []CompetencyBrief `json:"completed"`
+	Required  []CompetencyBrief `json:"required"`
 }
 
 // GetEmployeeCompetencyProfile aggregates the competency profile for the current authenticated user
 func GetEmployeeCompetencyProfile(c *gin.Context) {
-    emailVal, ok := c.Get("email")
-    if !ok {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
-        return
-    }
-    email := emailVal.(string)
+	emailVal, ok := c.Get("email")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+		return
+	}
+	email := emailVal.(string)
 
-    // Load user+employee
-    var ext models.ExtendedEmployee
-    if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("Useraccountemail = ?", email).First(&ext).Error; err != nil || ext.User == nil {
-        c.JSON(http.StatusUnauthorized, gin.H{"error": "employee not found"})
-        return
-    }
+	// Load user+employee
+	var ext models.ExtendedEmployee
+	if err := DB.Model(&gen_models.Employee{}).Preload("User").Where("Useraccountemail = ?", email).First(&ext).Error; err != nil || ext.User == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "employee not found"})
+		return
+	}
 
-    // Current job position from employment_history (current row: end_date is NULL or future)
-    var curPos struct { Code, Title string }
-    DB.Table("employment_history eh").
-        Select("eh.position_matrix_code as code, jp.job_title as title").
-        Joins("LEFT JOIN job_positions jp ON jp.position_matrix_code = eh.position_matrix_code").
-        Where("eh.employee_number = ? AND (eh.end_date IS NULL OR eh.end_date > NOW())", ext.Employee.Employeenumber).
-        Order("eh.start_date desc").
-        Limit(1).Scan(&curPos)
+	// Current job position from employment_history (current row: end_date is NULL or future)
+	var curPos struct{ Code, Title string }
+	DB.Table("employment_history eh").
+		Select("eh.position_matrix_code as code, jp.job_title as title").
+		Joins("LEFT JOIN job_positions jp ON jp.position_matrix_code = eh.position_matrix_code").
+		Where("eh.employee_number = ? AND (eh.end_date IS NULL OR eh.end_date > NOW())", ext.Employee.Employeenumber).
+		Order("eh.start_date desc").
+		Limit(1).Scan(&curPos)
 
-    prof := EmployeeCompetencyProfile{}
-    prof.Employee.EmployeeNumber = ext.Employee.Employeenumber
-    prof.Employee.Name = ext.Employee.Firstname + " " + ext.Employee.Lastname
-    prof.Employee.PositionCode = curPos.Code
-    prof.Employee.PositionTitle = curPos.Title
+	prof := EmployeeCompetencyProfile{}
+	prof.Employee.EmployeeNumber = ext.Employee.Employeenumber
+	prof.Employee.Name = ext.Employee.Firstname + " " + ext.Employee.Lastname
+	prof.Employee.PositionCode = curPos.Code
+	prof.Employee.PositionTitle = curPos.Title
+	prof.Employee.Email = ext.Employee.Useraccountemail
+	prof.Employee.Phone = ext.Employee.PhoneNumber
 
-    // Get all assigned competencies (both completed and required)
-    allRows := []struct {
-        ID int; Name, Type string; Desc string; Expires *int; IsActive bool; Ach *time.Time; Exp *time.Time
-    }{}
-    DB.Table("employee_competencies ec").
-        Select("cd.competency_id as id, cd.competency_name as name, cd.competency_type_name as type, cd.description as desc, cd.expiry_period_months as expires, cd.is_active as is_active, ec.achievement_date as ach, ec.expiry_date as exp").
-        Joins("JOIN competency_definitions cd ON cd.competency_id = ec.competency_id").
-        Where("ec.employee_number = ?", ext.Employee.Employeenumber).Scan(&allRows)
-    
-    now := time.Now()
-    for _, r := range allRows {
-        // If achievement_date is not null, it's completed
-        if r.Ach != nil {
-            status := "Valid"
-            if !r.IsActive { 
-                status = "Archived" 
-            }
-            if r.Exp != nil {
-                if r.Exp.Before(now) { 
-                    status = "Expired" 
-                } else if r.Exp.Sub(now).Hours() <= 24*60 { 
-                    status = "Expires Soon" 
-                }
-            }
-            prof.Completed = append(prof.Completed, CompetencyBrief{
-                CompetencyID: r.ID,
-                CompetencyName: r.Name,
-                CompetencyTypeName: r.Type,
-                Description: r.Desc,
-                ExpiryPeriodMonths: r.Expires,
-                IsActive: r.IsActive,
-                AchievementDate: r.Ach,
-                ExpiryDate: r.Exp,
-                Status: status,
-            })
-        } else {
-            // If achievement_date is null, it's required but not completed
-            // Get prerequisites for this competency
-            var prereqIDs []int
-            DB.Table("competency_prerequisites cp").
-                Select("cp.prerequisite_competency_id").
-                Where("cp.competency_id = ?", r.ID).
-                Pluck("prerequisite_competency_id", &prereqIDs)
-            
-            prof.Required = append(prof.Required, CompetencyBrief{
-                CompetencyID: r.ID,
-                CompetencyName: r.Name,
-                CompetencyTypeName: r.Type,
-                Description: r.Desc,
-                ExpiryPeriodMonths: r.Expires,
-                IsActive: r.IsActive,
-                Prerequisites: prereqIDs,
-            })
-        }
-    }
-    // sort: with no prerequisites first
-    sort.SliceStable(prof.Required, func(i, j int) bool { return len(prof.Required[i].Prerequisites) < len(prof.Required[j].Prerequisites) })
+	// Get all assigned competencies (both completed and required)
+	allRows := []struct {
+		ID         int
+		Name, Type string
+		Desc       string
+		Expires    *int
+		IsActive   bool
+		Ach        *time.Time
+		Exp        *time.Time
+	}{}
+	DB.Table("employee_competencies ec").
+		Select("cd.competency_id as id, cd.competency_name as name, cd.competency_type_name as type, cd.description as desc, cd.expiry_period_months as expires, cd.is_active as is_active, ec.achievement_date as ach, ec.expiry_date as exp").
+		Joins("JOIN competency_definitions cd ON cd.competency_id = ec.competency_id").
+		Where("ec.employee_number = ?", ext.Employee.Employeenumber).Scan(&allRows)
 
-    c.JSON(http.StatusOK, prof)
+	now := time.Now()
+	for _, r := range allRows {
+		// If achievement_date is not null, it's completed
+		if r.Ach != nil {
+			status := "Valid"
+			if !r.IsActive {
+				status = "Archived"
+			}
+			if r.Exp != nil {
+				if r.Exp.Before(now) {
+					status = "Expired"
+				} else if r.Exp.Sub(now).Hours() <= 24*60 {
+					status = "Expires Soon"
+				}
+			}
+			prof.Completed = append(prof.Completed, CompetencyBrief{
+				CompetencyID:       r.ID,
+				CompetencyName:     r.Name,
+				CompetencyTypeName: r.Type,
+				Description:        r.Desc,
+				ExpiryPeriodMonths: r.Expires,
+				IsActive:           r.IsActive,
+				AchievementDate:    r.Ach,
+				ExpiryDate:         r.Exp,
+				Status:             status,
+			})
+		} else {
+			// If achievement_date is null, it's required but not completed
+			// Get prerequisites for this competency
+			var prereqIDs []int
+			DB.Table("competency_prerequisites cp").
+				Select("cp.prerequisite_competency_id").
+				Where("cp.competency_id = ?", r.ID).
+				Pluck("prerequisite_competency_id", &prereqIDs)
+
+			prof.Required = append(prof.Required, CompetencyBrief{
+				CompetencyID:       r.ID,
+				CompetencyName:     r.Name,
+				CompetencyTypeName: r.Type,
+				Description:        r.Desc,
+				ExpiryPeriodMonths: r.Expires,
+				IsActive:           r.IsActive,
+				Prerequisites:      prereqIDs,
+			})
+		}
+	}
+	// sort: with no prerequisites first
+	sort.SliceStable(prof.Required, func(i, j int) bool { return len(prof.Required[i].Prerequisites) < len(prof.Required[j].Prerequisites) })
+
+	c.JSON(http.StatusOK, prof)
 }
 
 // GetEmployeeVisualizationData provides visualization data for the current authenticated user
@@ -147,7 +157,7 @@ func GetEmployeeVisualizationData(c *gin.Context) {
 	}
 
 	// Current job position from employment_history
-	var curPos struct { Code, Title string }
+	var curPos struct{ Code, Title string }
 	DB.Table("employment_history eh").
 		Select("eh.position_matrix_code as code, jp.job_title as title").
 		Joins("LEFT JOIN job_positions jp ON jp.position_matrix_code = eh.position_matrix_code").
@@ -164,7 +174,11 @@ func GetEmployeeVisualizationData(c *gin.Context) {
 
 	// Get all assigned competencies (both completed and pending)
 	allCompetencyRows := []struct {
-		ID int; Name, Type string; IsActive bool; Ach *time.Time; Exp *time.Time
+		ID         int
+		Name, Type string
+		IsActive   bool
+		Ach        *time.Time
+		Exp        *time.Time
 	}{}
 	DB.Table("employee_competencies ec").
 		Select("cd.competency_id as id, cd.competency_name as name, cd.competency_type_name as type, cd.is_active as is_active, ec.achievement_date as ach, ec.expiry_date as exp").
@@ -174,29 +188,29 @@ func GetEmployeeVisualizationData(c *gin.Context) {
 	now := time.Now()
 	completedSet := map[int]struct{}{}
 	statusCounts := map[string]int{
-		"completed":     0,
-		"expired":       0,
-		"expires_soon":  0,
-		"required":      0,
+		"completed":    0,
+		"expired":      0,
+		"expires_soon": 0,
+		"required":     0,
 	}
 
 	for _, r := range allCompetencyRows {
 		var status string
 		var daysUntilExpiry *int
-		
+
 		// If achievement_date is null, competency is assigned but not completed
 		if r.Ach == nil {
 			status = "required"
 		} else {
 			// Mark as completed for tracking
 			completedSet[r.ID] = struct{}{}
-			
+
 			if !r.IsActive {
 				status = "archived"
 			} else if r.Exp != nil {
 				daysUntil := int(r.Exp.Sub(now).Hours() / 24)
 				daysUntilExpiry = &daysUntil
-				
+
 				if r.Exp.Before(now) {
 					status = "expired"
 				} else if daysUntil <= 60 { // Expires within 60 days
@@ -300,7 +314,7 @@ func GetAdminComplianceData(c *gin.Context) {
 	DB.Model(&models.CompetencyDefinition{}).Where("is_active = ?", true).Count(&totalCompetencies)
 
 	// Calculate total assigned competencies (individual assignments)
-	type requirementCount struct { Total int }
+	type requirementCount struct{ Total int }
 	var totalReq requirementCount
 	assignQuery := `
 		SELECT COUNT(*) as total
@@ -382,11 +396,11 @@ func GetAdminComplianceData(c *gin.Context) {
 
 	// Competency hotspots (competencies with highest incomplete rates)
 	hotspotRows := []struct {
-		CompetencyID       int     `gorm:"column:competency_id"`
-		CompetencyName     string  `gorm:"column:competency_name"`
-		CompetencyTypeName string  `gorm:"column:competency_type_name"`
-		TotalRequired      int     `gorm:"column:total_required"`
-		TotalCompleted     int     `gorm:"column:total_completed"`
+		CompetencyID       int    `gorm:"column:competency_id"`
+		CompetencyName     string `gorm:"column:competency_name"`
+		CompetencyTypeName string `gorm:"column:competency_type_name"`
+		TotalRequired      int    `gorm:"column:total_required"`
+		TotalCompleted     int    `gorm:"column:total_completed"`
 	}{}
 
 	hotspotQuery := `
@@ -466,7 +480,7 @@ func GetAdminComplianceData(c *gin.Context) {
 		monthEnd := monthStart.AddDate(0, 1, 0)
 
 		var monthCompleted int64
-		
+
 		// Count completions in this month
 		DB.Model(&models.EmployeeCompetency{}).
 			Where("achievement_date >= ? AND achievement_date < ?", monthStart, monthEnd).
@@ -475,10 +489,91 @@ func GetAdminComplianceData(c *gin.Context) {
 		complianceData.TrendData = append(complianceData.TrendData, models.TrendDataPoint{
 			Date:           monthStart,
 			CompletedCount: int(monthCompleted),
-			RequiredCount:  0, // Simplified - historical requirements would need complex calculation
+			RequiredCount:  0,                     // Simplified - historical requirements would need complex calculation
 			ComplianceRate: overallComplianceRate, // Simplified - you might want to calculate historical rates
 		})
 	}
 
 	c.JSON(http.StatusOK, complianceData)
+}
+
+// UpdateProfileRequest represents the request body for updating profile
+type UpdateProfileRequest struct {
+	Email *string `json:"email,omitempty"`
+	Phone *string `json:"phone,omitempty"`
+}
+
+// UpdateEmployeeProfile updates the profile information for the current authenticated user
+func UpdateEmployeeProfile(c *gin.Context) {
+	emailVal, ok := c.Get("email")
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "not authenticated"})
+		return
+	}
+	email := emailVal.(string)
+
+	// Parse request body
+	var updateReq UpdateProfileRequest
+	if err := c.ShouldBindJSON(&updateReq); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	// Find the employee by their current email (useraccountemail)
+	var employee gen_models.Employee
+	if err := DB.Where("useraccountemail = ?", email).First(&employee).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	// Prepare update data
+	updateData := make(map[string]interface{})
+
+	// Email: pointer non-nil means key present
+	if updateReq.Email != nil {
+		trimmed := strings.TrimSpace(*updateReq.Email)
+		if trimmed != "" {
+			updateData["useraccountemail"] = trimmed
+		}
+	}
+
+	// Phone: pointer non-nil means key present; empty string means clear (set NULL)
+	if updateReq.Phone != nil {
+		trimmed := strings.TrimSpace(*updateReq.Phone)
+		if trimmed == "" {
+			updateData["phonenumber"] = gorm.Expr("NULL")
+		} else {
+			cleanPhone := strings.ReplaceAll(trimmed, " ", "")
+			cleanPhone = strings.ReplaceAll(cleanPhone, "-", "")
+			cleanPhone = strings.ReplaceAll(cleanPhone, "(", "")
+			cleanPhone = strings.ReplaceAll(cleanPhone, ")", "")
+
+			if len(cleanPhone) > 11 {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": "Phone number too long. Please use a shorter format (max 11 digits including country code)",
+					"note":  "Try using format like: +12345678901 or 12345678901",
+				})
+				return
+			}
+			updateData["phonenumber"] = cleanPhone
+		}
+	}
+
+	// Only proceed with update if there's something to update
+	if len(updateData) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no valid fields to update"})
+		return
+	}
+
+	// Update the employee record
+	if err := DB.Model(&employee).Updates(updateData).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update profile"})
+		return
+	}
+
+	// Return success response
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Profile updated successfully",
+		"updated": updateData,
+	})
 }

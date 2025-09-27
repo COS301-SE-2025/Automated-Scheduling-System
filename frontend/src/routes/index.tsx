@@ -39,9 +39,15 @@ const ProtectedRouteElement: React.FC = () => {
 
 const PublicAuthRouteElement: React.FC = () => {
     const { isAuthenticated, isLoading } = useAuth();
+    const location = useLocation();
 
     if (isLoading) {
         return <div className="flex justify-center items-center min-h-screen"><div>Loading...</div></div>;
+    }
+    
+    // Allow authenticated users to access forgot password (for password changes)
+    if (isAuthenticated && location.pathname === '/forgot-password') {
+        return <Outlet />;
     }
     
     if (isAuthenticated) {
