@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
 
 const mockGetScheduledEvents = vi.fn();
 const mockGetEventDefinitions = vi.fn();
@@ -41,6 +41,7 @@ vi.mock("../../components/ui/EventFormModal", () => ({
   default: (props: any) =>
     props.isOpen ? (
       <div data-testid="event-form-modal">
+        <div data-testid="initial-data" data-start={props.initialData?.startStr || ''} />
         <button
           onClick={() =>
             props.onSave({
@@ -59,6 +60,24 @@ vi.mock("../../components/ui/EventFormModal", () => ({
         >
           save-event
         </button>
+        <button
+          onClick={() =>
+            props.onSave({
+              id: 99,
+              title: "Edited",
+              customEventId: 2,
+              start: "2025-12-02T09:00",
+              end: "2025-12-02T10:00",
+              roomName: "B",
+              maximumAttendees: 5,
+              minimumAttendees: 1,
+              statusName: "Scheduled",
+              color: "#123456",
+            })
+          }
+        >
+          save-event-edit
+        </button>
         <button onClick={() => props.onClose?.()}>close-event</button>
       </div>
     ) : null,
@@ -71,20 +90,100 @@ vi.mock("../../components/ui/EventDeleteConfirmationModal", () => ({
   default: () => null,
 }));
 
+// Interactive FullCalendar mock to invoke handlers through test buttons
 vi.mock("@fullcalendar/react", () => ({
   __esModule: true,
-  default: () => <div data-testid="fullcalendar-mock">FullCalendar</div>,
+  default: (props: any) => {
+    return (
+      <div data-testid="fullcalendar-mock">
+        FullCalendar
+        <button onClick={() => props.dateClick?.({ date: new Date("2025-05-01T09:00:00Z") })}>fc-date-click</button>
+        <button
+          onClick={() => {
+            const ev: any = {
+              id: '1',
+              start: new Date('2025-01-01T09:00:00Z'),
+              end: new Date('2025-01-01T10:00:00Z'),
+              title: 'Alpha',
+              extendedProps: {
+                scheduleId: 1,
+                definitionId: 1,
+                roomName: 'Room A',
+                maxAttendees: 10,
+                minAttendees: 1,
+                statusName: 'Scheduled',
+                color: '#3788d8',
+                seriesStart: '2025-01-01T09:00:00.000Z',
+                seriesEnd: '2025-01-01T10:00:00.000Z',
+                canEdit: true,
+              },
+            };
+            props.eventDrop?.({ event: ev, revert: vi.fn(), delta: { days: 0, milliseconds: 3600000 } });
+          }}
+        >fc-drop-ok</button>
+        <button
+          onClick={() => {
+            const ev: any = {
+              id: '1',
+              start: new Date('2025-01-01T09:00:00Z'),
+              end: new Date('2025-01-01T10:00:00Z'),
+              title: 'Alpha',
+              extendedProps: {
+                scheduleId: 1,
+                definitionId: 1,
+                roomName: 'Room A',
+                maxAttendees: 10,
+                minAttendees: 1,
+                statusName: 'Scheduled',
+                color: '#3788d8',
+                seriesStart: '2025-01-01T09:00:00.000Z',
+                seriesEnd: '2025-01-01T10:00:00.000Z',
+                canEdit: true,
+              },
+            };
+            const revert = vi.fn();
+            props.eventDrop?.({ event: ev, revert, delta: { days: 0, milliseconds: 3600000 } });
+          }}
+        >fc-drop-forbidden</button>
+        <button
+          onClick={() => {
+            const ev: any = {
+              id: '1',
+              start: new Date('2025-01-01T09:00:00Z'),
+              end: new Date('2025-01-01T10:00:00Z'),
+              title: 'Alpha',
+              extendedProps: {
+                scheduleId: 1,
+                definitionId: 1,
+                roomName: 'Room A',
+                maxAttendees: 10,
+                minAttendees: 1,
+                statusName: 'Scheduled',
+                color: '#3788d8',
+                seriesStart: '2025-01-01T09:00:00.000Z',
+                seriesEnd: '2025-01-01T10:00:00.000Z',
+                canEdit: true,
+              },
+            };
+            const revert = vi.fn();
+            props.eventDrop?.({ event: ev, revert, delta: { days: 0, milliseconds: 3600000 } });
+          }}
+        >fc-drop-error</button>
+      </div>
+    );
+  },
 }));
 
 import CalendarPage from "../../pages/CalendarPage";
 import { MemoryRouter } from "react-router-dom";
+import { ApiError } from "../../services/api";
 
 describe("CalendarPage", () => {
   const user = userEvent.setup();
 
   beforeEach(() => {
     vi.clearAllMocks();
-
+    // default successful mocks
     mockGetScheduledEvents.mockResolvedValue([
       {
         id: "1",
@@ -111,6 +210,10 @@ describe("CalendarPage", () => {
     mockCreateEventDefinition.mockResolvedValue({});
     mockCreateScheduledEvent.mockResolvedValue({});
     mockUpdateScheduledEvent.mockResolvedValue({});
+  });
+
+  beforeAll(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   it("renders header and action buttons and fetches data", async () => {
@@ -164,5 +267,56 @@ describe("CalendarPage", () => {
     await user.click(screen.getByText("save-event"));
     await waitFor(() => expect(mockCreateScheduledEvent).toHaveBeenCalled());
     await waitFor(() => expect(mockGetScheduledEvents).toHaveBeenCalled());
+  });
+
+  it("saves an edited scheduled event (update path)", async () => {
+    render(<MemoryRouter><CalendarPage /></MemoryRouter>);
+    await user.click(await screen.findByText("Schedule Event"));
+    await user.click(await screen.findByText("save-event-edit"));
+    await waitFor(() => expect(mockUpdateScheduledEvent).toHaveBeenCalled());
+  });
+
+  it("shows initial data for date click selection", async () => {
+    render(<MemoryRouter><CalendarPage /></MemoryRouter>);
+    await user.click(screen.getByText('fc-date-click'));
+    // opening modal automatically from dateClick, so just find initial data
+    const init = await screen.findByTestId('initial-data');
+    const ds = init.getAttribute('data-start') || '';
+    expect(ds).not.toBe('');
+    expect(ds).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+  });
+
+  it("handles event drop success", async () => {
+    mockUpdateScheduledEvent.mockResolvedValueOnce({});
+    render(<MemoryRouter><CalendarPage /></MemoryRouter>);
+    await user.click(screen.getByText('fc-drop-ok'));
+    await waitFor(() => expect(mockUpdateScheduledEvent).toHaveBeenCalled());
+  });
+
+  it("handles event drop forbidden (403) and dismisses message", async () => {
+  // ApiError signature in codebase appears to be (message, statusCode)
+  mockUpdateScheduledEvent.mockRejectedValueOnce(new ApiError('Forbidden', 403));
+    render(<MemoryRouter><CalendarPage /></MemoryRouter>);
+    await user.click(screen.getByText('fc-drop-forbidden'));
+    const message = await screen.findByText(/not permitted to move this event/i);
+    expect(message).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Dismiss message/i }));
+    await waitFor(() => expect(screen.queryByText(/not permitted to move this event/i)).toBeNull());
+  });
+
+  it("handles event drop generic error", async () => {
+    mockUpdateScheduledEvent.mockRejectedValueOnce(new Error('boom'));
+    render(<MemoryRouter><CalendarPage /></MemoryRouter>);
+    await user.click(screen.getByText('fc-drop-error'));
+    expect(await screen.findByText(/Failed to update event/i)).toBeInTheDocument();
+  });
+
+  it("renders error state on initial fetch failure", async () => {
+    mockGetScheduledEvents.mockReset();
+    mockGetEventDefinitions.mockReset();
+    mockGetScheduledEvents.mockRejectedValue(new Error('fetch fail'));
+    mockGetEventDefinitions.mockRejectedValue(new Error('fetch fail'));
+    render(<MemoryRouter><CalendarPage /></MemoryRouter>);
+    expect(await screen.findByText(/Failed to load calendar/i)).toBeInTheDocument();
   });
 });
