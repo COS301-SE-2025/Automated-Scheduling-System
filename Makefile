@@ -34,8 +34,8 @@ run:
 
 # Run frontend tests
 ftest:
-    @cd frontend && npm install --prefer-offline --no-fund
-    @cd frontend && npx vitest run --coverage --coverage.reporter=lcov --coverage.reportsDirectory=coverage
+	@cd frontend && npm install --prefer-offline --no-fund
+	@cd frontend && npx vitest run --coverage --coverage.reporter=lcov --coverage.reportsDirectory=coverage
 
 # Run frontend linting
 flint:
@@ -70,15 +70,15 @@ docker-db:
 
 # Test the application
 test:
-    @echo "Testing..."
-    @mkdir -p coverage
-    @go test ./internal/... -cover -covermode=atomic -coverprofile=coverage/go-integration.out -v
+	@echo "Testing..."
+	@mkdir -p coverage
+	@go test ./internal/... -cover -covermode=atomic -coverprofile=coverage/go-integration.out -v
 
 # Unit testing (auth only)
 utest:
-    @echo "Running Unit Tests"
-    @mkdir -p coverage
-    @go test -v -tags=unit ./internal/... -covermode=atomic -coverprofile=coverage/go-unit.out
+	@echo "Running Unit Tests"
+	@mkdir -p coverage
+	@go test -v -tags=unit ./internal/... -covermode=atomic -coverprofile=coverage/go-unit.out
 
 # Integrations Tests for the application
 itest:
