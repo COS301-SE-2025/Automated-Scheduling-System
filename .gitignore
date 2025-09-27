@@ -40,3 +40,5 @@ shell.nix
 .pgsocket
 
 temp
+
+coverage
