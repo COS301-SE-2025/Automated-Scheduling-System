@@ -5,13 +5,18 @@ import MainLayout from '../layouts/MainLayout';
 import FeatureGrid from '../components/ui/FeatureGrid';
 import FeatureBlock from '../components/ui/FeatureBlock';
 import { getScheduledEvents, type CalendarEvent } from '../services/eventService';
+import { getEmployeeVisualizationData, type VisualizationData } from '../services/visualizationService';
+import VisualizationTab from '../components/visualization/VisualizationTab';
 import { CalendarClock, Users, Calendar, HelpCircle, AlertCircle, Shield, FileText, Gavel, GraduationCap, TrendingUp } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
     const { user } = useAuth();
     const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([]);
+    const [vizData, setVizData] = useState<VisualizationData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [vizLoading, setVizLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [vizError, setVizError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchUpcomingEvents = async () => {
@@ -37,6 +42,26 @@ const DashboardPage: React.FC = () => {
         };
 
         fetchUpcomingEvents();
+    }, [user]);
+
+    useEffect(() => {
+        const fetchVisualizationData = async () => {
+            if (!user) return;
+
+            try {
+                setVizLoading(true);
+                const res = await getEmployeeVisualizationData();
+                setVizData(res);
+                setVizError(null);
+            } catch (e) {
+                console.error('Failed to load visualization data:', e);
+                setVizError('Failed to load visualization data');
+            } finally {
+                setVizLoading(false);
+            }
+        };
+
+        fetchVisualizationData();
     }, [user]);
 
     const UpcomingEventsContent = () => {
@@ -83,72 +108,103 @@ const DashboardPage: React.FC = () => {
                     Welcome, {user?.name || 'User'}!
                 </h1>
                 <p className="mt-1 text-custom-text dark:text-dark-secondary">
-                    Here's a quick overview of your workspace.
+                    Here's a quick overview of your workspace and competency status.
                 </p>
             </div>
 
-            <FeatureGrid className="grid-cols-1 md:grid-cols-2 lg:grid-cols-2">
-
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                {/* Upcoming Events Card */}
                 <Link to="/events" className='block'>
-                    <FeatureBlock title="Your Upcoming Events" icon={<CalendarClock size={24} />} className="dark:from-dark-accent-hover dark:to-dark-accent">                    
+                    <div className="bg-white dark:bg-dark-div p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-200 h-full hover:border-custom-secondary dark:hover:border-dark-secondary">
+                        <div className="flex items-center gap-3 mb-4">
+                            <CalendarClock size={24} className="text-custom-primary dark:text-dark-primary" />
+                            <h2 className="text-xl font-semibold text-custom-text dark:text-dark-text">Upcoming Events</h2>
+                        </div>
                         <UpcomingEventsContent />
-                    </FeatureBlock>
+                    </div>
                 </Link>
 
-                {user?.role === 'Admin' && (
-                    <Link to="/users" className="block">
-                        <FeatureBlock title="Manage Users" icon={<Users size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
-                            <p>Add, edit, or remove users and manage their roles and permissions across the system.</p>
-                        </FeatureBlock>
-                    </Link>
-                )}
-
+                {/* Quick Actions for Admin */}
                 {user?.role === 'Admin' && (
                     <Link to="/admin/compliance" className="block">
-                        <FeatureBlock title="Compliance Dashboard" icon={<TrendingUp size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
-                            <p>Monitor company-wide competency compliance, track trends, and identify hotspots requiring attention.</p>
-                        </FeatureBlock>
+                        <div className="bg-white dark:bg-dark-div p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-200 h-full hover:border-custom-secondary dark:hover:border-dark-secondary">
+                            <div className="flex items-center gap-3 mb-4">
+                                <TrendingUp size={24} className="text-custom-primary dark:text-dark-primary" />
+                                <h2 className="text-xl font-semibold text-custom-text dark:text-dark-text">Compliance Dashboard</h2>
+                            </div>
+                            <p className="text-custom-text dark:text-dark-secondary">Monitor company-wide competency compliance and identify areas needing attention.</p>
+                        </div>
                     </Link>
                 )}
 
+                {/* Calendar Quick Access */}
                 <Link to="/calendar" className="block">
-                    <FeatureBlock title="View Full Calendar" icon={<Calendar size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
-                        <p>Access the interactive company calendar to view all events, schedule new meetings, and manage deadlines.</p>
-                    </FeatureBlock>
+                    <div className="bg-white dark:bg-dark-div p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-200 h-full hover:border-custom-secondary dark:hover:border-dark-secondary">
+                        <div className="flex items-center gap-3 mb-4">
+                            <Calendar size={24} className="text-custom-primary dark:text-dark-primary" />
+                            <h2 className="text-xl font-semibold text-custom-text dark:text-dark-text">Full Calendar</h2>
+                        </div>
+                        <p className="text-custom-text dark:text-dark-secondary">View the complete company calendar and manage your schedule.</p>
+                    </div>
                 </Link>
+            </div>
 
-                {/* Additional links in sidebar order after keeping Events, Users, Calendar in place */}
-                <Link to="/roles" className="block">
-                    <FeatureBlock title="Roles & Permissions" icon={<Shield size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
-                        <p>Create and edit roles, and control page access via permissions.</p>
-                    </FeatureBlock>
-                </Link>
+            {/* Competency Visualization Section */}
+            <div className="bg-white dark:bg-dark-div p-6 rounded-lg shadow border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-3 mb-6">
+                    <GraduationCap size={24} className="text-custom-primary dark:text-dark-primary" />
+                    <h2 className="text-2xl font-semibold text-custom-text dark:text-dark-text">Your Competency Overview</h2>
+                </div>
+                <VisualizationTab 
+                    data={vizData}
+                    loading={vizLoading}
+                    error={vizError}
+                />
+            </div>
 
-                <Link to="/event-definitions" className="block">
-                    <FeatureBlock title="Event Definitions" icon={<FileText size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
-                        <p>Define reusable event templates, facilitators, and durations used for scheduling.</p>
-                    </FeatureBlock>
-                </Link>
+            {/* Quick Links Grid */}
+            <div className="mt-8">
+                <h3 className="text-xl font-semibold text-custom-text dark:text-dark-text mb-6">Quick Actions</h3>
+                <FeatureGrid className="grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+                    {user?.role === 'Admin' && (
+                        <Link to="/users" className="block">
+                            <FeatureBlock title="Manage Users" icon={<Users size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
+                                <p>Add, edit, or remove users and manage their roles and permissions.</p>
+                            </FeatureBlock>
+                        </Link>
+                    )}
 
-                <Link to="/rules" className="block">
-                    <FeatureBlock title="Rules" icon={<Gavel size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
-                        <p>Design business rules by combining triggers, conditions, and actions.</p>
-                    </FeatureBlock>
-                </Link>
+                    <Link to="/roles" className="block">
+                        <FeatureBlock title="Roles & Permissions" icon={<Shield size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
+                            <p>Create and edit roles, and control page access via permissions.</p>
+                        </FeatureBlock>
+                    </Link>
 
-                <Link to="/competencies" className="block">
-                    <FeatureBlock title="Competencies" icon={<GraduationCap size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
-                        <p>Manage competencies, types, prerequisites, and job position requirements.</p>
-                    </FeatureBlock>
-                </Link>
+                    <Link to="/event-definitions" className="block">
+                        <FeatureBlock title="Event Definitions" icon={<FileText size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
+                            <p>Define reusable event templates, facilitators, and durations.</p>
+                        </FeatureBlock>
+                    </Link>
 
-                <Link to="/main-help" className="block">
-                    <FeatureBlock title="Help & Feedback" icon={<HelpCircle size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
-                        <p>Find answers to common questions, read documentation, or get in touch with support for assistance.</p>
-                    </FeatureBlock>
-                </Link>
+                    <Link to="/rules" className="block">
+                        <FeatureBlock title="Rules" icon={<Gavel size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
+                            <p>Design business rules by combining triggers, conditions, and actions.</p>
+                        </FeatureBlock>
+                    </Link>
 
-            </FeatureGrid>
+                    <Link to="/competencies" className="block">
+                        <FeatureBlock title="Competencies" icon={<GraduationCap size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
+                            <p>Manage competencies, types, prerequisites, and job requirements.</p>
+                        </FeatureBlock>
+                    </Link>
+
+                    <Link to="/main-help" className="block">
+                        <FeatureBlock title="Help & Feedback" icon={<HelpCircle size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
+                            <p>Find answers to common questions or get support assistance.</p>
+                        </FeatureBlock>
+                    </Link>
+                </FeatureGrid>
+            </div>
         </MainLayout>
     );
 };

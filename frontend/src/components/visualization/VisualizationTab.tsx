@@ -55,11 +55,11 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({ data, loading, erro
   const isFullyCompleted = data.completionOverview?.completionRate === 100;
 
   const statusColors = {
-    completed: '#10B981', // green
-    required: '#F59E0B',   // amber
-    expired: '#EF4444',    // red
-    expires_soon: '#F97316', // orange
-    archived: '#6B7280'    // gray
+    completed: '#0078a6', // custom-third (dark blue)
+    required: '#00bac8',   // custom-secondary (light blue)
+    expired: '#EF4444',    // red - keeping for critical status
+    expires_soon: '#243966', // custom-primary (darker blue)
+    archived: '#6B7280'    // gray - keeping neutral
   };
 
   // Prepare data for charts with null safety
@@ -96,43 +96,43 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({ data, loading, erro
     <div className="space-y-6">
       {/* Completion Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
-          <div className="text-2xl font-bold text-blue-700 dark:text-blue-300">
+        <div className="bg-custom-fourth dark:bg-dark-accent/20 p-4 rounded-lg border border-custom-secondary/30 dark:border-dark-secondary/30">
+          <div className="text-2xl font-bold text-custom-primary dark:text-dark-primary">
             {data.completionOverview?.totalRequired || 0}
           </div>
-          <div className="text-sm text-blue-600 dark:text-blue-400">Total Required</div>
+          <div className="text-sm text-custom-text dark:text-dark-secondary">Total Required</div>
         </div>
         
-        <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-800">
-          <div className="text-2xl font-bold text-green-700 dark:text-green-300">
+        <div className="bg-custom-accent dark:bg-dark-accent/20 p-4 rounded-lg border border-custom-third/30 dark:border-dark-third/30">
+          <div className="text-2xl font-bold text-custom-third dark:text-dark-third">
             {data.completionOverview?.totalCompleted || 0}
           </div>
-          <div className="text-sm text-green-600 dark:text-green-400">Completed</div>
+          <div className="text-sm text-custom-third dark:text-dark-third">Completed</div>
         </div>
         
-        <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
-          <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">
+        <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+          <div className="text-2xl font-bold text-custom-secondary dark:text-dark-secondary">
             {data.completionOverview?.totalOutstanding || 0}
           </div>
-          <div className="text-sm text-amber-600 dark:text-amber-400">Outstanding</div>
+          <div className="text-sm text-custom-secondary dark:text-dark-secondary">Outstanding</div>
         </div>
         
         <div className={`p-4 rounded-lg border ${
           isFullyCompleted 
-            ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800' 
+            ? 'bg-custom-accent dark:bg-dark-accent/20 border-custom-third dark:border-dark-third' 
             : 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-800'
         }`}>
           <div className={`text-2xl font-bold ${
             isFullyCompleted 
-              ? 'text-emerald-700 dark:text-emerald-300' 
-              : 'text-gray-700 dark:text-gray-300'
+              ? 'text-custom-third dark:text-dark-third' 
+              : 'text-custom-primary dark:text-dark-primary'
           }`}>
             {(data.completionOverview?.completionRate || 0).toFixed(1)}%
           </div>
           <div className={`text-sm ${
             isFullyCompleted 
-              ? 'text-emerald-600 dark:text-emerald-400' 
-              : 'text-gray-600 dark:text-gray-400'
+              ? 'text-custom-third dark:text-dark-third' 
+              : 'text-custom-text dark:text-dark-secondary'
           }`}>
             Completion Rate
           </div>
@@ -141,7 +141,7 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({ data, loading, erro
 
       {/* Celebratory message for 100% completion */}
       {isFullyCompleted && (
-        <div className="bg-gradient-to-r from-emerald-500 to-green-600 text-white p-6 rounded-lg shadow-lg">
+        <div className="bg-gradient-to-r from-custom-third to-custom-secondary text-white p-6 rounded-lg shadow-lg">
           <div className="flex items-center space-x-3">
             <div className="text-3xl">🎉</div>
             <div>
@@ -178,11 +178,12 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({ data, loading, erro
                 </Pie>
                 <Tooltip 
                   formatter={(value, name) => [value, name]}
-                  labelStyle={{ color: '#374151' }}
+                  labelStyle={{ color: '#1f2937' }}
                   contentStyle={{ 
                     backgroundColor: '#fff',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px'
+                    border: `1px solid #243966`,
+                    borderRadius: '6px',
+                    color: '#1f2937'
                   }}
                 />
                 <Legend />
@@ -204,21 +205,22 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({ data, loading, erro
           {competencyTypeData.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={competencyTypeData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis 
                   dataKey="name" 
-                  tick={{ fontSize: 12 }}
+                  tick={{ fontSize: 12, fill: '#374151' }}
                   interval={0}
                   angle={-45}
                   textAnchor="end"
                   height={80}
                 />
-                <YAxis />
+                <YAxis tick={{ fill: '#374151' }} />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: '#fff',
-                    border: '1px solid #d1d5db',
-                    borderRadius: '6px'
+                    border: `1px solid #243966`,
+                    borderRadius: '6px',
+                    color: '#1f2937'
                   }}
                 />
                 <Legend />
@@ -282,9 +284,9 @@ const VisualizationTab: React.FC<VisualizationTabProps> = ({ data, loading, erro
                     <td className="px-3 py-2 text-sm">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
                         competency.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300' :
-                        competency.status === 'required' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300' :
+                        competency.status === 'required' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300' :
                         competency.status === 'expired' ? 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-300' :
-                        competency.status === 'expires_soon' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300' :
+                        competency.status === 'expires_soon' ? 'bg-custom-fourth text-custom-primary dark:bg-dark-signin/20 dark:text-dark-primary' :
                         'bg-gray-100 text-gray-700 dark:bg-gray-900/20 dark:text-gray-300'
                       }`}>
                         {competency.status === 'expires_soon' ? 'Expires Soon' : 
