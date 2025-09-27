@@ -266,5 +266,5 @@ func TestProfileHandler_MissingToken(t *testing.T) {
 
 	ProfileHandler(c)
 
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
