@@ -19,9 +19,9 @@ const DepartmentBreakdown: React.FC<DepartmentBreakdownProps> = ({
 
   // Color scale based on compliance rate
   const getComplianceColor = (rate: number) => {
-    if (rate >= 90) return '#10B981'; // green
-    if (rate >= 70) return '#F59E0B'; // amber
-    if (rate >= 50) return '#F97316'; // orange
+    if (rate >= 90) return '#0078a6'; // custom-third (dark blue)
+    if (rate >= 70) return '#00bac8'; // custom-secondary (light blue)
+    if (rate >= 50) return '#243966'; // custom-primary (darker blue)
     return '#EF4444'; // red
   };
 
@@ -59,7 +59,7 @@ const DepartmentBreakdown: React.FC<DepartmentBreakdownProps> = ({
         {selectedDepartments.length > 0 && (
           <button
             onClick={clearFilters}
-            className="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400"
+            className="text-sm text-custom-secondary hover:text-custom-primary dark:text-dark-secondary dark:hover:text-dark-primary"
           >
             Clear filters ({selectedDepartments.length})
           </button>
@@ -70,10 +70,10 @@ const DepartmentBreakdown: React.FC<DepartmentBreakdownProps> = ({
         <>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
-              <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="positionTitle" 
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 12, fill: '#374151' }}
                 interval={0}
                 angle={-45}
                 textAnchor="end"
@@ -82,6 +82,7 @@ const DepartmentBreakdown: React.FC<DepartmentBreakdownProps> = ({
               <YAxis 
                 domain={[0, 100]}
                 tickFormatter={(value) => `${value}%`}
+                tick={{ fill: '#374151' }}
               />
               <Tooltip 
                 formatter={(value, name) => [
@@ -94,8 +95,9 @@ const DepartmentBreakdown: React.FC<DepartmentBreakdownProps> = ({
                 labelFormatter={(label) => `Department: ${label}`}
                 contentStyle={{ 
                   backgroundColor: '#fff',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px'
+                  border: `1px solid #243966`,
+                  borderRadius: '6px',
+                  color: '#1f2937'
                 }}
               />
               <Bar 
@@ -143,7 +145,7 @@ const DepartmentBreakdown: React.FC<DepartmentBreakdownProps> = ({
                     key={dept.positionCode}
                     className={`cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600 ${
                       selectedDepartments.includes(dept.positionCode) ? 
-                      'bg-blue-50 dark:bg-blue-900/20' : ''
+                      'bg-custom-fourth dark:bg-dark-accent/20 border-l-4 border-custom-secondary dark:border-dark-secondary' : ''
                     }`}
                     onClick={() => handleDepartmentClick(dept.positionCode)}
                   >
@@ -169,10 +171,10 @@ const DepartmentBreakdown: React.FC<DepartmentBreakdownProps> = ({
                         </span>
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-sm text-green-600 dark:text-green-400">
+                    <td className="px-3 py-2 text-sm text-custom-third dark:text-dark-third">
                       {dept.completedCount}
                     </td>
-                    <td className="px-3 py-2 text-sm text-amber-600 dark:text-amber-400">
+                    <td className="px-3 py-2 text-sm text-custom-secondary dark:text-dark-secondary">
                       {dept.outstandingCount}
                     </td>
                   </tr>

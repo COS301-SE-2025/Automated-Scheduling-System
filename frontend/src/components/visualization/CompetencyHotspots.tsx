@@ -37,16 +37,16 @@ const CompetencyHotspots: React.FC<CompetencyHotspotsProps> = ({ data }) => {
         <>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 80 }}>
-              <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="name" 
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 12, fill: '#374151' }}
                 interval={0}
                 angle={-45}
                 textAnchor="end"
                 height={80}
               />
-              <YAxis />
+              <YAxis tick={{ fill: '#374151' }} />
               <Tooltip 
                 formatter={(value, name) => [
                   value,
@@ -58,8 +58,9 @@ const CompetencyHotspots: React.FC<CompetencyHotspotsProps> = ({ data }) => {
                 }}
                 contentStyle={{ 
                   backgroundColor: '#fff',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px'
+                  border: `1px solid #243966`,
+                  borderRadius: '6px',
+                  color: '#1f2937'
                 }}
               />
               <Bar 
@@ -107,7 +108,7 @@ const CompetencyHotspots: React.FC<CompetencyHotspotsProps> = ({ data }) => {
                     <td className="px-3 py-2 text-sm text-gray-600 dark:text-gray-300">
                       {competency.totalRequired}
                     </td>
-                    <td className="px-3 py-2 text-sm text-green-600 dark:text-green-400">
+                    <td className="px-3 py-2 text-sm text-custom-third dark:text-dark-third">
                       {competency.totalCompleted}
                     </td>
                     <td className="px-3 py-2 text-sm text-red-600 dark:text-red-400 font-medium">

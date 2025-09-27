@@ -40,13 +40,13 @@ const ComplianceTrends: React.FC<ComplianceTrendsProps> = ({ data }) => {
       {sortedData.length > 0 ? (
         <ResponsiveContainer width="100%" height={350}>
           <LineChart data={sortedData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
             <XAxis 
               dataKey="monthYear" 
-              tick={{ fontSize: 12 }}
+              tick={{ fontSize: 12, fill: '#374151' }}
             />
-            <YAxis yAxisId="count" orientation="left" />
-            <YAxis yAxisId="rate" orientation="right" domain={[0, 100]} />
+            <YAxis yAxisId="count" orientation="left" tick={{ fill: '#374151' }} />
+            <YAxis yAxisId="rate" orientation="right" domain={[0, 100]} tick={{ fill: '#374151' }} />
             <Tooltip 
               labelFormatter={formatTooltipDate}
               formatter={(value, name) => [
@@ -56,8 +56,9 @@ const ComplianceTrends: React.FC<ComplianceTrendsProps> = ({ data }) => {
               ]}
               contentStyle={{ 
                 backgroundColor: '#fff',
-                border: '1px solid #d1d5db',
-                borderRadius: '6px'
+                border: `1px solid #243966`,
+                borderRadius: '6px',
+                color: '#1f2937'
               }}
             />
             <Legend />
@@ -65,21 +66,21 @@ const ComplianceTrends: React.FC<ComplianceTrendsProps> = ({ data }) => {
               yAxisId="count"
               type="monotone" 
               dataKey="completedCount" 
-              stroke="#10B981" 
+              stroke="#0078a6" 
               strokeWidth={2}
               name="Monthly Completions"
-              dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
+              dot={{ fill: '#0078a6', strokeWidth: 2, r: 4 }}
               activeDot={{ r: 6 }}
             />
             <Line 
               yAxisId="rate"
               type="monotone" 
               dataKey="complianceRate" 
-              stroke="#3B82F6" 
+              stroke="#00bac8" 
               strokeWidth={2}
               strokeDasharray="5 5"
               name="Compliance Rate (%)"
-              dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
+              dot={{ fill: '#00bac8', strokeWidth: 2, r: 4 }}
               activeDot={{ r: 6 }}
             />
           </LineChart>
@@ -103,19 +104,19 @@ const ComplianceTrends: React.FC<ComplianceTrendsProps> = ({ data }) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div>
               <span className="text-gray-600 dark:text-gray-400">Total Completions:</span>
-              <span className="ml-2 font-medium text-green-600 dark:text-green-400">
+              <span className="ml-2 font-medium text-custom-third dark:text-dark-third">
                 {sortedData.reduce((sum, item) => sum + item.completedCount, 0)}
               </span>
             </div>
             <div>
               <span className="text-gray-600 dark:text-gray-400">Average Monthly:</span>
-              <span className="ml-2 font-medium text-blue-600 dark:text-blue-400">
+              <span className="ml-2 font-medium text-custom-secondary dark:text-dark-secondary">
                 {(sortedData.reduce((sum, item) => sum + item.completedCount, 0) / sortedData.length).toFixed(1)}
               </span>
             </div>
             <div>
               <span className="text-gray-600 dark:text-gray-400">Current Rate:</span>
-              <span className="ml-2 font-medium text-purple-600 dark:text-purple-400">
+              <span className="ml-2 font-medium text-custom-third dark:text-dark-third">
                 {sortedData[sortedData.length - 1]?.complianceRate.toFixed(1)}%
               </span>
             </div>

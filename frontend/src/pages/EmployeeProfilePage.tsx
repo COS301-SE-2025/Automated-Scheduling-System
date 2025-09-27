@@ -2,17 +2,12 @@ import React, { useEffect, useState } from 'react';
 import MainLayout from '../layouts/MainLayout';
 // Button removed: actions hidden in this view
 import { getEmployeeCompetencyProfile, type EmployeeCompetencyProfile } from '../services/profileService';
-import { getEmployeeVisualizationData, type VisualizationData } from '../services/visualizationService';
-import VisualizationTab from '../components/visualization/VisualizationTab';
 
 const EmployeeProfilePage: React.FC = () => {
   const [data, setData] = useState<EmployeeCompetencyProfile | null>(null);
-  const [vizData, setVizData] = useState<VisualizationData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [vizLoading, setVizLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [vizError, setVizError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'completed' | 'required' | 'visualization'>('completed');
+  const [activeTab, setActiveTab] = useState<'completed' | 'required'>('completed');
 
   // Remove explore-related state variables
 
@@ -28,22 +23,6 @@ const EmployeeProfilePage: React.FC = () => {
         setError('Failed to load your competency profile');
       } finally {
         setLoading(false);
-      }
-    })();
-  }, []);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        setVizLoading(true);
-        const res = await getEmployeeVisualizationData();
-        setVizData(res);
-        setVizError(null);
-      } catch (e) {
-        console.error('Failed to load visualization data:', e);
-        setVizError('Failed to load visualization data');
-      } finally {
-        setVizLoading(false);
       }
     })();
   }, []);
@@ -66,9 +45,9 @@ const EmployeeProfilePage: React.FC = () => {
 
             {/* Tabs */}
             <div className="flex gap-2 border-b dark:border-gray-700 mb-4">
-              {(['completed', 'required', 'visualization'] as const).map(tab => (
+              {(['completed', 'required'] as const).map(tab => (
                 <button key={tab} className={`px-3 py-2 text-sm ${activeTab === tab ? 'border-b-2 border-custom-primary font-semibold' : 'text-gray-600'}`} onClick={() => setActiveTab(tab)}>
-                  {tab === 'completed' ? 'Completed Competencies' : tab === 'required' ? 'Required Competencies' : 'Visualization'}
+                  {tab === 'completed' ? 'Completed Competencies' : 'Required Competencies'}
                 </button>
               ))}
             </div>
@@ -138,15 +117,6 @@ const EmployeeProfilePage: React.FC = () => {
                   );
                 })}
               </div>
-            )}
-            
-            {/* Visualization */}
-            {activeTab === 'visualization' && (
-              <VisualizationTab 
-                data={vizData}
-                loading={vizLoading}
-                error={vizError}
-              />
             )}
           </>
         )}
