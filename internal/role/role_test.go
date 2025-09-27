@@ -6,6 +6,8 @@ import (
 	"Automated-Scheduling-Project/internal/database/models"
 	"bytes"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -209,5 +211,108 @@ func TestDeleteRoleHandler_SystemRoleBlocked_Unit(t *testing.T) {
 	c.Params = gin.Params{gin.Param{Key: "roleID", Value: "1"}}
 	DeleteRoleHandler(c)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+/* -------------------------------------------------------------------------- */
+/* Additional Coverage: Error / Edge Paths                                   */
+/* -------------------------------------------------------------------------- */
+
+func TestGetAllRolesHandler_DBError_Unit(t *testing.T) {
+	db, mock := newMockDB(t)
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "roles"`)).
+		WillReturnError(errors.New("boom"))
+	c, rec := ctxJSON(t, db, http.MethodGet, "/roles", nil)
+	GetAllRolesHandler(c)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestGetAllRolesHandler_PermissionsError_Unit(t *testing.T) {
+	db, mock := newMockDB(t)
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "roles"`)).
+		WillReturnRows(sqlmock.NewRows([]string{"role_id", "role_name", "description"}).AddRow(1, "Admin", "System"))
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "role_permissions"`)).
+		WillReturnError(errors.New("perm fail"))
+	c, rec := ctxJSON(t, db, http.MethodGet, "/roles", nil)
+	GetAllRolesHandler(c)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestCreateRoleHandler_InvalidJSON_Unit(t *testing.T) {
+	db, _ := newMockDB(t)
+	c, rec := ctxJSON(t, db, http.MethodPost, "/roles", "not-json")
+	// Manually override body to invalid JSON bytes
+	c.Request.Body = io.NopCloser(bytes.NewBufferString("{invalid"))
+	CreateRoleHandler(c)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestCreateRoleHandler_DBError_Unit(t *testing.T) {
+	db, mock := newMockDB(t)
+	req := models.AddRoleRequest{Name: "X", Description: "Y", Permissions: []string{}}
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO "roles" ("role_name","description") VALUES ($1,$2) RETURNING "role_id"`)).
+		WithArgs(req.Name, req.Description).
+		WillReturnError(errors.New("insert fail"))
+	mock.ExpectRollback()
+	c, rec := ctxJSON(t, db, http.MethodPost, "/roles", req)
+	CreateRoleHandler(c)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUpdateRoleHandler_InvalidID_Unit(t *testing.T) {
+	db, _ := newMockDB(t)
+	c, rec := ctxJSON(t, db, http.MethodPatch, "/roles/abc", nil)
+	c.Params = gin.Params{gin.Param{Key: "roleID", Value: "abc"}}
+	UpdateRoleHandler(c)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestUpdateRoleHandler_NotFound_Unit(t *testing.T) {
+	db, mock := newMockDB(t)
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "roles" WHERE "roles"."role_id" = $1 ORDER BY "roles"."role_id" LIMIT $2`)).
+		WithArgs(42, 1).
+		WillReturnError(gorm.ErrRecordNotFound)
+	c, rec := ctxJSON(t, db, http.MethodPatch, "/roles/42", nil)
+	c.Params = gin.Params{gin.Param{Key: "roleID", Value: "42"}}
+	UpdateRoleHandler(c)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUpdateRoleHandler_BadJSON_Unit(t *testing.T) {
+	db, mock := newMockDB(t)
+	// existing role
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "roles" WHERE "roles"."role_id" = $1 ORDER BY "roles"."role_id" LIMIT $2`)).
+		WithArgs(3, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"role_id", "role_name", "description"}).AddRow(3, "R", "D"))
+	c, rec := ctxJSON(t, db, http.MethodPatch, "/roles/3", nil)
+	c.Request.Body = io.NopCloser(bytes.NewBufferString("{bad"))
+	c.Params = gin.Params{gin.Param{Key: "roleID", Value: "3"}}
+	UpdateRoleHandler(c)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestDeleteRoleHandler_InvalidID_Unit(t *testing.T) {
+	db, _ := newMockDB(t)
+	c, rec := ctxJSON(t, db, http.MethodDelete, "/roles/xyz", nil)
+	c.Params = gin.Params{gin.Param{Key: "roleID", Value: "xyz"}}
+	DeleteRoleHandler(c)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestDeleteRoleHandler_NotFound_Unit(t *testing.T) {
+	db, mock := newMockDB(t)
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "roles" WHERE "roles"."role_id" = $1 ORDER BY "roles"."role_id" LIMIT $2`)).
+		WithArgs(99, 1).
+		WillReturnError(gorm.ErrRecordNotFound)
+	c, rec := ctxJSON(t, db, http.MethodDelete, "/roles/99", nil)
+	c.Params = gin.Params{gin.Param{Key: "roleID", Value: "99"}}
+	DeleteRoleHandler(c)
+	require.Equal(t, http.StatusNotFound, rec.Code)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
