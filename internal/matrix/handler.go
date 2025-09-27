@@ -206,20 +206,28 @@ func DeleteJobMatrixEntryHandler(c *gin.Context) {
 	note := fmt.Sprintf("Auto-assigned because position %s linked to competency %d", entry.PositionMatrixCode, entry.CompetencyID)
 
 	if err := DB.Transaction(func(tx *gorm.DB) error {
-		// Delete only auto-assigned rows for current incumbents of the position
-		if err := tx.Exec(`
-			DELETE FROM employee_competencies ec
-			USING employment_history eh
-			WHERE ec.employee_number = eh.employee_number
-			  AND eh.position_matrix_code = ?
+		// Step 1: Find employee_numbers to delete
+		var employeeNumbers []string
+		if err := tx.Raw(`
+			SELECT ec.employee_number
+			FROM employee_competencies ec
+			JOIN employment_history eh ON ec.employee_number = eh.employee_number
+			WHERE eh.position_matrix_code = ?
 			  AND eh.start_date <= CURRENT_DATE
 			  AND (eh.end_date IS NULL OR eh.end_date >= CURRENT_DATE)
 			  AND ec.competency_id = ?
 			  AND ec.achievement_date IS NULL
 			  AND ec.granted_by_schedule_id IS NULL
 			  AND ec.notes = ?
-		`, entry.PositionMatrixCode, entry.CompetencyID, note).Error; err != nil {
+		`, entry.PositionMatrixCode, entry.CompetencyID, note).Scan(&employeeNumbers).Error; err != nil {
 			return err
+		}
+
+		// Step 2: Delete those employee_competencies
+		if len(employeeNumbers) > 0 {
+			if err := tx.Where("employee_number IN ? AND competency_id = ? AND achievement_date IS NULL AND granted_by_schedule_id IS NULL AND notes = ?", employeeNumbers, entry.CompetencyID, note).Delete(&models.EmployeeCompetency{}).Error; err != nil {
+				return err
+			}
 		}
 
 		// Finally delete the matrix link
@@ -228,6 +236,7 @@ func DeleteJobMatrixEntryHandler(c *gin.Context) {
 		}
 		return nil
 	}); err != nil {
+		log.Printf("Detailed error: %+v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove job requirement: " + err.Error()})
 		return
 	}
