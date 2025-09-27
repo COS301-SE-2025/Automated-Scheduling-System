@@ -18,6 +18,8 @@ export interface EmployeeHeader {
   name: string;
   positionCode: string;
   positionTitle: string;
+  email?: string;
+  phone?: string;
 }
 
 export interface EmployeeCompetencyProfile {

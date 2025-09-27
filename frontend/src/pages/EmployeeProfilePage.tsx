@@ -16,6 +16,9 @@ const EmployeeProfilePage: React.FC = () => {
   // Settings form state
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  // Keep originals to allow cancel
+  const [originalEmail, setOriginalEmail] = useState('');
+  const [originalPhone, setOriginalPhone] = useState('');
   const [isSettingsSaving, setIsSettingsSaving] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
@@ -81,8 +84,8 @@ const EmployeeProfilePage: React.FC = () => {
 
   const handleCancelSettings = () => {
     // Reset form to original values
-    setEmail('');
-    setPhone('');
+    setEmail(originalEmail);
+    setPhone(originalPhone);
     setSettingsMessage(null);
   };
 
@@ -92,6 +95,17 @@ const EmployeeProfilePage: React.FC = () => {
         setLoading(true);
         const res = await getEmployeeCompetencyProfile();
         setData(res);
+        // Prefill email/phone if present on employee header
+        if (res?.employee) {
+          if (res.employee.email) {
+            setEmail(res.employee.email);
+            setOriginalEmail(res.employee.email);
+          }
+          if (res.employee.phone) {
+            setPhone(res.employee.phone);
+            setOriginalPhone(res.employee.phone);
+          }
+        }
         setError(null);
       } catch (e) {
         console.error('Failed to load profile:', e);

@@ -33,6 +33,8 @@ type EmployeeCompetencyProfile struct {
 		Name           string `json:"name"`
 		PositionCode   string `json:"positionCode"`
 		PositionTitle  string `json:"positionTitle"`
+		Email          string `json:"email"`
+		Phone          string `json:"phone,omitempty"`
 	} `json:"employee"`
 	Completed []CompetencyBrief `json:"completed"`
 	Required  []CompetencyBrief `json:"required"`
@@ -68,6 +70,8 @@ func GetEmployeeCompetencyProfile(c *gin.Context) {
 	prof.Employee.Name = ext.Employee.Firstname + " " + ext.Employee.Lastname
 	prof.Employee.PositionCode = curPos.Code
 	prof.Employee.PositionTitle = curPos.Title
+	prof.Employee.Email = ext.Employee.Useraccountemail
+	prof.Employee.Phone = ext.Employee.PhoneNumber
 
 	// Get all assigned competencies (both completed and required)
 	allRows := []struct {
