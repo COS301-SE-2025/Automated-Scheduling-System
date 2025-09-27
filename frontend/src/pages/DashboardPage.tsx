@@ -10,7 +10,7 @@ import VisualizationTab from '../components/visualization/VisualizationTab';
 import { CalendarClock, Users, Calendar, HelpCircle, AlertCircle, Shield, FileText, Gavel, GraduationCap, TrendingUp } from 'lucide-react';
 
 const DashboardPage: React.FC = () => {
-    const { user } = useAuth();
+    const { user, permissions } = useAuth();
     const [upcomingEvents, setUpcomingEvents] = useState<CalendarEvent[]>([]);
     const [vizData, setVizData] = useState<VisualizationData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -174,29 +174,37 @@ const DashboardPage: React.FC = () => {
                         </Link>
                     )}
 
-                    <Link to="/roles" className="block">
-                        <FeatureBlock title="Roles & Permissions" icon={<Shield size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
-                            <p>Create and edit roles, and control page access via permissions.</p>
-                        </FeatureBlock>
-                    </Link>
+                    {permissions?.includes('roles') && (
+                        <Link to="/roles" className="block">
+                            <FeatureBlock title="Roles & Permissions" icon={<Shield size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
+                                <p>Create and edit roles, and control page access via permissions.</p>
+                            </FeatureBlock>
+                        </Link>
+                    )}
 
-                    <Link to="/event-definitions" className="block">
-                        <FeatureBlock title="Event Definitions" icon={<FileText size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
-                            <p>Define reusable event templates, facilitators, and durations.</p>
-                        </FeatureBlock>
-                    </Link>
+                    {permissions?.includes('event-definitions') && (
+                        <Link to="/event-definitions" className="block">
+                            <FeatureBlock title="Event Definitions" icon={<FileText size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
+                                <p>Define reusable event templates, facilitators, and durations.</p>
+                            </FeatureBlock>
+                        </Link>
+                    )}
 
-                    <Link to="/rules" className="block">
-                        <FeatureBlock title="Rules" icon={<Gavel size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
-                            <p>Design business rules by combining triggers, conditions, and actions.</p>
-                        </FeatureBlock>
-                    </Link>
+                    {permissions?.includes('rules') && (
+                        <Link to="/rules" className="block">
+                            <FeatureBlock title="Rules" icon={<Gavel size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
+                                <p>Design business rules by combining triggers, conditions, and actions.</p>
+                            </FeatureBlock>
+                        </Link>
+                    )}
 
-                    <Link to="/competencies" className="block">
-                        <FeatureBlock title="Competencies" icon={<GraduationCap size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
-                            <p>Manage competencies, types, prerequisites, and job requirements.</p>
-                        </FeatureBlock>
-                    </Link>
+                    {permissions?.includes('competencies') && (
+                        <Link to="/competencies" className="block">
+                            <FeatureBlock title="Competencies" icon={<GraduationCap size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
+                                <p>Manage competencies, types, prerequisites, and job requirements.</p>
+                            </FeatureBlock>
+                        </Link>
+                    )}
 
                     <Link to="/main-help" className="block">
                         <FeatureBlock title="Help & Feedback" icon={<HelpCircle size={24} />} minSubtext className="dark:from-dark-accent-hover dark:to-dark-accent">
