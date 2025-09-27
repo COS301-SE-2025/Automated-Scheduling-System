@@ -6,7 +6,7 @@ describe('User Management', () => {
     });
 
     // Intercept authentication API calls
-    cy.intercept('GET', '**/profile', {
+    cy.intercept('GET', '**/api/profile', {
       statusCode: 200,
       body: {
         id: 1,
@@ -18,14 +18,14 @@ describe('User Management', () => {
       }
     }).as('getProfile');
 
-    cy.intercept('GET', '**/roles/permissions', {
+    cy.intercept('GET', '**/api/roles/permissions', {
       statusCode: 200,
       body: ['dashboard', 'calendar', 'events', 'users', 'roles', 'rules', 'competencies', 'event-definitions']
     }).as('getPermissions');
     
     // Intercept API calls with correct endpoints
-    cy.intercept('GET', '**/users', { fixture: 'users.json' }).as('getUsers');
-    cy.intercept('GET', '**/roles', { 
+    cy.intercept('GET', '**/api/users', { fixture: 'users.json' }).as('getUsers');
+    cy.intercept('GET', '**/api/roles', { 
       statusCode: 200,
       body: [
         { id: 1, name: 'Admin' },
@@ -33,15 +33,15 @@ describe('User Management', () => {
         { id: 3, name: 'Developer' }
       ]
     }).as('getRoles');
-    cy.intercept('POST', '**/users', { 
+    cy.intercept('POST', '**/api/users', { 
       statusCode: 201, 
       body: { id: 4, firstName: 'Test', lastName: 'User', email: 'test@example.com', message: 'User created successfully' } 
     }).as('createUser');
-    cy.intercept('PATCH', '**/users/**', { 
+    cy.intercept('PATCH', '**/api/users/**', { 
       statusCode: 200, 
       body: { message: 'User updated successfully' } 
     }).as('updateUser');
-    cy.intercept('DELETE', '**/users/**', { 
+    cy.intercept('DELETE', '**/api/users/**', { 
       statusCode: 200, 
       body: { message: 'User deleted successfully' } 
     }).as('deleteUser');
@@ -50,21 +50,22 @@ describe('User Management', () => {
   describe('Users Page Loading', () => {
     it('should load users page successfully', () => {
       cy.visit('/users');
-      cy.wait(3000); // Allow page to load
+      cy.wait(1000); // Allow page to load
       
       // Check that we're on the users page and not redirected
       cy.url().should('include', '/users');
       
       // Look for users page content
-      cy.get('body').should('contain.text', 'Users');
+      cy.get('h1').should('contain.text', 'User Management');
     });
 
     it('should display users data when loaded', () => {
       cy.visit('/users');
       cy.wait('@getUsers');
       
-      // Look for table or user list elements
-      cy.get('table, .user-list, [role="table"]').should('exist');
+      // Look for table
+      cy.get('table').should('exist');
+      cy.get('tbody tr').should('have.length.at.least', 1);
     });
 
     it('should display user information from fixture', () => {
@@ -72,63 +73,47 @@ describe('User Management', () => {
       cy.wait('@getUsers');
       
       // Check if user data from fixture is displayed
-      cy.get('body').should('contain.text', 'John Doe');
-      cy.get('body').should('contain.text', 'john.doe@example.com');
+      cy.get('table').should('contain.text', 'John Doe');
+      cy.get('table').should('contain.text', 'john.doe@example.com');
     });
 
     it('should have user management controls', () => {
       cy.visit('/users');
-      cy.wait(3000);
+      cy.wait(1000);
       
-      // Look for add user button or similar controls
-      cy.get('button').should('exist');
+      // Look for "New User" button
+      cy.get('button').contains('New User').should('exist');
     });
   });
 
   describe('User Management Functionality', () => {
     beforeEach(() => {
       cy.visit('/users');
-      cy.wait(3000); // Allow page to load
+      cy.wait('@getUsers');
     });
 
     it('should have user creation functionality', () => {
-      // Look for add user button or similar functionality
-      cy.get('body').then(($body) => {
-        const hasCreateButton = $body.find('button').filter((i, el) => 
-          el.textContent.toLowerCase().includes('add') || 
-          el.textContent.toLowerCase().includes('create') ||
-          el.textContent.toLowerCase().includes('new')
-        ).length > 0;
-        
-        if (hasCreateButton) {
-          // If create button exists, test it
-          cy.get('button').contains(/add|create|new/i).should('be.visible');
-        } else {
-          // If no create button, that's acceptable - just verify page loaded
-          cy.get('body').should('be.visible');
-        }
-      });
+      // Look for "New User" button
+      cy.get('button').contains('New User').should('be.visible').and('be.enabled');
     });
 
     it('should display user management interface', () => {
-      // Check for user management interface elements
-      cy.get('table, .user-list, .user-grid').should('exist');
+      // Check for user table
+      cy.get('table').should('exist');
+      cy.get('thead').should('contain.text', 'Name');
+      cy.get('thead').should('contain.text', 'Contact Email');
+      cy.get('thead').should('contain.text', 'Employee Status');
+      cy.get('thead').should('contain.text', 'App Role');
       
-      // Should have some form of user data display
-      cy.get('body').should('contain.text', 'John Doe');
+      // Should have user data display
+      cy.get('tbody tr').should('have.length.at.least', 1);
+      cy.get('table').should('contain.text', 'John Doe');
     });
 
     it('should handle user interactions', () => {
-      // Look for interactive elements
-      cy.get('button, a').should('exist');
-      
-      // Test basic interaction if buttons exist
-      cy.get('button').then(($buttons) => {
-        if ($buttons.length > 0) {
-          // Just verify buttons are clickable
-          cy.wrap($buttons.first()).should('be.visible');
-        }
-      });
+      // Test "New User" button click
+      cy.get('button').contains('New User').should('be.visible').click();
+      // Note: We're not testing the modal opening as it might require more complex setup
     });
   });
 
@@ -138,36 +123,15 @@ describe('User Management', () => {
       cy.wait('@getUsers');
     });
 
-    it('should handle user editing interface', () => {
-      // Look for edit buttons or clickable user elements
-      cy.get('body').then(($body) => {
-        const hasEditButton = $body.find('button').toArray().some(
-          el => el.textContent.toLowerCase().includes('edit')
-        );
-        
-        if (hasEditButton) {
-          // Test edit functionality if available
-          cy.get('button').contains(/edit/i).first().should('be.visible');
-        } else {
-          // Check for other interactive elements
-          cy.get('tr, .user-item, .user-card').first().should('be.visible');
-        }
-      });
+    it('should have edit buttons for users', () => {
+      // Look for edit buttons (they use Edit icon)
+      cy.get('button[title="Edit User"]').should('have.length.at.least', 1);
     });
 
-    it('should handle user updates if editing is available', () => {
-      // Check if editing functionality exists
-      cy.get('body').then(($body) => {
-        const hasEditElements = $body.find('button, input, select').length > 0;
-        
-        if (hasEditElements) {
-          // Basic interaction test
-          cy.get('button, input').first().should('exist');
-        } else {
-          // Just verify the page is functional
-          cy.get('body').should('be.visible');
-        }
-      });
+    it('should handle user editing interface', () => {
+      // Test edit button click
+      cy.get('button[title="Edit User"]').first().should('be.visible').click();
+      // Note: We're not testing the modal opening as it might require more setup
     });
   });
 
@@ -218,42 +182,23 @@ describe('User Management', () => {
       cy.wait('@getUsers');
     });
 
-    it('should handle search functionality if available', () => {
-      // Look for search inputs
-      cy.get('body').then(($body) => {
-        const hasSearchInput = $body.find('input[type="search"], input[placeholder*="search" i], .search-input').length > 0;
-        
-        if (hasSearchInput) {
-          // Test search if available
-          cy.get('input[type="search"], input[placeholder*="search" i], .search-input')
-            .first()
-            .should('be.visible');
-        } else {
-          // Just verify users are displayed
-          cy.get('body').should('contain.text', 'John Doe');
-        }
-      });
+    it('should have search functionality', () => {
+      // Look for search input
+      cy.get('input[name="search"]').should('exist');
+      cy.get('input[placeholder*="Name or email"]').should('be.visible');
     });
 
-    it('should handle filtering if available', () => {
-      // Check for filter elements
-      cy.get('body').then(($body) => {
-        const hasFilters = $body.find('select, .filter, .dropdown').length > 0;
-        
-        if (hasFilters) {
-          // Test filters if they exist
-          cy.get('select, .filter').first().should('be.visible');
-        } else {
-          // Verify basic user list functionality
-          cy.get('table, .user-list, .user-grid').should('exist');
-        }
-      });
+    it('should have filtering functionality', () => {
+      // Check for filter dropdowns
+      cy.get('select[name="role"]').should('exist');
+      cy.get('select[name="status"]').should('exist');
     });
 
     it('should display user information correctly', () => {
-      // Verify user data is shown regardless of filtering capabilities
-      cy.get('body').should('contain.text', 'John Doe');
-      cy.get('body').should('contain.text', 'john.doe@example.com');
+      // Verify user data is shown
+      cy.get('table').should('contain.text', 'John Doe');
+      cy.get('table').should('contain.text', 'john.doe@example.com');
+      cy.get('table').should('contain.text', 'Admin');
     });
   });
 
@@ -263,25 +208,17 @@ describe('User Management', () => {
       cy.wait('@getUsers');
     });
 
-    it('should handle role management if available', () => {
-      // Check if role management features exist
-      cy.get('body').then(($body) => {
-        const hasRoleElements = $body.find('select, .role, .permission').length > 0;
-        
-        if (hasRoleElements) {
-          // Test role functionality if available
-          cy.get('select, .role').first().should('be.visible');
-        } else {
-          // Just verify users have role information displayed
-          cy.get('body').should('contain.text', 'Admin');
-        }
-      });
+    it('should display role information in table', () => {
+      // Verify role data is shown in user table
+      cy.get('table').should('contain.text', 'Admin');
+      cy.get('table').should('contain.text', 'Manager');
+      cy.get('table').should('contain.text', 'Developer');
     });
 
-    it('should display role information', () => {
-      // Verify role data is shown in user list
-      cy.get('body').should('contain.text', 'Admin');
-      cy.get('table, .user-list, .user-grid').should('exist');
+    it('should have role filter dropdown', () => {
+      // Check role filter functionality
+      cy.get('select[name="role"]').should('exist');
+      cy.get('label').contains('Filter by Role').should('be.visible');
     });
   });
 

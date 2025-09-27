@@ -1,26 +1,32 @@
 [
   {
     "id": 1,
+    "employeeNumber": "EMP001",
+    "username": "john.doe",
     "name": "John Doe",
     "email": "john.doe@example.com",
-    "role": "Manager",
-    "status": "active",
-    "createdAt": "2024-01-01T00:00:00Z"
+    "terminationDate": null,
+    "employeeStatus": "Active",
+    "role": "Admin"
   },
   {
     "id": 2,
+    "employeeNumber": "EMP002", 
+    "username": "jane.smith",
     "name": "Jane Smith",
     "email": "jane.smith@example.com",
-    "role": "Developer",
-    "status": "active",
-    "createdAt": "2024-01-02T00:00:00Z"
+    "terminationDate": null,
+    "employeeStatus": "Active",
+    "role": "Manager"
   },
   {
     "id": 3,
+    "employeeNumber": "EMP003",
+    "username": "bob.johnson", 
     "name": "Bob Johnson",
     "email": "bob.johnson@example.com",
-    "role": "Designer",
-    "status": "inactive",
-    "createdAt": "2024-01-03T00:00:00Z"
+    "terminationDate": null,
+    "employeeStatus": "Inactive",
+    "role": "Developer"
   }
 ]
