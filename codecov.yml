@@ -19,6 +19,8 @@ ignore:
   - "frontend/src/**/__mocks__/**"
   - "frontend/postcss.config.js"
   - "frontend/tailwind.config.js"
+  - "frontend/App.tsx"
+  - "frontend/main.tsx"
   # Routes/Types (cover common locations)
   - "frontend/src/routes/**"
   - "frontend/src/types/**"
