@@ -326,10 +326,10 @@ const AdminView: React.FC<AdminViewProps> = ({ events, onEdit, onDelete, onView 
                                     </div>
                                         <div className="flex items-center space-x-2">
                                         <button onClick={() => onView(event)} className="text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"><Eye size={16} /></button>
-                                        {event.extendedProps.canEdit && (
+                                        {event.extendedProps.canEdit === true && (
                                             <button onClick={() => onEdit(event)} className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary"><Edit size={16} /></button>
                                         )}
-                                        {event.extendedProps.canDelete && (
+                                        {event.extendedProps.canDelete === true && (
                                             <button onClick={() => onDelete(event)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"><Trash2 size={16} /></button>
                                         )}
                                     </div>
