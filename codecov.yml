@@ -1,0 +1,15 @@
+ignore:
+  # Go: generated code and stubs
+  - "internal/database/gen_models/**"
+  - "**/*.gen.go"
+  - "internal/**/service_stub.go"
+
+  # Exclude all Go routers from coverage
+  - "internal/**/router.go"
+  - "**/router.go"
+
+  # Frontend: build outputs, tests, mocks
+  - "frontend/dist/**"
+  - "frontend/coverage/**"
+  - "frontend/src/**/__tests__/**"
+  - "frontend/src/**/__mocks__/**"
