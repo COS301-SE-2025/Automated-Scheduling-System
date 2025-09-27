@@ -29,12 +29,12 @@ type CompetencyBrief struct {
 
 type EmployeeCompetencyProfile struct {
 	Employee struct {
-		EmployeeNumber string `json:"employeeNumber"`
-		Name           string `json:"name"`
-		PositionCode   string `json:"positionCode"`
-		PositionTitle  string `json:"positionTitle"`
-		Email          string `json:"email"`
-		Phone          string `json:"phone,omitempty"`
+		EmployeeNumber string  `json:"employeeNumber"`
+		Name           string  `json:"name"`
+		PositionCode   string  `json:"positionCode"`
+		PositionTitle  string  `json:"positionTitle"`
+		Email          string  `json:"email"`
+		Phone          *string `json:"phone,omitempty"`
 	} `json:"employee"`
 	Completed []CompetencyBrief `json:"completed"`
 	Required  []CompetencyBrief `json:"required"`

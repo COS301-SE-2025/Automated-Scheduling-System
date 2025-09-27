@@ -1,16 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
-// Button removed: actions hidden in this view
 import { getEmployeeCompetencyProfile, type EmployeeCompetencyProfile, updateEmployeeProfile } from '../services/profileService';
-import { getEmployeeVisualizationData, type VisualizationData } from '../services/visualizationService';
-import VisualizationTab from '../components/visualization/VisualizationTab';
 
 const EmployeeProfilePage: React.FC = () => {
   const [data, setData] = useState<EmployeeCompetencyProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [vizError, setVizError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'completed' | 'required' | 'visualization' | 'settings'>('completed');
 
   // Settings form state
@@ -136,9 +132,9 @@ const EmployeeProfilePage: React.FC = () => {
 
             {/* Tabs */}
             <div className="flex gap-2 border-b dark:border-gray-700 mb-4">
-              {(['completed', 'required', 'visualization', 'settings'] as const).map(tab => (
+              {(['completed', 'required', 'settings'] as const).map(tab => (
                 <button key={tab} className={`px-3 py-2 text-sm ${activeTab === tab ? 'border-b-2 border-custom-primary font-semibold' : 'text-gray-600'}`} onClick={() => setActiveTab(tab)}>
-                  {tab === 'completed' ? 'Completed Competencies' : tab === 'required' ? 'Required Competencies' : tab === 'visualization' ? 'Visualization' : 'Settings'}
+                  {tab === 'completed' ? 'Completed Competencies' : tab === 'required' ? 'Required Competencies' : 'Settings'}
                 </button>
               ))}
             </div>
@@ -210,14 +206,6 @@ const EmployeeProfilePage: React.FC = () => {
               </div>
             )}
             
-            {/* Visualization */}
-            {activeTab === 'visualization' && (
-              <VisualizationTab 
-                data={vizData}
-                loading={vizLoading}
-                error={vizError}
-              />
-            )}
 
             {/* Settings */}
             {activeTab === 'settings' && (
