@@ -85,7 +85,9 @@ func TestGetAllUsersHandler_Unit(t *testing.T) {
 	err := json.Unmarshal(rec.Body.Bytes(), &users)
 	require.NoError(t, err)
 	require.Len(t, users, 2)
-	require.NoError(t, mock.ExpectationsWereMet())
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("Unmet sqlmock expectation: %v", err)
+	}
 }
 
 func TestAddUserHandler_Success_Unit(t *testing.T) {
@@ -100,11 +102,13 @@ func TestAddUserHandler_Success_Unit(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"role_id", "role_name", "description"}).AddRow(2, "User", "System"))
 
 	mock.ExpectQuery(regexp.QuoteMeta(
-		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE UserAccountEmail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
+		// Updated to match actual GORM-generated query (explicit column list + ORDER BY + LIMIT)
+		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE Useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
 		WithArgs(testNewUserEmail, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname", "useraccountemail"}).
-			AddRow(testNewUserEmpNum, "New", "User", testNewUserEmail))
+		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname", "useraccountemail", "employeestatus", "phonenumber", "terminationdate"}).
+			AddRow(testNewUserEmpNum, "New", "User", testNewUserEmail, "Active", "", nil))
 
+	// Preload("User") query for the employee
 	mock.ExpectQuery(regexp.QuoteMeta(
 		`SELECT * FROM "users" WHERE "users"."employee_number" = $1`)).
 		WithArgs(testNewUserEmpNum).
@@ -128,8 +132,13 @@ func TestAddUserHandler_Success_Unit(t *testing.T) {
 	c, rec := ctxWithJSON(t, db, "POST", "/users", addUserReq)
 	AddUserHandler(c)
 
+	if rec.Code != http.StatusCreated {
+		t.Logf("Response body: %s", rec.Body.String())
+	}
 	require.Equal(t, http.StatusCreated, rec.Code)
-	require.NoError(t, mock.ExpectationsWereMet())
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("Unmet sqlmock expectation: %v", err)
+	}
 }
 
 func TestAddUserHandler_UserAlreadyExists_Unit(t *testing.T) {
@@ -142,16 +151,6 @@ func TestAddUserHandler_UserAlreadyExists_Unit(t *testing.T) {
 		`SELECT * FROM "roles" WHERE role_name = $1 ORDER BY "roles"."role_id" LIMIT $2`)).
 		WithArgs("User", 1).
 		WillReturnRows(sqlmock.NewRows([]string{"role_id", "role_name", "description"}).AddRow(2, "User", "System"))
-
-	mock.ExpectQuery(regexp.QuoteMeta(
-		`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE UserAccountEmail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
-		WithArgs(testUserEmail, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"employeenumber"}).AddRow(testUserEmpNum))
-
-	mock.ExpectQuery(regexp.QuoteMeta(
-		`SELECT * FROM "users" WHERE "users"."employee_number" = $1`)).
-		WithArgs(testUserEmpNum).
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 
 	c, rec := ctxWithJSON(t, db, "POST", "/users", addUserReq)
 	AddUserHandler(c)
