@@ -532,7 +532,22 @@ func UpdateEmployeeProfile(c *gin.Context) {
 
 	// Update phone number (phonenumber field exists in Employee model)
 	if updateReq.Phone != "" && strings.TrimSpace(updateReq.Phone) != "" {
-		updateData["phonenumber"] = strings.TrimSpace(updateReq.Phone)
+		// Clean and format phone number to fit database constraints
+		cleanPhone := strings.ReplaceAll(strings.TrimSpace(updateReq.Phone), " ", "")
+		cleanPhone = strings.ReplaceAll(cleanPhone, "-", "")
+		cleanPhone = strings.ReplaceAll(cleanPhone, "(", "")
+		cleanPhone = strings.ReplaceAll(cleanPhone, ")", "")
+
+		// Check if phone number is too long and provide helpful error
+		if len(cleanPhone) > 11 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Phone number too long. Please use a shorter format (max 11 digits including country code)",
+				"note":  "Try using format like: +12345678901 or 12345678901",
+			})
+			return
+		}
+
+		updateData["phonenumber"] = cleanPhone
 	}
 
 	// Only proceed with update if there's something to update
