@@ -46,4 +46,9 @@ jobs:
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/go-integration.out, ./coverage/go-unit.out, ./frontend/coverage/lcov.info
+          flags: go_integration, go_unit, frontend
+          fail_ci_if_error: true
+          verbose: true
 
