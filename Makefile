@@ -34,6 +34,8 @@ run:
 
 # Run frontend tests
 ftest:
+    @cd frontend && npm install --prefer-offline --no-fund
+    @cd frontend && npx vitest run --coverage --coverage.reporter=lcov --coverage.reportsDirectory=coverage
 	@cd frontend && npm install --prefer-offline --no-fund
 	@cd frontend && npx vitest run --coverage --coverage.reporter=lcov --coverage.reportsDirectory=coverage
 
