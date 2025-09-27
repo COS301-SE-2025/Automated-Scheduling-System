@@ -17,6 +17,8 @@ func newSQLite(t *testing.T) *gorm.DB {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
+	err = db.AutoMigrate(&models.Rule{})
+	require.NoError(t, err)
 	return db
 }
 

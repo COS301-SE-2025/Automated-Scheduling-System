@@ -9,6 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"Automated-Scheduling-Project/internal/database/models"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
@@ -23,6 +25,10 @@ func setupITRouter(t *testing.T) (*gin.Engine, *RuleBackEndService) {
 	gin.SetMode(gin.TestMode)
 
 	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+
+	// Automigrate the rules table
+	err = db.AutoMigrate(&models.Rule{})
 	require.NoError(t, err)
 
 	svc := NewRuleBackEndService(db)

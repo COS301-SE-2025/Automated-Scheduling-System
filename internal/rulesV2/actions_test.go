@@ -31,6 +31,15 @@ func setupTestDBForActions() *gorm.DB {
 		panic("failed to migrate database schema")
 	}
 
+	// Add a test employee with employee number EMP001 and a phone number
+	phone := "1234567890"
+	db.Create(&gen_models.Employee{
+		Employeenumber: "EMP001",
+		Firstname:      "Test",
+		Lastname:       "User",
+		PhoneNumber:    &phone,
+	})
+
 	return db
 }
 
@@ -40,10 +49,10 @@ func TestNotificationAction_Execute(t *testing.T) {
 
 	t.Run("ValidNotification", func(t *testing.T) {
 		params := map[string]any{
-			"type":      "sms", // Use SMS instead of email to avoid email config issues
-			"recipient": "+1234567890",
-			"subject":   "Test Subject",
-			"message":   "Test Message",
+			"type":       "sms", // Use SMS instead of email to avoid email config issues
+			"recipients": "[\"EMP001\"]",
+			"subject":    "Test Subject",
+			"message":    "Test Message",
 		}
 
 		ctx := EvalContext{}
@@ -55,6 +64,7 @@ func TestNotificationAction_Execute(t *testing.T) {
 
 	t.Run("MissingRecipient", func(t *testing.T) {
 		params := map[string]any{
+			"type":    "email",
 			"subject": "Test Subject",
 			"message": "Test Message",
 		}
@@ -67,8 +77,9 @@ func TestNotificationAction_Execute(t *testing.T) {
 
 	t.Run("MissingSubject", func(t *testing.T) {
 		params := map[string]any{
-			"recipient": "test@example.com",
-			"message":   "Test Message",
+			"type":       "email",
+			"recipients": "[\"EMP001\"]",
+			"message":    "Test Message",
 		}
 
 		ctx := EvalContext{}
@@ -79,8 +90,9 @@ func TestNotificationAction_Execute(t *testing.T) {
 
 	t.Run("MissingMessage", func(t *testing.T) {
 		params := map[string]any{
-			"recipient": "test@example.com",
-			"subject":   "Test Subject",
+			"type":       "email",
+			"recipients": "[\"EMP001\"]",
+			"subject":    "Test Subject",
 		}
 
 		ctx := EvalContext{}
@@ -247,10 +259,10 @@ func TestNotificationActionComprehensive_Execute(t *testing.T) {
 
 	t.Run("EmailNotificationSuccess", func(t *testing.T) {
 		params := map[string]any{
-			"type":      "email",
-			"recipient": "test@example.com",
-			"subject":   "Test Subject",
-			"message":   "Test message body",
+			"type":       "email",
+			"recipients": "[\"EMP001\"]",
+			"subject":    "Test Subject",
+			"message":    "Test message body",
 		}
 
 		ctx := EvalContext{}
@@ -261,10 +273,10 @@ func TestNotificationActionComprehensive_Execute(t *testing.T) {
 
 	t.Run("SMSNotificationSuccess", func(t *testing.T) {
 		params := map[string]any{
-			"type":      "sms",
-			"recipient": "+1234567890",
-			"subject":   "SMS",
-			"message":   "Test SMS message",
+			"type":       "sms",
+			"recipients": "[\"EMP001\"]",
+			"subject":    "SMS",
+			"message":    "Test SMS message",
 		}
 
 		ctx := EvalContext{}
@@ -276,10 +288,10 @@ func TestNotificationActionComprehensive_Execute(t *testing.T) {
 
 	t.Run("PushNotificationSuccess", func(t *testing.T) {
 		params := map[string]any{
-			"type":      "push",
-			"recipient": "device_token_123",
-			"subject":   "Test Push",
-			"message":   "Test push notification",
+			"type":       "push",
+			"recipients": "[\"EMP001\"]",
+			"subject":    "Test Push",
+			"message":    "Test push notification",
 		}
 
 		ctx := EvalContext{}
@@ -289,10 +301,10 @@ func TestNotificationActionComprehensive_Execute(t *testing.T) {
 
 	t.Run("SystemNotificationSuccess", func(t *testing.T) {
 		params := map[string]any{
-			"type":      "system",
-			"recipient": "admin",
-			"subject":   "System Alert",
-			"message":   "System notification test",
+			"type":       "system",
+			"recipients": "[\"EMP001\"]",
+			"subject":    "System Alert",
+			"message":    "System notification test",
 		}
 
 		ctx := EvalContext{}
@@ -303,10 +315,10 @@ func TestNotificationActionComprehensive_Execute(t *testing.T) {
 
 	t.Run("InvalidNotificationType", func(t *testing.T) {
 		params := map[string]any{
-			"type":      "invalid_type",
-			"recipient": "test@example.com",
-			"subject":   "Test",
-			"message":   "Test message",
+			"type":       "invalid_type",
+			"recipients": "[\"EMP001\"]",
+			"subject":    "Test",
+			"message":    "Test message",
 		}
 
 		ctx := EvalContext{}
@@ -317,10 +329,10 @@ func TestNotificationActionComprehensive_Execute(t *testing.T) {
 
 	t.Run("MissingType", func(t *testing.T) {
 		params := map[string]any{
-			"type":      "sms", // Use SMS instead of email to avoid email config issues
-			"recipient": "+1234567890",
-			"subject":   "Test",
-			"message":   "Test message",
+			"type":       "sms", // Use SMS instead of email to avoid email config issues
+			"recipients": "[\"EMP001\"]",
+			"subject":    "Test",
+			"message":    "Test message",
 		}
 
 		ctx := EvalContext{}
@@ -352,28 +364,28 @@ func TestNotificationActionComprehensive_Execute(t *testing.T) {
 		ctx := EvalContext{}
 		err := action.Execute(ctx, params)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "notification requires recipient, subject, and message")
+		assert.Contains(t, err.Error(), "notification requires: [recipients]")
 	})
 
 	t.Run("MissingSubjectForEmail", func(t *testing.T) {
 		params := map[string]any{
-			"type":      "email",
-			"recipient": "test@example.com",
-			"message":   "Test message",
+			"type":       "email",
+			"recipients": "[\"EMP001\"]",
+			"message":    "Test message",
 		}
 
 		ctx := EvalContext{}
 		err := action.Execute(ctx, params)
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "notification requires recipient, subject, and message")
+		assert.Contains(t, err.Error(), "notification requires: [subject]")
 	})
 
 	t.Run("EmailTemplateProcessing", func(t *testing.T) {
 		params := map[string]any{
-			"type":      "email",
-			"recipient": "john.doe@company.com", // Use actual email, not template
-			"subject":   "Welcome John Doe",     // Use actual text, not template
-			"message":   "Hello John Doe, welcome to the system!",
+			"type":       "email",
+			"recipients": "[\"EMP001\"]",
+			"subject":    "Welcome John Doe", // Use actual text, not template
+			"message":    "Hello John Doe, welcome to the system!",
 		}
 
 		ctx := EvalContext{}
@@ -388,7 +400,7 @@ func TestCreateEventAction_Execute(t *testing.T) {
 	db := setupTestDBForActions()
 	action := &CreateEventAction{DB: db}
 
-	// Create a test CustomEventDefinition first
+	// Create required CustomEventDefinitions only once
 	eventDef := models.CustomEventDefinition{
 		CustomEventID:       1,
 		EventName:           "Test Event Definition",
@@ -419,8 +431,8 @@ func TestCreateEventAction_Execute(t *testing.T) {
 			"title":           "Test Event",
 			"customEventID":   "1",
 			"eventType":       "Test event description",
-			"startTime":       startTime.Format("2006-01-02 15:04"),
-			"endTime":         endTime.Format("2006-01-02 15:04"),
+			"startTime":       startTime.Format("2006-01-02T15:04"),
+			"endTime":         endTime.Format("2006-01-02T15:04"),
 			"relevantParties": "john.doe@company.com,jane.smith@company.com",
 		}
 
@@ -441,8 +453,8 @@ func TestCreateEventAction_Execute(t *testing.T) {
 			"title":           "Future Event",
 			"customEventID":   "2",
 			"eventType":       "Event in the future",
-			"startTime":       "2024-12-31 10:00",
-			"endTime":         "2024-12-31 12:00",
+			"startTime":       "2024-12-31T10:00",
+			"endTime":         "2024-12-31T12:00",
 			"relevantParties": "user@example.com",
 		}
 
