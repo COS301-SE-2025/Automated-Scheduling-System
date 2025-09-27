@@ -520,6 +520,7 @@ const CalendarPage: React.FC = () => {
                 event={clickedEventInfo}
                 onEdit={handleStartEdit}
                 onDelete={handleDeleteRequest}
+                onAfterRSVP={() => { setIsDetailModalOpen(false); fetchAndSetData(); }}
             />
             {eventToDelete && (
                 <EventDeleteConfirmationModal

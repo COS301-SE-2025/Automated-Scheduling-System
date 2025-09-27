@@ -31,6 +31,8 @@ func RegisterEventRoutes(r *gin.Engine) {
 				schedules.GET("/event-schedules/:scheduleID/attendance-candidates", GetAttendanceCandidates)
 				schedules.GET("/employees-by-positions", GetEmployeesByPositions)
 				schedules.POST("/competency-check", CheckEmployeesHaveCompetency)
+				// RSVP (book/reject) endpoint
+				schedules.POST("/event-schedules/:scheduleID/rsvp", RSVPHandler)
 			}
 
 			defs := protected.Group("/")
