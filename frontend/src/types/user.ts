@@ -17,6 +17,7 @@ export interface AddUserData {
   email: string;
   password: string;
   role: Role; 
+//   phonenumber: string; TODO: add phone number later
 }
 export interface UpdateUserData {
   role?: Role;
