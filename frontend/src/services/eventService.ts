@@ -33,10 +33,15 @@ export interface BackendScheduledEvent {
     canEdit?: boolean;
     canDelete?: boolean;
     creatorUserId?: number;
+    // new booking fields
+    bookedCount?: number;
+    spotsLeft?: number;
+    myBooking?: string; // 'Booked' | 'Rejected' | undefined
+    canRSVP?: boolean;  // ADD
 }
 
 export interface CalendarEvent extends EventInput {
-    id: string; 
+    id: string;
     extendedProps: {
         scheduleId: number;
         definitionId: number;
@@ -54,6 +59,11 @@ export interface CalendarEvent extends EventInput {
     canEdit?: boolean;
     canDelete?: boolean;
     creatorUserId?: number;
+    // booking UI helpers
+    myBooking?: 'Booked' | 'Rejected';
+    bookedCount?: number;
+    spotsLeft?: number;
+    canRSVP?: boolean; // ADD
     // Client-only props for multi-day visualization
     seriesStart?: string;
     seriesEnd?: string;
@@ -104,12 +114,12 @@ export const deleteEventDefinition = async (definitionId: number): Promise<void>
 export const getScheduledEvents = async (): Promise<CalendarEvent[]> => {
     const response = await api<BackendScheduledEvent[]>('event-schedules');
 
-    // Robust boolean coercion to avoid truthy string values like 'false'
     const toBool = (v: any): boolean => v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
 
     return response.map(raw => {
         const canEdit = toBool((raw as any).canEdit ?? (raw as any).CanEdit);
         const canDelete = toBool((raw as any).canDelete ?? (raw as any).CanDelete);
+        const canRSVP = toBool((raw as any).canRSVP ?? (raw as any).CanRSVP);
         return {
             id: String(raw.CustomEventScheduleID),
             title: raw.Title,
@@ -137,6 +147,10 @@ export const getScheduledEvents = async (): Promise<CalendarEvent[]> => {
                 canEdit,
                 canDelete,
                 creatorUserId: (raw as any).creatorUserId ?? (raw as any).CreatorID,
+                myBooking: (raw.myBooking as any) || undefined,
+                bookedCount: raw.bookedCount,
+                spotsLeft: raw.spotsLeft,
+                canRSVP, // ADD
             }
         } as CalendarEvent;
     });
@@ -168,6 +182,14 @@ export const updateScheduledEvent = async (scheduleId: number, scheduleData: Par
 
 export const deleteScheduledEvent = async (scheduleId: number): Promise<void> => {
     await api(`event-schedules/${scheduleId}`, { method: 'DELETE' });
+};
+
+// RSVP (Book/Reject) for current user
+export const rsvpScheduledEvent = async (scheduleId: number, choice: 'book' | 'reject'): Promise<{ myBooking: string; bookedCount: number; spotsLeft?: number; }> => {
+    return api<{ myBooking: string; bookedCount: number; spotsLeft?: number }>(`event-schedules/${scheduleId}/rsvp`, {
+        method: 'POST',
+        data: { choice }
+    });
 };
 
 // --- Attendance ---

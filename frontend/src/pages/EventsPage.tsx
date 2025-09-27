@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'; 
-import { PlusCircle, Settings} from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { PlusCircle, Settings } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import MainLayout from '../layouts/MainLayout';
 import FeatureGrid from '../components/ui/FeatureGrid';
 import FeatureBlock from '../components/ui/FeatureBlock';
 import * as eventService from '../services/eventService';
-import type { CalendarEvent, EventDefinition, CreateEventDefinitionPayload  } from '../services/eventService';
-import { Edit, Trash2, AlertCircle, CalendarClock, Link as LinkIcon, Eye } from 'lucide-react';
+import type { CalendarEvent, EventDefinition, CreateEventDefinitionPayload } from '../services/eventService';
+import { Edit, Trash2, AlertCircle, CalendarClock, Eye } from 'lucide-react';
 import { ApiError } from '../services/api';
-import { Link } from 'react-router-dom';
+// import { Link } from 'react-router-dom';
 import EventFormModal, { type EventFormModalProps } from '../components/ui/EventFormModal';
 import EventDetailModal from '../components/ui/EventDetailModal';
 import EventDefinitionFormModal from '../components/ui/EventDefinitionFormModal';
@@ -18,6 +18,7 @@ import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmati
 import Button from '../components/ui/Button';
 
 type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
+type RSVPChoice = 'book' | 'reject';
 
 const EventsPage: React.FC = () => {
     const { user } = useAuth();
@@ -33,6 +34,9 @@ const EventsPage: React.FC = () => {
     const [eventToDelete, setEventToDelete] = useState<CalendarEvent | null>(null);
     const [eventToView, setEventToView] = useState<CalendarEvent | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+    // Track RSVP loading per-event at the page level
+    const [rsvpLoading, setRsvpLoading] = useState<Record<string, RSVPChoice | null>>({});
 
     const fetchAndSetData = useCallback(async () => {
         if (!user) return;
@@ -56,13 +60,13 @@ const EventsPage: React.FC = () => {
             setIsLoading(false);
         }
 
-    }, [user]); 
+    }, [user]);
 
     useEffect(() => {
         fetchAndSetData();
     }, [fetchAndSetData]);
 
-    // Load competencies for Admin/HR only
+    // Load competencies for Admin/HR only (normal users don’t need these for event type creation)
     useEffect(() => {
         if (!user) return;
         if (user.role !== 'Admin' && user.role !== 'HR') { setCompetencies([]); return; }
@@ -132,7 +136,7 @@ const EventsPage: React.FC = () => {
                 minAttendees: eventData.minimumAttendees ?? undefined,
                 statusName: eventData.statusName,
                 color: eventData.color,
-                // Persist linked employees and job positions selected in the modal
+                // Persist linked employees and job positions; backend enforces permissions
                 employeeNumbers: (eventData as any).employeeNumbers,
                 positionCodes: (eventData as any).positionCodes,
             };
@@ -166,7 +170,7 @@ const EventsPage: React.FC = () => {
             const localISOTime = new Date(d.getTime() - tzoffset).toISOString().slice(0, 16);
             return localISOTime;
         };
-        
+
         return {
             id: eventToEdit.id,
             title: eventToEdit.title,
@@ -184,6 +188,20 @@ const EventsPage: React.FC = () => {
         };
     };
 
+    const handleRSVP = async (eventId: number, choice: RSVPChoice) => {
+        const key = String(eventId);
+        setRsvpLoading(prev => ({ ...prev, [key]: choice }));
+        try {
+            await eventService.rsvpScheduledEvent(eventId, choice);
+            await fetchAndSetData();
+        } catch (e) {
+            console.error('RSVP failed', e);
+            alert('Failed to update RSVP');
+        } finally {
+            setRsvpLoading(prev => ({ ...prev, [key]: null }));
+        }
+    };
+
     const renderContent = () => {
         if (isLoading) {
             return <p>Loading events...</p>;
@@ -196,10 +214,18 @@ const EventsPage: React.FC = () => {
                 </div>
             );
         }
-        if (user?.role === 'Admin' || user?.role === 'HR') {
-            return <AdminView events={events} onEdit={handleStartEdit} onDelete={handleDeleteRequest} onView={handleViewEvent} />;
-        }
-        return <UserView events={events} />;
+        // Pass RSVP controls/loading down; edit/delete gated by canEdit/canDelete
+        return (
+            <AdminView
+                events={events}
+                onEdit={handleStartEdit}
+                onDelete={handleDeleteRequest}
+                onView={handleViewEvent}
+                onRSVP={handleRSVP}
+                rsvpLoading={rsvpLoading}
+            // currentEmployeeNumber={currentEmployeeNumber} // ADD
+            />
+        );
     };
 
     return (
@@ -207,71 +233,66 @@ const EventsPage: React.FC = () => {
             <div className="flex justify-between items-center mb-6">
                 <div>
                     <h1 className="text-3xl font-bold text-custom-primary dark:text-dark-primary">
-                        {user?.role === 'Admin' ? 'All Company Events' : 'Your Upcoming Events'}
+                        {user?.role === 'Admin' ? 'All Company Events' : 'All Events'}
                     </h1>
                     <p className="mt-1 text-custom-text dark:text-dark-secondary">
-                        {user?.role === 'Admin' ? 'Manage all scheduled events across the company.' : 'Here is a list of your scheduled events.'}
+                        {user?.role === 'Admin' ? 'Manage all scheduled events across the company.' : 'View, schedule, and manage events you have access to.'}
                     </p>
                 </div>
-                {user?.role === 'Admin' && (
-                    <div className="flex space-x-2">
-                        <Button type="button" variant="outline" onClick={handleOpenDefinitionModal}>
-                            <Settings size={20} className="inline-block mr-2" />
-                            Create New Event Types
-                        </Button>
-                        <Button type="button" variant="primary" onClick={handleAddEventClick}>
-                            <PlusCircle size={20} className="inline-block mr-2" />
-                            Schedule Event
-                        </Button>
-                    </div>
-                )}
+                {/* Show actions to all users; backend/flags enforce permissions on save/update */}
+                <div className="flex space-x-2">
+                    <Button type="button" variant="outline" onClick={handleOpenDefinitionModal}>
+                        <Settings size={20} className="inline-block mr-2" />
+                        Create New Event Types
+                    </Button>
+                    <Button type="button" variant="primary" onClick={handleAddEventClick}>
+                        <PlusCircle size={20} className="inline-block mr-2" />
+                        Schedule Event
+                    </Button>
+                </div>
             </div>
 
             <FeatureGrid className="grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                 {renderContent()}
             </FeatureGrid>
 
-            {/* Modals for Admin */}
-            {(user?.role === 'Admin' || user?.role === 'HR') && (
-                <>
-                    <EventFormModal
-                        isOpen={isFormModalOpen}
-                        onClose={() => setIsFormModalOpen(false)}
-                        onSave={handleSaveEvent}
-                        initialData={prepareInitialModalData()}
-                        eventDefinitions={eventDefinitions}
-                        onNeedDefinition={handleOpenDefinitionModal}
-                    />
-                    {eventToView && (
-                        <EventDetailModal
-                            isOpen={isDetailModalOpen}
-                            onClose={() => setIsDetailModalOpen(false)}
-                            event={eventToView as any}
-                            onEdit={(e: any) => { handleStartEdit(e as CalendarEvent); setIsDetailModalOpen(false); }}
-                            onDelete={(e: any) => { handleDeleteRequest(e as CalendarEvent); setIsDetailModalOpen(false); }}
-                        />
-                    )}
-                    {isDefinitionModalOpen && (
-                        <EventDefinitionFormModal
-                            isOpen={isDefinitionModalOpen}
-                            onClose={() => setIsDefinitionModalOpen(false)}
-                            onSave={handleSaveDefinition}
-                            competencies={competencies}
-                            showGrantField={user?.role === 'Admin' || user?.role === 'HR'}
-                        />
-                    )}
-                    {eventToDelete && (
-                        <EventDeleteConfirmationModal
-                            isOpen={isDeleteModalOpen}
-                            onClose={() => setIsDeleteModalOpen(false)}
-                            onDeleteSuccess={handleDeletionSuccess}
-                            eventId={Number(eventToDelete.id)}
-                            eventName={eventToDelete.title || 'this event'}
-                        />
-                    )}
-                </>
+            {/* Modals for all users (grant field hidden for non-Admin/HR) */}
+            <EventFormModal
+                isOpen={isFormModalOpen}
+                onClose={() => setIsFormModalOpen(false)}
+                onSave={handleSaveEvent}
+                initialData={prepareInitialModalData()}
+                eventDefinitions={eventDefinitions}
+                onNeedDefinition={handleOpenDefinitionModal}
+            />
+            {eventToView && (
+                <EventDetailModal
+                    isOpen={isDetailModalOpen}
+                    onClose={() => setIsDetailModalOpen(false)}
+                    event={eventToView as any}
+                    onEdit={(e: any) => { handleStartEdit(e as CalendarEvent); setIsDetailModalOpen(false); }}
+                    onDelete={(e: any) => { handleDeleteRequest(e as CalendarEvent); setIsDetailModalOpen(false); }}
+                    onAfterRSVP={() => { setIsDetailModalOpen(false); fetchAndSetData(); }}
+                />
             )}
-
+            {isDefinitionModalOpen && (
+                <EventDefinitionFormModal
+                    isOpen={isDefinitionModalOpen}
+                    onClose={() => setIsDefinitionModalOpen(false)}
+                    onSave={handleSaveDefinition}
+                    competencies={competencies}
+                    showGrantField={user?.role === 'Admin' || user?.role === 'HR'}
+                />
+            )}
+            {eventToDelete && (
+                <EventDeleteConfirmationModal
+                    isOpen={isDeleteModalOpen}
+                    onClose={() => setIsDeleteModalOpen(false)}
+                    onDeleteSuccess={handleDeletionSuccess}
+                    eventId={Number(eventToDelete.id)}
+                    eventName={eventToDelete.title || 'this event'}
+                />
+            )}
         </MainLayout>
     );
 };
@@ -282,9 +303,11 @@ interface AdminViewProps {
     onEdit: (event: CalendarEvent) => void;
     onDelete: (event: CalendarEvent) => void;
     onView: (event: CalendarEvent) => void;
+    onRSVP: (eventId: number, choice: RSVPChoice) => void;
+    rsvpLoading: Record<string, RSVPChoice | null>;
 }
 
-const AdminView: React.FC<AdminViewProps> = ({ events, onEdit, onDelete, onView }) => {
+const AdminView: React.FC<AdminViewProps> = ({ events, onEdit, onDelete, onView, onRSVP, rsvpLoading }) => {
     const groupedEvents = useMemo(() => {
         const groups = events.reduce((acc, event) => {
             const date = new Date(event.start as string).toLocaleDateString(undefined, {
@@ -312,81 +335,87 @@ const AdminView: React.FC<AdminViewProps> = ({ events, onEdit, onDelete, onView 
             {Object.entries(groupedEvents).map(([date, dateEvents]) => (
                 <FeatureBlock key={date} title={date} icon={<CalendarClock size={24} />} className="dark:from-dark-accent-hover dark:to-dark-accent">
                     <ul className="space-y-4">
-                        {dateEvents.map(event => (
-                            <li key={event.id} className="p-3 rounded-lg bg-custom-bg-secondary dark:bg-dark-div-secondary">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <p className="font-bold text-custom-text dark:text-dark-text">{event.title}</p>
-                                        <p className="text-sm text-custom-text dark:text-dark-text">
-                                            {new Date(event.start as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </p>
-                                        <p className="text-xs mt-1 text-custom-text dark:text-dark-text/80">
-                                            Type: {event.extendedProps.eventType || 'General'} | For: {event.relevantParties || 'All'}
-                                        </p>
-                                    </div>
+                        {dateEvents.map(event => {
+                            const myBooking = event.extendedProps.myBooking;
+                            const spotsLeft = event.extendedProps.spotsLeft;
+                            const maxAtt = event.extendedProps.maxAttendees;
+                            const bookedCount = event.extendedProps.bookedCount;
+
+                            // Use backend-provided eligibility
+                            const canShowRSVP = event.extendedProps.canRSVP === true;
+
+                            const canBookNow = () => {
+                                if (myBooking === 'Booked') return true;
+                                if (typeof spotsLeft === 'number') return spotsLeft > 0;
+                                return true;
+                            };
+                            const loading = rsvpLoading[event.id] ?? null;
+
+                            return (
+                                <li key={event.id} className="p-3 rounded-lg bg-custom-bg-secondary dark:bg-dark-div-secondary">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="font-bold text-custom-text dark:text-dark-text">{event.title}</p>
+                                            <p className="text-sm text-custom-text dark:text-dark-text">
+                                                {new Date(event.start as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                            </p>
+                                            <p className="text-xs mt-1 text-custom-text dark:text-dark-text/80">
+                                                Type: {event.extendedProps.eventType || 'General'} | For: {event.extendedProps.relevantParties || 'All'}
+                                            </p>
+                                        </div>
                                         <div className="flex items-center space-x-2">
-                                        <button onClick={() => onView(event)} className="text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"><Eye size={16} /></button>
-                                        {event.extendedProps.canEdit === true && (
-                                            <button onClick={() => onEdit(event)} className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary"><Edit size={16} /></button>
-                                        )}
-                                        {event.extendedProps.canDelete === true && (
-                                            <button onClick={() => onDelete(event)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"><Trash2 size={16} /></button>
-                                        )}
+                                            {/* RSVP controls and capacity */}
+                                            {canShowRSVP && (
+                                                <div className="flex flex-col items-end gap-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={() => onRSVP(Number(event.extendedProps.scheduleId), 'book')}
+                                                            disabled={!canBookNow() || loading === 'reject'}
+                                                            className={`px-2 py-1 rounded text-xs ${myBooking === 'Booked' ? 'bg-custom-primary text-white' : 'border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                                            title="Book"
+                                                        >
+                                                            {loading === 'book' ? '...' : (myBooking === 'Booked' ? 'Booked' : 'Book')}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => onRSVP(Number(event.extendedProps.scheduleId), 'reject')}
+                                                            disabled={loading === 'book'}
+                                                            className={`px-2 py-1 rounded text-xs ${myBooking === 'Rejected' ? 'bg-red-600 text-white' : 'border border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                                            title="Reject"
+                                                        >
+                                                            {loading === 'reject' ? '...' : (myBooking === 'Rejected' ? 'Rejected' : 'Reject')}
+                                                        </button>
+                                                    </div>
+                                                    {typeof maxAtt === 'number' && (
+                                                        <span className="text-[11px] text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                                                            {bookedCount ?? 0}/{maxAtt}{typeof spotsLeft === 'number' ? ` • ${spotsLeft} left` : ''}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {/* If user can't RSVP, still show capacity chip (alone) */}
+                                            {!canShowRSVP && typeof maxAtt === 'number' && (
+                                                <span className="text-[11px] text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                                                    {bookedCount ?? 0}/{maxAtt}{typeof spotsLeft === 'number' ? ` • ${spotsLeft} left` : ''}
+                                                </span>
+                                            )}
+
+                                            {/* View/Edit/Delete */}
+                                            <button onClick={() => onView(event)} className="text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-200"><Eye size={16} /></button>
+                                            {event.extendedProps.canEdit === true && (
+                                                <button onClick={() => onEdit(event)} className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary"><Edit size={16} /></button>
+                                            )}
+                                            {event.extendedProps.canDelete === true && (
+                                                <button onClick={() => onDelete(event)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"><Trash2 size={16} /></button>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            </li>
-                        ))}
+                                </li>
+                            );
+                        })}
                     </ul>
                 </FeatureBlock>
             ))}
-        </>
-    );
-};
-
-
-// --- Sub-component for Non-Admin User View ---
-interface UserViewProps {
-    events: CalendarEvent[];
-}
-
-const UserView: React.FC<UserViewProps> = ({ events }) => {
-    const upcomingEvents = useMemo(() =>
-        events
-            .filter(event => event.start && new Date(event.start as string) >= new Date())
-            .sort((a, b) => new Date(a.start as string).getTime() - new Date(b.start as string).getTime())
-        , [events]);
-
-    if (upcomingEvents.length === 0) {
-        return <p className="col-span-full text-custom-text dark:text-dark-secondary">You have no upcoming events.</p>;
-    }
-
-    return (
-        <>
-            <FeatureBlock title="Your Schedule" icon={<CalendarClock size={24} />} className="md:col-span-2 lg:col-span-3 dark:from-dark-accent-hover dark:to-dark-accent">
-                <ul className="space-y-3">
-                    {upcomingEvents.map(event => (
-                        <li key={event.id} className="text-sm border-l-4 border-custom-secondary dark:border-dark-accent pl-4 py-1">
-                            <p className="font-bold text-custom-text dark:text-dark-text">{event.title}</p>
-                            <p className="text-custom-text dark:text-dark-text">
-                                {new Date(event.start! as string).toLocaleDateString(undefined, {
-                                    weekday: 'long',
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric',
-                                    hour: 'numeric',
-                                    minute: '2-digit'
-                                })}
-                            </p>
-                        </li>
-                    ))}
-                </ul>
-                <div className="mt-4 pt-4 border-t border-custom-bg-secondary dark:border-dark-div-secondary">
-                    <Link to="/calendar" className="text-sm font-semibold text-custom-primary dark:text-dark-primary hover:underline flex items-center gap-2">
-                        <LinkIcon size={16} />
-                        View Full Calendar for More Details
-                    </Link>
-                </div>
-            </FeatureBlock>
         </>
     );
 };
