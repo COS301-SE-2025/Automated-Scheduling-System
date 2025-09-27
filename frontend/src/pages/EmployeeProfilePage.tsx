@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import MainLayout from '../layouts/MainLayout';
 // Button removed: actions hidden in this view
 import { getEmployeeCompetencyProfile, type EmployeeCompetencyProfile } from '../services/profileService';
@@ -38,9 +39,24 @@ const EmployeeProfilePage: React.FC = () => {
           <>
             {/* Header */}
             <div className="mb-4">
-              <h2 className="text-xl font-semibold text-custom-text dark:text-dark-text">{data.employee.name}</h2>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Employee ID: {data.employee.employeeNumber}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-300">Position: {data.employee.positionTitle || '—'} {data.employee.positionCode && `(${data.employee.positionCode})`}</div>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h2 className="text-xl font-semibold text-custom-text dark:text-dark-text">{data.employee.name}</h2>
+                  <div className="text-sm text-gray-600 dark:text-gray-300">Employee ID: {data.employee.employeeNumber}</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-300">Position: {data.employee.positionTitle || '—'} {data.employee.positionCode && `(${data.employee.positionCode})`}</div>
+                </div>
+                <div className="flex flex-col items-end">
+                  <Link 
+                    to="/forgot-password" 
+                    className="inline-flex items-center px-3 py-2 text-sm font-medium text-custom-secondary dark:text-dark-third hover:text-custom-third dark:hover:text-dark-text hover:underline transition-colors duration-200"
+                  >
+                    <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v-2l-4.257-2.257A6 6 0 1115 7z" />
+                    </svg>
+                    Change Password
+                  </Link>
+                </div>
+              </div>
             </div>
 
             {/* Tabs */}
