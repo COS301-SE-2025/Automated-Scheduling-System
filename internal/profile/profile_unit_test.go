@@ -73,7 +73,8 @@ func TestGetEmployeeCompetencyProfile_Success_Unit(t *testing.T) {
     require.NoError(t, db.Create(&comp1).Error)
     require.NoError(t, db.Create(&comp2).Error)
 
-    ec := models.EmployeeCompetency{EmployeeNumber: emp.Employeenumber, CompetencyID: comp1.CompetencyID, AchievementDate: time.Now()}
+    now := time.Now()
+    ec := models.EmployeeCompetency{EmployeeNumber: emp.Employeenumber, CompetencyID: comp1.CompetencyID, AchievementDate: &now}
     require.NoError(t, db.Create(&ec).Error)
 
     cjm := models.CustomJobMatrix{PositionMatrixCode: jp.PositionMatrixCode, CompetencyID: comp2.CompetencyID, RequirementStatus: "Required"}
