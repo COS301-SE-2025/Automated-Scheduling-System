@@ -8,8 +8,17 @@ ignore:
   - "internal/**/router.go"
   - "**/router.go"
 
-  # Frontend: build outputs, tests, mocks
+  # Backend-specific exclusions
+  - "internal/auth/middleware.go"
+  - "internal/database/models/**"
+
+  # Frontend: build outputs, tests, mocks, and configs
   - "frontend/dist/**"
   - "frontend/coverage/**"
   - "frontend/src/**/__tests__/**"
   - "frontend/src/**/__mocks__/**"
+  - "frontend/postcss.config.js"
+  - "frontend/tailwind.config.js"
+  # Routes/Types (cover common locations)
+  - "frontend/src/routes/**"
+  - "frontend/src/types/**"
