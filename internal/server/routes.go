@@ -24,7 +24,7 @@ import (
 func (s *Server) RegisterRoutes() http.Handler {
 	r := gin.Default()
 
-	// Apply CORS only in production environment (APP_ENV=production)
+	// Apply CORS: explicit safelist in production; permissive in all other environments
 	if os.Getenv("APP_ENV") == "production" {
 		// Explicit allowed origins for production deployment
 		r.Use(cors.New(cors.Config{
@@ -40,6 +40,15 @@ func (s *Server) RegisterRoutes() http.Handler {
 				"https://schedulingsystem.me",
 				"https://trp7ate-anonymous-8081.exp.direct",
 			},
+			AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+			AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+			ExposeHeaders:    []string{"Content-Length"},
+			AllowCredentials: true,
+		}))
+	} else {
+		// Non-production: allow any origin for easier local / mobile dev
+		r.Use(cors.New(cors.Config{
+			AllowAllOrigins:  true,
 			AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 			AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 			ExposeHeaders:    []string{"Content-Length"},
