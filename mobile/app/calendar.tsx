@@ -195,17 +195,18 @@ function expandMultiDay(events: MobileEvent[]): EventWithMeta[] {
   return out;
 }
 
-type ViewMode = 'month' | 'week' | 'day';
-
 export default function CalendarScreen() {
   const router = useRouter();
   const { user, permissions, isElevated } = useAuth();
-  const [mode, setMode] = React.useState<ViewMode>('month');
+  const mode = 'month'; // Fixed to month view only
   const [date, setDate] = React.useState<Date>(new Date(2025, 8, 25)); // September 25, 2025 to match events
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [sourceEvents, setSourceEvents] = React.useState<MobileEvent[]>([]);
-  const [events, setEvents] = React.useState<EventWithMeta[]>([]);
+  // monthEvents: expanded per-day blocks for month grid (bigger visual targets)
+  const [monthEvents, setMonthEvents] = React.useState<EventWithMeta[]>([]);
+  // timeEvents: precise time-based events for week/day views
+  const [timeEvents, setTimeEvents] = React.useState<EventWithMeta[]>([]);
   const [selected, setSelected] = React.useState<MobileEvent | null>(null);
   const [showScheduleModal, setShowScheduleModal] = React.useState(false);
 
@@ -237,9 +238,27 @@ export default function CalendarScreen() {
       // Convert back to original format for display
       setSourceEvents(list.sort((a,b) => new Date(a.start).getTime() - new Date(b.start).getTime()));
       
-      const expanded = expandMultiDayWithDates(sorted);
+      // Month events: expanded multi-day instances for better visual targets
+      const monthExpanded = expandMultiDayWithDates(sorted);
+      setMonthEvents(monthExpanded);
       
-      setEvents(expanded);
+      // Time events: precise start/end times for week/day positioning
+      const timeEventsList: EventWithMeta[] = sorted.map(e => {
+        const endTime = e.end.getTime() > e.start.getTime() ? e.end : new Date(e.start.getTime() + 60*60*1000);
+        return {
+          id: String(e.id),
+          title: e.title || 'Untitled Event',
+          start: e.start,
+          end: endTime,
+          color: e.color || '#3788d8',
+          original: {
+            ...e,
+            start: e.start.toISOString(),
+            end: e.end.toISOString()
+          }
+        };
+      });
+      setTimeEvents(timeEventsList);
       setError(null);
     } catch (e) {
       setError('Could not load calendar data. Please check your connection and try again.');
@@ -255,12 +274,12 @@ export default function CalendarScreen() {
   const goToday = () => setDate(new Date());
   const goPrev = () => {
     const d = new Date(date);
-    if (mode === 'month') d.setMonth(d.getMonth() - 1); else d.setDate(d.getDate() - (mode === 'week' ? 7 : 1));
+    d.setMonth(d.getMonth() - 1);
     setDate(d);
   };
   const goNext = () => {
     const d = new Date(date);
-    if (mode === 'month') d.setMonth(d.getMonth() + 1); else d.setDate(d.getDate() + (mode === 'week' ? 7 : 1));
+    d.setMonth(d.getMonth() + 1);
     setDate(d);
   };
 
@@ -287,10 +306,12 @@ export default function CalendarScreen() {
 
   const handlePressCell = React.useCallback((d: Date) => {
     setDate(d);
-    setMode('day');
+    // Month view only - no mode switching
   }, []);
 
   const headerTitle = React.useMemo(() => date.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }), [date]);
+
+  // Month view only - no filtering needed
 
   // Role-based UI rendering
   const canCreateDefinitions = permissions?.includes('event-definitions') || user?.role === 'Admin' || user?.role === 'HR';
@@ -394,84 +415,38 @@ export default function CalendarScreen() {
           {loading && (
             <View style={styles.veil}><Text style={styles.veilText}>Refreshing…</Text></View>
           )}
-          <ResponsiveToolbar 
+          <MonthToolbar 
             headerTitle={headerTitle}
-            mode={mode}
-            setMode={setMode}
             goPrev={goPrev}
             goNext={goNext}
             goToday={goToday}
           />
-          {/* Scrollable wrapper for month view to allow viewing full grid + natural scrolling on web mobile emulation */}
-          {mode === 'month' ? (
-            <ScrollView 
-              style={styles.monthScroll}
-              contentContainerStyle={styles.monthScrollContent}
-              showsVerticalScrollIndicator
-            >
-              <RNCalendar
-                // Increased overall month height so each week row (and thus each event block) has more vertical space
-                height={Platform.OS === 'web' ? 1180 : 1120}
-                mode={mode}
-                date={date}
-                events={events}
-                onPressEvent={handlePressEvent}
-                onPressCell={handlePressCell}
-                renderEvent={(event: EventWithMeta) => {
-                  return (
-                    <View style={{
-                      flex: 1,
-                      margin: 2,
-                      paddingVertical: 6,
-                      paddingHorizontal: 8,
-                      backgroundColor: event.color || '#3788d8',
-                      borderRadius: 8,
-                      justifyContent: 'flex-start',
-                      alignItems: 'flex-start',
-                      minHeight: 48,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.2,
-                      shadowRadius: 1,
-                      elevation: 2,
-                    }}>
-                      <Text style={{ 
-                        color: 'white', 
-                        fontWeight: '600', 
-                        fontSize: 13,
-                        lineHeight: 16,
-                        textAlign: 'left',
-                        textShadowColor: 'rgba(0,0,0,0.7)',
-                        textShadowOffset: { width: 0, height: 1 },
-                        textShadowRadius: 1,
-                      }} numberOfLines={15}>
-                        {event.title}
-                      </Text>
-                    </View>
-                  );
-                }}
-                swipeEnabled
-              />
-            </ScrollView>
-          ) : (
+          {/* Month view calendar */}
+          <ScrollView 
+            style={styles.monthScroll}
+            contentContainerStyle={styles.monthScrollContent}
+            showsVerticalScrollIndicator
+          >
             <RNCalendar
-              height={mode === 'week' ? 660 : 600}
-              mode={mode}
+              // Increased overall month height so each week row (and thus each event block) has more vertical space
+              height={Platform.OS === 'web' ? 1180 : 1120}
+              mode="month"
               date={date}
-              events={events}
+              events={monthEvents}
               onPressEvent={handlePressEvent}
               onPressCell={handlePressCell}
               renderEvent={(event: EventWithMeta) => {
                 return (
                   <View style={{
                     flex: 1,
-                    margin: 1,
-                    padding: 4,
+                    margin: 2,
+                    paddingVertical: 6,
+                    paddingHorizontal: 8,
                     backgroundColor: event.color || '#3788d8',
-                    borderRadius: 4,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    minHeight: 18,
+                    borderRadius: 8,
+                    justifyContent: 'flex-start',
+                    alignItems: 'flex-start',
+                    minHeight: 48,
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: 1 },
                     shadowOpacity: 0.2,
@@ -481,12 +456,13 @@ export default function CalendarScreen() {
                     <Text style={{ 
                       color: 'white', 
                       fontWeight: '600', 
-                      fontSize: 10,
-                      textAlign: 'center',
+                      fontSize: 13,
+                      lineHeight: 16,
+                      textAlign: 'left',
                       textShadowColor: 'rgba(0,0,0,0.7)',
                       textShadowOffset: { width: 0, height: 1 },
                       textShadowRadius: 1,
-                    }} numberOfLines={1}>
+                    }} numberOfLines={3}>
                       {event.title}
                     </Text>
                   </View>
@@ -494,7 +470,7 @@ export default function CalendarScreen() {
               }}
               swipeEnabled
             />
-          )}
+          </ScrollView>
         </View>
       )}
 
@@ -529,11 +505,9 @@ export default function CalendarScreen() {
   );
 }
 
-// Responsive toolbar extracted for clarity & reusability
-function ResponsiveToolbar({ headerTitle, mode, setMode, goPrev, goNext, goToday }: {
+// Simplified month-only toolbar
+function MonthToolbar({ headerTitle, goPrev, goNext, goToday }: {
   headerTitle: string;
-  mode: ViewMode;
-  setMode: (m: ViewMode) => void;
   goPrev: () => void;
   goNext: () => void;
   goToday: () => void;
@@ -543,12 +517,12 @@ function ResponsiveToolbar({ headerTitle, mode, setMode, goPrev, goNext, goToday
 
   return (
     <View style={[styles.toolbarContainer, stacked && styles.toolbarStacked]}> 
-      {/* Row 1: navigation buttons */}
+      {/* Navigation and title */}
       <View style={[styles.toolbarRow, stacked && styles.rowSpacing, stacked && styles.navRowStacked]}> 
         <View style={styles.navGroup}>
-          <ToolbarButton label="Prev" onPress={goPrev} accessibilityLabel="Previous period" />
+          <ToolbarButton label="Prev" onPress={goPrev} accessibilityLabel="Previous month" />
           <ToolbarButton label="Today" onPress={goToday} />
-          <ToolbarButton label="Next" onPress={goNext} accessibilityLabel="Next period" />
+          <ToolbarButton label="Next" onPress={goNext} accessibilityLabel="Next month" />
         </View>
         {!stacked && (
           <View style={styles.titleWrap}> 
@@ -557,19 +531,9 @@ function ResponsiveToolbar({ headerTitle, mode, setMode, goPrev, goNext, goToday
         )}
         {!stacked && (
           <View style={styles.modeGroup}>
-            {(['month','week','day'] as ViewMode[]).map(m => (
-              <TouchableOpacity
-                key={m}
-                onPress={() => setMode(m)}
-                style={[styles.modeBtn, mode === m && styles.modeBtnActive]}
-                accessibilityRole="button"
-                accessibilityState={{ selected: mode === m }}
-              >
-                <Text style={[styles.modeText, mode === m && styles.modeTextActive]}>
-                  {m === 'month' ? 'Month' : m === 'week' ? 'Week' : 'Day'}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            <View style={[styles.modeBtn, styles.modeBtnActive]}>
+              <Text style={[styles.modeText, styles.modeTextActive]}>Month</Text>
+            </View>
           </View>
         )}
       </View>
@@ -579,22 +543,12 @@ function ResponsiveToolbar({ headerTitle, mode, setMode, goPrev, goNext, goToday
           <View style={[styles.toolbarRow, styles.titleRowStacked, styles.rowSpacing]}> 
             <Text style={styles.title}>{headerTitle}</Text>
           </View>
-          {/* Row 3: mode buttons full width */}
+          {/* Row 3: month indicator */}
           <View style={[styles.toolbarRow, styles.modeRowStacked]}> 
             <View style={styles.modeGroup}>
-              {(['month','week','day'] as ViewMode[]).map(m => (
-                <TouchableOpacity
-                  key={m}
-                  onPress={() => setMode(m)}
-                  style={[styles.modeBtn, mode === m && styles.modeBtnActive]}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: mode === m }}
-                >
-                  <Text style={[styles.modeText, mode === m && styles.modeTextActive]}>
-                    {m === 'month' ? 'Month' : m === 'week' ? 'Week' : 'Day'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              <View style={[styles.modeBtn, styles.modeBtnActive]}>
+                <Text style={[styles.modeText, styles.modeTextActive]}>Month</Text>
+              </View>
             </View>
           </View>
         </>
