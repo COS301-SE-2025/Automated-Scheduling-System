@@ -499,8 +499,8 @@ func GetAdminComplianceData(c *gin.Context) {
 
 // UpdateProfileRequest represents the request body for updating profile
 type UpdateProfileRequest struct {
-	Email string `json:"email,omitempty"`
-	Phone string `json:"phone,omitempty"`
+	Email *string `json:"email,omitempty"`
+	Phone *string `json:"phone,omitempty"`
 }
 
 // UpdateEmployeeProfile updates the profile information for the current authenticated user
@@ -529,29 +529,34 @@ func UpdateEmployeeProfile(c *gin.Context) {
 	// Prepare update data
 	updateData := make(map[string]interface{})
 
-	// Only update fields that are provided and not empty
-	if updateReq.Email != "" && strings.TrimSpace(updateReq.Email) != "" {
-		updateData["useraccountemail"] = strings.TrimSpace(updateReq.Email)
+	// Email: pointer non-nil means key present
+	if updateReq.Email != nil {
+		trimmed := strings.TrimSpace(*updateReq.Email)
+		if trimmed != "" {
+			updateData["useraccountemail"] = trimmed
+		}
 	}
 
-	// Update phone number (phonenumber field exists in Employee model)
-	if updateReq.Phone != "" && strings.TrimSpace(updateReq.Phone) != "" {
-		// Clean and format phone number to fit database constraints
-		cleanPhone := strings.ReplaceAll(strings.TrimSpace(updateReq.Phone), " ", "")
-		cleanPhone = strings.ReplaceAll(cleanPhone, "-", "")
-		cleanPhone = strings.ReplaceAll(cleanPhone, "(", "")
-		cleanPhone = strings.ReplaceAll(cleanPhone, ")", "")
+	// Phone: pointer non-nil means key present; empty string means clear (set NULL)
+	if updateReq.Phone != nil {
+		trimmed := strings.TrimSpace(*updateReq.Phone)
+		if trimmed == "" {
+			updateData["phonenumber"] = gorm.Expr("NULL")
+		} else {
+			cleanPhone := strings.ReplaceAll(trimmed, " ", "")
+			cleanPhone = strings.ReplaceAll(cleanPhone, "-", "")
+			cleanPhone = strings.ReplaceAll(cleanPhone, "(", "")
+			cleanPhone = strings.ReplaceAll(cleanPhone, ")", "")
 
-		// Check if phone number is too long and provide helpful error
-		if len(cleanPhone) > 11 {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": "Phone number too long. Please use a shorter format (max 11 digits including country code)",
-				"note":  "Try using format like: +12345678901 or 12345678901",
-			})
-			return
+			if len(cleanPhone) > 11 {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": "Phone number too long. Please use a shorter format (max 11 digits including country code)",
+					"note":  "Try using format like: +12345678901 or 12345678901",
+				})
+				return
+			}
+			updateData["phonenumber"] = cleanPhone
 		}
-
-		updateData["phonenumber"] = cleanPhone
 	}
 
 	// Only proceed with update if there's something to update
