@@ -260,7 +260,7 @@ const EmployeeProfilePage: React.FC = () => {
                             type="tel"
                             value={phone}
                             onChange={(e) => setPhone(e.target.value)}
-                            placeholder="+1 (555) 123-4567"
+                            placeholder="+27 00 000 0000"
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-dark-div text-custom-text dark:text-dark-text focus:ring-2 focus:ring-custom-primary focus:border-custom-primary"
                           />
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">For emergency contact and SMS notifications</p>
