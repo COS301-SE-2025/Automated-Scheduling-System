@@ -8,7 +8,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RequirePage ensures the authenticated user has permission to the given page.
+// RequirePage ensures the authenticated user has permission to view the given logical page.
+// NOTE: Page permissions are treated as navigation/view guards only. Backend endpoints
+// that are conceptually part of a page (e.g. event definitions under events) may share
+// a broader page token ("events") to avoid forcing users to separately grant internal
+// sub-feature tokens.
 func RequirePage(page string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// email was set by auth middleware

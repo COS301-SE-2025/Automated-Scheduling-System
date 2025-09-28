@@ -37,8 +37,11 @@ func RegisterEventRoutes(r *gin.Engine) {
 				schedules.POST("/event-schedules/:scheduleID/rsvp", RSVPHandler)
 			}
 
+			// Use the general 'events' page permission for definitions endpoints
+			// so that viewing events inherently allows viewing/managing definitions,
+			// without requiring a separate explicit 'event-definitions' page grant.
 			defs := protected.Group("/")
-			defs.Use(role.RequirePage("event-definitions"))
+			defs.Use(role.RequirePage("events"))
 			{
 				defs.POST("/event-definitions", CreateEventDefinitionHandler)
 				defs.GET("/event-definitions", GetEventDefinitionsHandler)
