@@ -76,4 +76,25 @@ describe("CompetencyPage", () => {
     );
     await waitFor(() => expect(mockGetAllCompetencies).toHaveBeenCalled());
   });
+
+  it("handles fetch error gracefully", async () => {
+    mockGetAllCompetencies.mockRejectedValueOnce(new Error('bad fetch'));
+    render(
+      <MemoryRouter>
+        <CompetencyPage />
+      </MemoryRouter>
+    );
+    // Component renders a full-page error branch with heading 'Error' and the error message text
+    expect(await screen.findByRole('heading', { name: /Error/i })).toBeInTheDocument();
+    expect(screen.getByText(/bad fetch/i)).toBeInTheDocument();
+  });
+
+  it("shows message when no competencies returned", async () => {
+    mockGetAllCompetencies.mockResolvedValueOnce([]);
+    render(<MemoryRouter><CompetencyPage /></MemoryRouter>);
+    await waitFor(() => expect(mockGetAllCompetencies).toHaveBeenCalled());
+    // Adjust message string if component uses a specific wording
+    const emptyMsg = screen.queryByText(/no competencies/i) || screen.queryByText(/none available/i);
+    expect(emptyMsg).toBeTruthy();
+  });
 });
