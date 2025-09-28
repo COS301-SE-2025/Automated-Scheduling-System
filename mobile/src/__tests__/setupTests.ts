@@ -1,6 +1,12 @@
 import '@testing-library/jest-native/extend-expect';
 
-// Keep setup intentionally minimal (parallels frontend style)
+// Global extended timeout (mirrors web suite) to accommodate slower CI devices
+jest.setTimeout(30000);
+
+// Silence noisy logs during tests; individual tests can re-enable via mockRestore()
+jest.spyOn(global.console, 'log').mockImplementation(() => {});
+jest.spyOn(global.console, 'warn').mockImplementation(() => {});
+jest.spyOn(global.console, 'error').mockImplementation(() => {});
 
 // Basic async storage & secure store mocks only (no Animated mock needed)
 jest.mock('expo-secure-store', () => {
