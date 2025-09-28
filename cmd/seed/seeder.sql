@@ -471,12 +471,12 @@ VALUES
 ON CONFLICT DO NOTHING;
 
 -- Map schedule position targets (example)
-INSERT INTO event_schedule_position_targets (custom_event_schedule_id, position_matrix_code)
-VALUES
-((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Electrical Safety - May' LIMIT 1),'P001'),
-((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Linux Admin - Aug' LIMIT 1),'P016'),
-((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Customer Service - Online' LIMIT 1),'P010')
-ON CONFLICT DO NOTHING;
+-- INSERT INTO event_schedule_position_targets (custom_event_schedule_id, position_matrix_code)
+-- VALUES
+-- ((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Electrical Safety - May' LIMIT 1),'P001'),
+-- ((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Linux Admin - Aug' LIMIT 1),'P016'),
+-- ((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Customer Service - Online' LIMIT 1),'P010')
+-- ON CONFLICT DO NOTHING;
 
 -- Some attendance records for the past QA Bootcamp
 INSERT INTO event_attendance (custom_event_schedule_id, employee_number, attended, check_in_time, check_out_time)
@@ -669,15 +669,15 @@ ON CONFLICT DO NOTHING;
 -- Link employees to schedules
 INSERT INTO event_schedule_employees (custom_event_schedule_id, employee_number, role) VALUES
 (2, 'E007', 'Attendee'), (2, 'E009', 'Attendee'),
-(3, 'E001', 'Attendee'), (3, 'E006', 'Facilitator'),
+(3, 'E001', 'Attendee'), (3, 'E006', 'Attendee'),
 (4, 'E004', 'Attendee'), (4, 'E005', 'Attendee'),
 (5, 'E002', 'Attendee'), (5, 'E006', 'Attendee'), (5, 'E007', 'Attendee'), (5, 'E008', 'Attendee')
 ON CONFLICT (custom_event_schedule_id, employee_number) DO NOTHING;
 
 -- Link positions to schedules
-INSERT INTO event_schedule_position_targets (custom_event_schedule_id, position_matrix_code) VALUES
-(2, 'P001'), (2, 'P004'), (3, 'P003'), (4, 'P002'), (4, 'P005')
-ON CONFLICT (custom_event_schedule_id, position_matrix_code) DO NOTHING;
+-- INSERT INTO event_schedule_position_targets (custom_event_schedule_id, position_matrix_code) VALUES
+-- (2, 'P001'), (2, 'P004'), (3, 'P003'), (4, 'P002'), (4, 'P005')
+-- ON CONFLICT (custom_event_schedule_id, position_matrix_code) DO NOTHING;
 
 -- Record attendance for the PAST event
 INSERT INTO event_attendance (custom_event_schedule_id, employee_number, attended, check_in_time, check_out_time) VALUES
