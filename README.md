@@ -12,7 +12,8 @@ Automated Scheduling System - Uses external databases to import a companies info
 
 ## 🏷️ Project Status
 
-![Build](https://github.com/COS301-SE-2025/Automated-Scheduling-System/actions/workflows/go-test.yml/badge.svg)[![goreleaser](https://github.com/COS301-SE-2025/Automated-Scheduling-System/actions/workflows/release.yml/badge.svg)](https://github.com/COS301-SE-2025/Automated-Scheduling-System/actions/workflows/release.yml)![Issues](https://img.shields.io/github/issues/COS301-SE-2025/Automated-Scheduling-System)[![codecov](https://codecov.io/gh/COS301-SE-2025/Automated-Scheduling-System/branch/dev/graph/badge.svg)](https://codecov.io/gh/COS301-SE-2025/Automated-Scheduling-System/tree/dev)
+
+![Build](https://github.com/COS301-SE-2025/Automated-Scheduling-System/actions/workflows/go-test.yml/badge.svg)![Issues](https://img.shields.io/github/issues/COS301-SE-2025/Automated-Scheduling-System)[![codecov](https://codecov.io/gh/COS301-SE-2025/Automated-Scheduling-System/branch/dev/graph/badge.svg)](https://codecov.io/gh/COS301-SE-2025/Automated-Scheduling-System/tree/dev)
 
 ---
 
@@ -47,8 +48,8 @@ Automated Scheduling System - Uses external databases to import a companies info
 | :--------- | :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------- |
 | **Demo 1** | [Demo 1](https://drive.google.com/drive/folders/1vOPVthLNlVF2fgY1ZBmNBSnBYhcFAFdi)     | [Slides 1](https://www.canva.com/design/DAGorRU2lTc/os4bYH1iU9YRJyTcd99fxw/edit) |
 | **Demo 2** | [Demo 2](https://drive.google.com/drive/u/1/folders/1-mdaq45m-Sp1UUUVYKJQAZZTceB0rOP_) |                                                                                  |
-| **Demo 3** |                                                                                        | [Slides 3](https://www.canva.com/design/DAGwb_F4zsE/I9vMSY4Pc_XMz4enSEpG2Q/edit) |
-| **Demo 4** |                                                                                        |                                                                                  |
+| **Demo 3** | [Demo 3](https://drive.google.com/drive/u/1/folders/1odLyx5iK4Imljp3SzXOKa6GeVPKQt6L_) | [Slides 3](https://www.canva.com/design/DAGwb_F4zsE/I9vMSY4Pc_XMz4enSEpG2Q/edit) |
+| **Demo 4** |                                                                                        | [Slides 4](https://www.canva.com/design/DAGwb_F4zsE/I9vMSY4Pc_XMz4enSEpG2Q/edit) |
 
 ---
 
@@ -85,13 +86,14 @@ Here’s the team behind **Automated Scheduling System**:
 | **Backend**                         | Go                                   | <img src="https://skillicons.dev/icons?i=go"/>                                                                                                  |
 | **Project Management & Deployment** | Git, GitHub Actions, npm, Docker     | <img src="https://skillicons.dev/icons?i=git,githubactions,npm,docker"/>                                                                        |
 | **Testing**                         | Vitest, Go-Test                      | <img src="https://skillicons.dev/icons?i=vitest"/><img src="https://img.shields.io/badge/Go-Testing-brightgreen?style=for-the-badge&logo=go" /> |
-| **Mobile**                          | REACT Native, TypeScript, Expo       | <img src="https://skillicons.dev/icons?i=react,typescript"/>                                                                                    |
+| **Mobile**                          | REACT Native, TypeScript, Expo       | <img src="https://skillicons.dev/icons?i=react,typescript"/> <img width="50" height="50" alt="image" src="https://github.com/user-attachments/assets/404dfdbe-5c0e-4c43-b2f5-1a86d0e921a5" />
+                                                                                   |
 
 ---
 ## 👨‍💻 Access the Deployed Application Here:
 - https://schedulingsystem.app/
 - Login details for Admin:
-	- email : `john.doe@example.com`
+	- email : `betatesters.capstone@gmail.com`
 	- password : `Pa$$w0rd!`
 - Login details for User:
 	- email : `jane.smith@example.com`
@@ -99,12 +101,12 @@ Here’s the team behind **Automated Scheduling System**:
 
 ## 📋 Demo 4 Checklist (Due: 29 September 2025)
 
--   [ ] **Live Demo**
-    -   [ ] 100% completed project with link to access your App
-    -   [ ] Non-functional requirements testing (e.g., performance, availability & usability)
-    -   [ ] Extra feature (Wow factors)
--   [ ] **Required Documents**
-    -   [ ] Deployment Model
+-   [x] **Live Demo**
+    -   [x] 100% completed project with link to access your App
+    -   [x] Non-functional requirements testing (e.g., performance, availability & usability)
+    -   [x] Extra feature (Wow factors)
+-   [x] **Required Documents**
+    -   [x] Deployment Model
 
 # 👨‍💻 Team name: 
 
