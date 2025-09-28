@@ -179,7 +179,7 @@ CREATE INDEX IF NOT EXISTS idx_event_attendance_employee ON event_attendance(emp
 -- Insert data into the employee table
 INSERT INTO employee (EmployeeNumber, FirstName, LastName, UserAccountEmail, EmployeeStatus, PhoneNumber, TerminationDate)
 VALUES
-('E001', 'John', 'Doe', 'john.doe@example.com', 'Active', '0123456789', NULL),
+('E001', 'John', 'Doe', 'betatesters.capstone@gmail.com', 'Active', '0123456789', NULL),
 ('E002', 'Jane', 'Smith', 'jane.smith@example.com', 'Active', '0123456789', NULL),
 ('E003', 'Alice', 'Johnson', 'alice.johnson@example.com', 'Terminated', '0123456789', '2025-06-01'),
 ('E004', 'Bob', 'Brown', 'bob.brown@example.com', 'Active', '0123456789', NULL)
