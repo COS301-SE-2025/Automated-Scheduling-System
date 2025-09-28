@@ -700,7 +700,7 @@ func UpdateEventScheduleHandler(c *gin.Context) {
 
 	// Update links: replace sets if provided
     if req.EmployeeNumbers != nil {
-        // Load existing links so we can preserve their roles (Booked/Rejected/Facilitator/etc.)
+        // Load existing links so we can preserve their roles (Booked/Rejected/Attended/etc.)
         var existingLinks []models.EventScheduleEmployee
         _ = DB.Where("custom_event_schedule_id = ?", scheduleToUpdate.CustomEventScheduleID).
             Find(&existingLinks)
@@ -710,14 +710,29 @@ func UpdateEventScheduleHandler(c *gin.Context) {
             oldRoles[l.EmployeeNumber] = l.Role
         }
 
-        // Replace the set
+        // Build the new set from request
+        newSet := make(map[string]string, len(req.EmployeeNumbers))
+        for _, emp := range req.EmployeeNumbers {
+            // Default for newly added explicit employees
+            newSet[emp] = "Attendee"
+        }
+
+        // Preserve any existing non-Attendee roles (e.g., Booked/Rejected/Attended/Not Attended/Facilitator)
+        for _, l := range existingLinks {
+            if !strings.EqualFold(strings.TrimSpace(l.Role), "attendee") {
+                // Ensure RSVP’d/role’d employees are kept even if not in the submitted explicit list
+                newSet[l.EmployeeNumber] = l.Role
+            }
+        }
+
+        // Replace rows
         _ = DB.Where("custom_event_schedule_id = ?", scheduleToUpdate.CustomEventScheduleID).
             Delete(&models.EventScheduleEmployee{})
 
-        for _, emp := range req.EmployeeNumbers {
-            role := oldRoles[emp]
-            if strings.TrimSpace(role) == "" {
-                role = "Attendee" // default for new employees
+        // Recreate with preserved roles
+        for emp, role := range newSet {
+            if r := strings.TrimSpace(role); r == "" {
+                role = "Attendee"
             }
             _ = DB.Create(&models.EventScheduleEmployee{
                 CustomEventScheduleID: scheduleToUpdate.CustomEventScheduleID,
