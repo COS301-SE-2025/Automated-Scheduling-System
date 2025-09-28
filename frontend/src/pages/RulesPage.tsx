@@ -263,9 +263,9 @@ const RulesPage: React.FC = () => {
         });
     }, [onNodesChange, setNodes, edges]);
 
-    const createNodeData = (type: string) => {
+    const createNodeData = useCallback((type: string) => {
         switch (type) {
-            case 'rule':
+            case 'rule': {
                 // Generate unique rule name by checking existing rules
                 const existingRuleNames = new Set(
                     nodes.filter(n => n.type === 'rule')
@@ -281,16 +281,20 @@ const RulesPage: React.FC = () => {
                 }
                 
                 return { label: 'Rule', name: ruleName, saved: false };
-            case 'trigger':
+            }
+            case 'trigger': {
                 return { label: 'Trigger', triggerType: '', parameters: [] as any[] };
-            case 'conditions':
+            }
+            case 'conditions': {
                 return { label: 'Conditions', conditions: [] as any[] };
-            case 'actions':
+            }
+            case 'actions': {
                 return { label: 'Actions', actions: [] as any[] };
+            }
             default:
                 return { label: type };
         }
-    };
+    }, [nodes]);
 
     const onDrop = useCallback(
         (event: React.DragEvent<HTMLDivElement>) => {
@@ -316,7 +320,7 @@ const RulesPage: React.FC = () => {
 
             setNodes((nds) => nds.concat(newNode));
         },
-        [reactFlowInstance, setNodes]
+        [reactFlowInstance, setNodes, createNodeData]
     );
 
     const togglePreview = () => {
