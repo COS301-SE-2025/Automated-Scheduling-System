@@ -14,6 +14,7 @@ import (
 
 	"crypto/rand"
 	"encoding/hex"
+	"os"
 )
 
 var DB *gorm.DB
@@ -211,7 +212,12 @@ func generateResetLinkHandler(c *gin.Context) {
 		return
 	}
 
-	fullURL := fmt.Sprintf("http://localhost:5173/reset-password/%s", resetToken) // Update host later
+	// Determine base URL based on environment
+	baseURL := "http://localhost:5173"
+	if os.Getenv("ENVIRONMENT") == "production" {
+		baseURL = "https://schedulingsystem.app"
+	}
+	fullURL := fmt.Sprintf("%s/reset-password/%s", baseURL, resetToken)
 
 	body := fmt.Sprintf("Click the link to reset your password: %s", fullURL)
 
