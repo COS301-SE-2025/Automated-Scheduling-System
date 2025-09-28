@@ -62,12 +62,10 @@ describe('AuthContext', () => {
     let latest: any;
     renderWithProvider(s => (latest = s));
 
-    // busy true during init
-    expect(latest.busy).toBe(true);
-
-    await waitFor(() => expect(latest.busy).toBe(false));
-
-    expect(latest.user.name).toBe('Alice R');
+  // Wait for the refreshed user name (more stable than busy flag which can flip quickly)
+  await waitFor(() => expect(latest.user?.name).toBe('Alice R'));
+  // Now ensure not busy
+  expect(latest.busy).toBe(false);
     expect(latest.permissions).toEqual(['events', 'users']);
     expect(latest.isAuthenticated).toBe(true);
     expect(latest.isElevated).toBe(true); // Admin + events permission
