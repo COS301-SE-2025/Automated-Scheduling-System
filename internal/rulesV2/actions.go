@@ -19,6 +19,37 @@ import (
 	"gorm.io/gorm"
 )
 
+// parseStandardDuration parses duration strings like "2 hours", "30 minutes", "1 day", etc.
+func parseStandardDuration(durationStr string) (time.Duration, error) {
+	// Common duration patterns
+	patterns := []struct {
+		regex *regexp.Regexp
+		unit  time.Duration
+	}{
+		{regexp.MustCompile(`(?i)^(\d+)\s*h(?:our(?:s)?)?$`), time.Hour},
+		{regexp.MustCompile(`(?i)^(\d+)\s*m(?:in(?:ute(?:s)?)?)?$`), time.Minute},
+		{regexp.MustCompile(`(?i)^(\d+)\s*d(?:ay(?:s)?)?$`), 24 * time.Hour},
+		{regexp.MustCompile(`(?i)^(\d+)\s*w(?:eek(?:s)?)?$`), 7 * 24 * time.Hour},
+	}
+
+	durationStr = strings.TrimSpace(durationStr)
+
+	for _, pattern := range patterns {
+		if matches := pattern.regex.FindStringSubmatch(durationStr); len(matches) > 1 {
+			if value, err := strconv.Atoi(matches[1]); err == nil {
+				return time.Duration(value) * pattern.unit, nil
+			}
+		}
+	}
+
+	// Try parsing as a Go duration string (e.g., "2h30m")
+	if duration, err := time.ParseDuration(durationStr); err == nil {
+		return duration, nil
+	}
+
+	return 0, fmt.Errorf("unable to parse duration: %s", durationStr)
+}
+
 // RelativeDateParser handles parsing and resolving relative date expressions
 type RelativeDateParser struct {
 	baseTime time.Time
@@ -42,7 +73,13 @@ func (p *RelativeDateParser) ParseRelativeDate(dateExpr string) (time.Time, erro
 	if parsedTime, err := time.Parse("2006-01-02T15:04:05", dateExpr); err == nil {
 		return parsedTime, nil
 	}
+	if parsedTime, err := time.Parse("2006-01-02T15:04", dateExpr); err == nil {
+		return parsedTime, nil
+	}
 	if parsedTime, err := time.Parse("2006-01-02 15:04:05", dateExpr); err == nil {
+		return parsedTime, nil
+	}
+	if parsedTime, err := time.Parse("2006-01-02 15:04", dateExpr); err == nil {
 		return parsedTime, nil
 	}
 	if parsedTime, err := time.Parse("2006-01-02", dateExpr); err == nil {
@@ -336,8 +373,25 @@ func (a *CreateEventAction) Execute(ctx EvalContext, params map[string]any) erro
 			return fmt.Errorf("failed to parse endTime '%s': %w", endTime, err)
 		}
 	} else {
-		// Default to 2 hours after start time
-		endDateTime = startDateTime.Add(2 * time.Hour)
+		// Fetch the event definition to get standard duration
+		var eventDef models.CustomEventDefinition
+		if err := a.DB.Where("custom_event_id = ?", customEventID).First(&eventDef).Error; err != nil {
+			return fmt.Errorf("failed to fetch event definition for duration: %w", err)
+		}
+
+		// Parse standard duration or default to 2 hours
+		if eventDef.StandardDuration != "" {
+			duration, parseErr := parseStandardDuration(eventDef.StandardDuration)
+			if parseErr != nil {
+				log.Printf("Warning: failed to parse standard duration '%s', using default 2 hours: %v", eventDef.StandardDuration, parseErr)
+				endDateTime = startDateTime.Add(2 * time.Hour)
+			} else {
+				endDateTime = startDateTime.Add(duration)
+			}
+		} else {
+			// Default to 2 hours if no standard duration is set
+			endDateTime = startDateTime.Add(2 * time.Hour)
+		}
 	}
 
 	// Set defaults
