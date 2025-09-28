@@ -29,6 +29,8 @@ func RegisterEventRoutes(r *gin.Engine) {
 				schedules.GET("/event-schedules/:scheduleID/attendance", GetAttendanceHandler)
 				schedules.POST("/event-schedules/:scheduleID/attendance", SetAttendanceHandler)
 				schedules.GET("/event-schedules/:scheduleID/attendance-candidates", GetAttendanceCandidates)
+				// New: list employees who are currently Booked for this schedule
+				schedules.GET("/event-schedules/:scheduleID/booked", GetBookedEmployeesHandler)
 				schedules.GET("/employees-by-positions", GetEmployeesByPositions)
 				schedules.POST("/competency-check", CheckEmployeesHaveCompetency)
 				// RSVP (book/reject) endpoint

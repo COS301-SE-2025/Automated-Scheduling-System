@@ -16,6 +16,7 @@ import { getAllCompetencies } from '../services/competencyService';
 import type { Competency } from '../types/competency';
 import EventDeleteConfirmationModal from '../components/ui/EventDeleteConfirmationModal';
 import Button from '../components/ui/Button';
+import GenericSelectModal from '../components/ui/GenericSelectModal';
 
 type EventSaveData = Parameters<EventFormModalProps['onSave']>[0];
 type RSVPChoice = 'book' | 'reject';
@@ -37,6 +38,12 @@ const EventsPage: React.FC = () => {
 
     // Track RSVP loading per-event at the page level
     const [rsvpLoading, setRsvpLoading] = useState<Record<string, RSVPChoice | null>>({});
+
+    // Attendance selection after completion
+    const [attendancePickerOpen, setAttendancePickerOpen] = useState(false);
+    const [attendanceItems, setAttendanceItems] = useState<{ employeeNumber: string; name: string }[]>([]);
+    const [attendanceInitialSelected, setAttendanceInitialSelected] = useState<string[]>([]);
+    const [attendanceScheduleId, setAttendanceScheduleId] = useState<number | null>(null);
 
     const fetchAndSetData = useCallback(async () => {
         if (!user) return;
@@ -126,6 +133,11 @@ const EventsPage: React.FC = () => {
 
     const handleSaveEvent = async (eventData: EventSaveData) => {
         try {
+            const isElevated = user?.role === 'Admin' || user?.role === 'HR';
+
+            const employeeNumbers = isElevated ? (eventData as any).employeeNumbers : undefined;
+            const positionCodes = isElevated ? (eventData as any).positionCodes : undefined;
+
             const scheduleData: eventService.CreateSchedulePayload = {
                 title: eventData.title,
                 customEventId: eventData.customEventId,
@@ -136,15 +148,34 @@ const EventsPage: React.FC = () => {
                 minAttendees: eventData.minimumAttendees ?? undefined,
                 statusName: eventData.statusName,
                 color: eventData.color,
-                // Persist linked employees and job positions; backend enforces permissions
-                employeeNumbers: (eventData as any).employeeNumbers,
-                positionCodes: (eventData as any).positionCodes,
+                employeeNumbers,
+                positionCodes,
             };
+
+            const wasCompleted = !!eventToEdit && String(eventToEdit.extendedProps.statusName || '').toLowerCase() === 'completed';
+            const becomesCompleted = String(scheduleData.statusName || '').toLowerCase() === 'completed';
+            const scheduleId = eventData.id ? Number(eventData.id) : undefined;
 
             if (eventData.id) {
                 await eventService.updateScheduledEvent(Number(eventData.id), scheduleData);
             } else {
                 await eventService.createScheduledEvent(scheduleData);
+            }
+
+            // If we just transitioned to Completed, and user can manage attendance, open picker for booked employees
+            if (isElevated && scheduleId && !wasCompleted && becomesCompleted) {
+                try {
+                    const booked = await eventService.getBookedEmployees(scheduleId);
+                    const list = Array.isArray(booked) ? booked : [];
+                    if (list.length > 0) {
+                        setAttendanceItems(list);
+                        setAttendanceInitialSelected(list.map(b => b.employeeNumber)); // default all booked as selected
+                        setAttendanceScheduleId(scheduleId);
+                        setAttendancePickerOpen(true);
+                    } // If none booked, skip modal
+                } catch (e) {
+                    console.error('Failed to load booked employees for attendance:', e);
+                }
             }
 
             await fetchAndSetData();
@@ -293,6 +324,38 @@ const EventsPage: React.FC = () => {
                     eventName={eventToDelete.title || 'this event'}
                 />
             )}
+            {/* Attendance picker after completion */}
+            <GenericSelectModal<{ employeeNumber: string; name: string }>
+                isOpen={attendancePickerOpen}
+                title="Mark attendance"
+                items={attendanceItems}
+                idKey={(x) => x.employeeNumber}
+                columns={[
+                    { header: 'Employee', render: (x) => x.name },
+                    { header: 'Number', render: (x) => x.employeeNumber, className: 'text-gray-500' }
+                ]}
+                searchFields={['name', 'employeeNumber'] as any}
+                initialSelected={attendanceInitialSelected}
+                onClose={() => { setAttendancePickerOpen(false); setAttendanceItems([]); setAttendanceScheduleId(null); }}
+                footerPrimaryLabel="Save attendance"
+                onConfirm={async (selectedIds) => {
+                    try {
+                        const scheduleId = attendanceScheduleId!;
+                        // Build candidate list = all booked; attendance true only for selected
+                        const employeeNumbers = attendanceItems.map(i => i.employeeNumber);
+                        const attendanceMap: Record<string, boolean> = {};
+                        employeeNumbers.forEach(e => { attendanceMap[e] = selectedIds.includes(e); });
+                        await eventService.setAttendance(scheduleId, { employeeNumbers, attendance: attendanceMap });
+                        await fetchAndSetData();
+                    } catch {
+                        alert('Failed to save attendance');
+                    } finally {
+                        setAttendancePickerOpen(false);
+                        setAttendanceItems([]);
+                        setAttendanceScheduleId(null);
+                    }
+                }}
+            />
         </MainLayout>
     );
 };
@@ -340,9 +403,10 @@ const AdminView: React.FC<AdminViewProps> = ({ events, onEdit, onDelete, onView,
                             const spotsLeft = event.extendedProps.spotsLeft;
                             const maxAtt = event.extendedProps.maxAttendees;
                             const bookedCount = event.extendedProps.bookedCount;
+                            const isCompleted = String(event.extendedProps.statusName || '').toLowerCase() === 'completed';
 
-                            // Use backend-provided eligibility
-                            const canShowRSVP = event.extendedProps.canRSVP === true;
+                            // Use backend-provided eligibility; also hide on completed
+                            const canShowRSVP = event.extendedProps.canRSVP === true && !isCompleted;
 
                             const canBookNow = () => {
                                 if (myBooking === 'Booked') return true;
@@ -392,12 +456,20 @@ const AdminView: React.FC<AdminViewProps> = ({ events, onEdit, onDelete, onView,
                                                     )}
                                                 </div>
                                             )}
-
-                                            {/* If user can't RSVP, still show capacity chip (alone) */}
-                                            {!canShowRSVP && typeof maxAtt === 'number' && (
-                                                <span className="text-[11px] text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
-                                                    {bookedCount ?? 0}/{maxAtt}{typeof spotsLeft === 'number' ? ` • ${spotsLeft} left` : ''}
-                                                </span>
+                                            {/* Completed: show attendance state (no RSVP) */}
+                                            {isCompleted && (
+                                                <div className="flex items-center gap-2">
+                                                    {typeof maxAtt === 'number' && (
+                                                        <span className="text-[11px] text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                                                            Attended: {bookedCount ?? 0}
+                                                        </span>
+                                                    )}
+                                                    {myBooking && (
+                                                        <span className={`text-[11px] px-2 py-1 rounded ${myBooking === 'Attended' ? 'bg-green-600 text-white' : 'bg-gray-400 text-white'}`}>
+                                                            You: {myBooking}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             )}
 
                                             {/* View/Edit/Delete */}
