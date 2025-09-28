@@ -3,9 +3,7 @@
 
 // Ensure Cypress and Mocha globals are available
 declare namespace Cypress {
-    interface Chainable {
-        // Add any custom commands you might create later
-    }
+
 }
 
 // Mocha globals (used by Cypress)

@@ -25,7 +25,7 @@ const AddPrerequisiteForm: React.FC<AddPrerequisiteFormProps> = ({ onAdd, curren
     const handleConfirmPrereqs = async (ids: string[]) => {
         if (!ids || ids.length === 0) return;
         for (const id of ids) {
-            // eslint-disable-next-line no-await-in-loop
+             
             await onAdd(parseInt(id, 10));
         }
         setShowPicker(false);
