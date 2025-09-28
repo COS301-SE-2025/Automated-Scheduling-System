@@ -179,7 +179,6 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                     <RelativeDatePicker
                         value={value}
                         onChange={(dateValue) => onChange?.(dateValue)}
-                        placeholder="Select date..."
                         className="text-xs"
                     />
                 </div>
