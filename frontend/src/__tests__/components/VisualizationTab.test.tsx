@@ -127,9 +127,12 @@ describe("VisualizationTab", () => {
 
   it("displays achievement and expiry dates", () => {
     render(<VisualizationTab data={mockData} loading={false} error={null} />);
-
-    expect(screen.getByText("1/15/2024")).toBeInTheDocument(); // Achievement date
-    expect(screen.getByText("1/15/2025")).toBeInTheDocument(); // Expiry date
+    // Component uses toLocaleDateString with environment locale; allow common variants
+    // Acceptable patterns for 15 Jan 2024: 1/15/2024, 01/15/2024, 2024/01/15, 2024-01-15, 15/01/2024
+    const achievementPattern = /(^|\s)(?:2024[/-]0?1[/-]15|0?1[/-]15[/-]2024|15[/-]0?1[/-]2024)(\s|$)/;
+    const expiryPattern = /(^|\s)(?:2025[/-]0?1[/-]15|0?1[/-]15[/-]2025|15[/-]0?1[/-]2025)(\s|$)/;
+    expect(screen.getByText(achievementPattern)).toBeInTheDocument();
+    expect(screen.getByText(expiryPattern)).toBeInTheDocument();
   });
 
   it("handles competencies without dates", () => {

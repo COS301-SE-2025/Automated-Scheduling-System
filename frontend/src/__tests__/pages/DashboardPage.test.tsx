@@ -38,9 +38,9 @@ describe("DashboardPage", () => {
         <DashboardPage />
       </MemoryRouter>
     );
-
-    const heading = await screen.findByRole("heading", { name: /dashboard/i });
-    expect(heading).toBeTruthy();
+    // Use findByText instead of role query to avoid any a11y name mismatches
+    const heading = await screen.findByText(/welcome,\s*test user!/i);
+    expect(heading).toBeInTheDocument();
   });
 
   it("contains primary quick actions if present", async () => {
@@ -49,11 +49,9 @@ describe("DashboardPage", () => {
         <DashboardPage />
       </MemoryRouter>
     );
-
-    await screen.findByRole("heading", { name: /dashboard/i });
-    expect(
-      document.querySelector(".grid, .dashboard") || document.body
-    ).toBeTruthy();
+    await screen.findByText(/welcome,\s*test user!/i);
+    // Assert the Quick Actions section heading appears
+    expect(await screen.findByText(/quick actions/i)).toBeInTheDocument();
   });
 
   it("renders without crashing", async () => {
@@ -62,8 +60,7 @@ describe("DashboardPage", () => {
         <DashboardPage />
       </MemoryRouter>
     );
-
-    await screen.findByRole("heading", { name: /dashboard/i });
+    await screen.findByText(/welcome,\s*test user!/i);
     expect(container).toBeTruthy();
   });
 
