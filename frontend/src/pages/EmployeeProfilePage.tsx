@@ -38,6 +38,14 @@ const EmployeeProfilePage: React.FC = () => {
       return;
     }
 
+    if (phone.trim() && !isValidPhone(phone.trim())) {
+      setSettingsMessage({ 
+        type: 'error', 
+        text: 'Please enter a valid phone number. Accepted formats: 27123456789 or 0123456789.' 
+      });
+      return;
+    }
+
     setIsSettingsSaving(true);
     setSettingsMessage(null);
     
@@ -74,8 +82,23 @@ const EmployeeProfilePage: React.FC = () => {
   };
 
   const isValidEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // More comprehensive email validation
+    // Checks for valid format, prevents common issues like consecutive dots, leading/trailing dots
+    const emailRegex = /^[a-zA-Z0-9]([a-zA-Z0-9._-])*[a-zA-Z0-9]@[a-zA-Z0-9]([a-zA-Z0-9.-])*[a-zA-Z0-9]\.[a-zA-Z]{2,}$/;
+    
+    // Additional checks for edge cases
+    if (email.length > 254) return false; // RFC 5321 limit
+    if (email.includes('..')) return false; // Consecutive dots not allowed
+    if (email.startsWith('.') || email.endsWith('.')) return false; // Leading/trailing dots
+    if (email.includes('@.') || email.includes('.@')) return false; // Dot adjacent to @
+    
     return emailRegex.test(email);
+  };
+
+  const isValidPhone = (phone: string) => {
+    // Accepts formats: 27123456789 or 0123456789
+    const phoneRegex = /^(27\d{9}|0\d{9})$/;
+    return phoneRegex.test(phone);
   };
 
   const handleCancelSettings = () => {
@@ -262,10 +285,10 @@ const EmployeeProfilePage: React.FC = () => {
                             type="tel"
                             value={phone}
                             onChange={(e) => setPhone(e.target.value)}
-                            placeholder="+27 00 000 0000"
+                            placeholder="27123456789 or 0123456789"
                             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-dark-div text-custom-text dark:text-dark-text focus:ring-2 focus:ring-custom-primary focus:border-custom-primary"
                           />
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">For emergency contact and SMS notifications</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter in format: 27123456789 or 0123456789</p>
                         </div>
                       </div>
 
