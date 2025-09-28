@@ -477,9 +477,24 @@ const AdminView: React.FC<AdminViewProps> = ({ events, onEdit, onDelete, onView,
                                             {event.extendedProps.canEdit === true && (
                                                 <button onClick={() => onEdit(event)} className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary"><Edit size={16} /></button>
                                             )}
-                                            {event.extendedProps.canDelete === true && (
+                                            {event.extendedProps.canDelete === true ? (
                                                 <button onClick={() => onDelete(event)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"><Trash2 size={16} /></button>
-                                            )}
+                                            ) : event.extendedProps.canEdit === true ? (
+                                                <div className="relative group">
+                                                    <button 
+                                                        disabled 
+                                                        className="text-gray-400 cursor-not-allowed dark:text-gray-600"
+                                                        title={event.extendedProps.hasGrantedCompetencies ? 'Cannot delete: this event has granted competencies to employees' : 'Cannot delete this event'}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                    {event.extendedProps.hasGrantedCompetencies && (
+                                                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
+                                                            Cannot delete: event granted competencies
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ) : null}
                                         </div>
                                     </div>
                                 </li>

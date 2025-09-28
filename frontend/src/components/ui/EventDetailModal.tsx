@@ -39,6 +39,8 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
     };
     // New RBAC: use server-provided flags for edit/delete rights. Require strict true.
     const canManage = event?.extendedProps?.canEdit === true;
+    const canDelete = event?.extendedProps?.canDelete === true;
+    const hasGrantedCompetencies = event?.extendedProps?.hasGrantedCompetencies === true;
 
     const myBooking = (event?.extendedProps as any)?.myBooking as ('Booked' | 'Rejected' | 'Attended' | 'Not Attended' | undefined);
     const spotsLeft = (event?.extendedProps as any)?.spotsLeft as number | undefined;
@@ -261,9 +263,26 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
                                 <Button onClick={() => onEdit(event)} variant="outline">
                                     Edit
                                 </Button>
-                                <Button onClick={() => onDelete(event)} variant="danger">
-                                    Delete
-                                </Button>
+                                {canDelete ? (
+                                    <Button onClick={() => onDelete(event)} variant="danger">
+                                        Delete
+                                    </Button>
+                                ) : (
+                                    <div className="relative group">
+                                        <Button 
+                                            variant="danger" 
+                                            disabled={true}
+                                            title={hasGrantedCompetencies ? 'Cannot delete: this event has granted competencies to employees' : 'Cannot delete this event'}
+                                        >
+                                            Delete
+                                        </Button>
+                                        {hasGrantedCompetencies && (
+                                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                                                Cannot delete: event granted competencies to employees
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </>
                         )}
                         <Button onClick={onClose} variant="primary">
