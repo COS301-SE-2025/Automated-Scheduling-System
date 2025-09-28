@@ -309,7 +309,7 @@ func GetMyPermissionsHandler(c *gin.Context) {
 			result = append(result, p.Page)
 		}
 	}
-	// Always include dashboard and help for all users
+	// Always include basic navigation pages for all users (baseline access)
 	if !exists(result, "dashboard") {
 		result = append(result, "dashboard")
 	}
@@ -322,6 +322,10 @@ func GetMyPermissionsHandler(c *gin.Context) {
 	}
 	if !exists(result, "events") {
 		result = append(result, "events")
+	}
+	// Ensure event definitions page is always available (view access) to all users
+	if !exists(result, "event-definitions") {
+		result = append(result, "event-definitions")
 	}
 	// Ensure Admin can access roles management regardless of role definition changes
 	if user.Role == "Admin" && !exists(result, "roles") {

@@ -1,6 +1,7 @@
 import React from 'react';
 import type { EventClickArg } from '@fullcalendar/core';
 import Button from './Button';
+import * as eventService from '../../services/eventService';
 
 export interface EventDetailModalProps {
     isOpen: boolean;
@@ -8,17 +9,23 @@ export interface EventDetailModalProps {
     event: EventClickArg['event'] | null;
     onEdit: (event: EventClickArg['event']) => void;
     onDelete: (event: EventClickArg['event']) => void;
+    // Notify parent to refresh after RSVP (optional)
+    onAfterRSVP?: () => void;
 }
 
-const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, event, onEdit, onDelete }) => {
-
+const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, event, onEdit, onDelete, onAfterRSVP }) => {
     // local UI state for chip overflow toggles
     const [showAllEmployees, setShowAllEmployees] = React.useState(false);
     const [showAllPositions, setShowAllPositions] = React.useState(false);
+    const [rsvpLoading, setRsvpLoading] = React.useState<'book' | 'reject' | null>(null);
 
     if (!isOpen || !event) return null;
 
     const { title, start, end, extendedProps } = event;
+
+    // Replace explicit-only check with server-provided flag
+    const isCompleted = String(extendedProps?.statusName || '').toLowerCase() === 'completed';
+    const canShowRSVP = extendedProps?.canRSVP === true && !isCompleted;
 
     const actualEndDate = extendedProps.isMultiDay && extendedProps.originalEnd
         ? new Date(extendedProps.originalEnd)
@@ -32,6 +39,33 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
     };
     // New RBAC: use server-provided flags for edit/delete rights. Require strict true.
     const canManage = event?.extendedProps?.canEdit === true;
+    const canDelete = event?.extendedProps?.canDelete === true;
+    const hasGrantedCompetencies = event?.extendedProps?.hasGrantedCompetencies === true;
+
+    const myBooking = (event?.extendedProps as any)?.myBooking as ('Booked' | 'Rejected' | 'Attended' | 'Not Attended' | undefined);
+    const spotsLeft = (event?.extendedProps as any)?.spotsLeft as number | undefined;
+    const maxAtt = (event?.extendedProps as any)?.maxAttendees as number | undefined;
+    const bookedCount = (event?.extendedProps as any)?.bookedCount as number | undefined;
+
+    const canBookNow = () => {
+        if (myBooking === 'Booked') return true; // can toggle to reject
+        if (typeof spotsLeft === 'number') return spotsLeft > 0;
+        return true; // unlimited
+    };
+
+    const doRSVP = async (choice: 'book' | 'reject') => {
+        if (!event) return;
+        setRsvpLoading(choice);
+        try {
+            await eventService.rsvpScheduledEvent(Number((event.extendedProps as any).scheduleId), choice);
+            onAfterRSVP?.();
+        } catch (e: any) {
+            console.error('Failed to update RSVP:', e);
+            alert(e?.message || 'Failed to update RSVP');
+        } finally {
+            setRsvpLoading(null);
+        }
+    };
 
     const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => {
         const isElement = React.isValidElement(value);
@@ -181,20 +215,80 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
                         <DetailItem label="Min Attendees" value={extendedProps.minAttendees ?? 'N/A'} />
                     </div>
                 </div>
-                <div className="mt-6 flex justify-end space-x-3">
-                    {canManage && (
-                        <>
-                            <Button onClick={() => onEdit(event)} variant="outline">
-                                Edit
+                <div className="mt-6 flex justify-between items-center flex-wrap gap-3">
+                    {/* RSVP controls (visible if backend says eligible) */}
+                    {canShowRSVP && (
+                        <div className="flex items-center gap-2">
+                            {typeof maxAtt === 'number' && (
+                                <span className="text-xs text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                                    {bookedCount ?? 0}/{maxAtt} booked{typeof spotsLeft === 'number' ? ` • ${spotsLeft} left` : ''}
+                                </span>
+                            )}
+                            <Button
+                                onClick={() => doRSVP('book')}
+                                variant={myBooking === 'Booked' ? 'primary' : 'outline'}
+                                disabled={!canBookNow() || rsvpLoading === 'reject'}
+                            >
+                                {rsvpLoading === 'book' ? 'Booking...' : (myBooking === 'Booked' ? 'Booked' : 'Book')}
                             </Button>
-                            <Button onClick={() => onDelete(event)} variant="danger">
-                                Delete
+                            <Button
+                                onClick={() => doRSVP('reject')}
+                                variant={myBooking === 'Rejected' ? 'danger' : 'outline'}
+                                disabled={rsvpLoading === 'book'}
+                            >
+                                {rsvpLoading === 'reject' ? 'Updating...' : (myBooking === 'Rejected' ? 'Rejected' : 'Reject')}
                             </Button>
-                        </>
+                        </div>
                     )}
-                    <Button onClick={onClose} variant="primary">
-                        Close
-                    </Button>
+                    {/* Completed: show attendance state */}
+                    {isCompleted && (
+                        <div className="flex items-center gap-2">
+                            {typeof maxAtt === 'number' && (
+                                <span className="text-xs text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                                    Attended: {bookedCount ?? 0}
+                                </span>
+                            )}
+                            {myBooking && (
+                                <span className={`text-xs px-2 py-1 rounded ${myBooking === 'Attended' ? 'bg-green-600 text-white' : 'bg-gray-400 text-white'}`}>
+                                    You: {myBooking}
+                                </span>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Edit/Delete/Close */}
+                    <div className="flex justify-end space-x-3">
+                        {canManage && (
+                            <>
+                                <Button onClick={() => onEdit(event)} variant="outline">
+                                    Edit
+                                </Button>
+                                {canDelete ? (
+                                    <Button onClick={() => onDelete(event)} variant="danger">
+                                        Delete
+                                    </Button>
+                                ) : (
+                                    <div className="relative group">
+                                        <Button 
+                                            variant="danger" 
+                                            disabled={true}
+                                            title={hasGrantedCompetencies ? 'Cannot delete: this event has granted competencies to employees' : 'Cannot delete this event'}
+                                        >
+                                            Delete
+                                        </Button>
+                                        {hasGrantedCompetencies && (
+                                            <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                                                Cannot delete: event granted competencies to employees
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                        <Button onClick={onClose} variant="primary">
+                            Close
+                        </Button>
+                    </div>
                 </div>
             </div>
         </div>

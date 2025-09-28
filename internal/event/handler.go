@@ -16,6 +16,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var DB *gorm.DB
@@ -402,54 +403,239 @@ func CreateEventScheduleHandler(c *gin.Context) {
 	c.JSON(http.StatusCreated, result.AllSchedules)
 }
 
+// GetBookedEmployeesHandler returns the employees who booked this schedule (role='Booked')
+func GetBookedEmployeesHandler(c *gin.Context) {
+    scheduleIDStr := c.Param("scheduleID")
+    scheduleID, err := strconv.Atoi(scheduleIDStr)
+    if err != nil || scheduleID <= 0 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID"})
+        return
+    }
+    type row struct {
+        EmployeeNumber string `json:"employeeNumber"`
+        Name           string `json:"name"`
+    }
+    // Ensure JSON encodes to [] (not null) when empty
+    rows := make([]row, 0)
+    DB.Table("event_schedule_employees AS ese").
+        Select("ese.employee_number AS employee_number, CONCAT(e.firstname, ' ', e.lastname) AS name").
+        Joins("JOIN employee e ON e.employeenumber = ese.employee_number").
+        Where("ese.custom_event_schedule_id = ? AND ese.role = ?", scheduleID, "Booked").
+        Scan(&rows)
+    c.JSON(http.StatusOK, rows)
+}
+
 // GetEventSchedulesHandler fetches all scheduled events, suitable for a calendar view.
 func GetEventSchedulesHandler(c *gin.Context) {
-	var schedules []models.CustomEventSchedule
-	// Determine current user and role to filter results
-	currentUser, currentEmployee, isAdmin, isHR, err := currentUserContextFn(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-		return
-	}
+    var schedules []models.CustomEventSchedule
+    // Determine current user and role to filter results
+    currentUser, currentEmployee, isAdmin, isHR, err := currentUserContextFn(c)
+    if err != nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+        return
+    }
 
-	q := DB.Preload("CustomEventDefinition").Preload("Employees").Preload("Positions")
-	if isAdmin || isHR {
-		if err := q.Find(&schedules).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event schedules"})
-			return
-		}
-	} else {
-		sub := DB.Table("employment_history").Select("position_matrix_code").Where("employee_number = ? AND (end_date IS NULL OR end_date > NOW())", currentEmployee.Employeenumber)
-		if err := q.Joins("LEFT JOIN event_schedule_employees ese ON ese.custom_event_schedule_id = custom_event_schedules.custom_event_schedule_id").
-			Joins("LEFT JOIN event_schedule_position_targets espt ON espt.custom_event_schedule_id = custom_event_schedules.custom_event_schedule_id").
-			Where("ese.employee_number = ? OR espt.position_matrix_code IN (?) OR custom_event_schedules.created_by_user_id = ?", currentEmployee.Employeenumber, sub, currentUser.ID).
-			Group("custom_event_schedules.custom_event_schedule_id").
-			Find(&schedules).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event schedules"})
-			return
-		}
-	}
+    q := DB.Preload("CustomEventDefinition").Preload("Employees").Preload("Positions")
+    if isAdmin || isHR {
+        if err := q.Find(&schedules).Error; err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event schedules"})
+            return
+        }
+    } else {
+        sub := DB.Table("employment_history").Select("position_matrix_code").Where("employee_number = ? AND (end_date IS NULL OR end_date > NOW())", currentEmployee.Employeenumber)
+        if err := q.Joins("LEFT JOIN event_schedule_employees ese ON ese.custom_event_schedule_id = custom_event_schedules.custom_event_schedule_id").
+            Joins("LEFT JOIN event_schedule_position_targets espt ON espt.custom_event_schedule_id = custom_event_schedules.custom_event_schedule_id").
+            Where("ese.employee_number = ? OR espt.position_matrix_code IN (?) OR custom_event_schedules.created_by_user_id = ?", currentEmployee.Employeenumber, sub, currentUser.ID).
+            Group("custom_event_schedules.custom_event_schedule_id").
+            Find(&schedules).Error; err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch event schedules"})
+            return
+        }
+    }
 
-	// Enrich with permission flags (avoid changing database model)
-	type scheduleDTO struct {
-		models.CustomEventSchedule
-		CanEdit   bool `json:"canEdit"`
-		CanDelete bool `json:"canDelete"`
-		CreatorID *int64 `json:"creatorUserId"`
-	}
-	out := make([]scheduleDTO, 0, len(schedules))
-	for _, s := range schedules {
-		creatorID := s.CreatedByUserID
-		canManage := false
-		if isAdmin || isHR {
-			canManage = true
-		} else if creatorID != nil && currentUser != nil && *creatorID == currentUser.ID {
-			canManage = true
-		}
-		out = append(out, scheduleDTO{CustomEventSchedule: s, CanEdit: canManage, CanDelete: canManage, CreatorID: creatorID})
-	}
+    // Collect IDs
+    ids := make([]int, 0, len(schedules))
+    for _, s := range schedules {
+        ids = append(ids, int(s.CustomEventScheduleID))
+    }
 
-	c.JSON(http.StatusOK, out)
+    type countRow struct{ ID int; Cnt int }
+
+    // Count booked (only used for non-completed)
+    bookedCountMap := map[int]int{}
+    if len(ids) > 0 {
+        var rows []countRow
+        DB.Table("event_schedule_employees").
+            Select("custom_event_schedule_id AS id, COUNT(*) AS cnt").
+            Where("custom_event_schedule_id IN ? AND role = ?", ids, "Booked").
+            Group("custom_event_schedule_id").
+            Scan(&rows)
+        for _, r := range rows {
+            bookedCountMap[r.ID] = r.Cnt
+        }
+    }
+
+    // Count attended based on attendance table for completed events
+    attendedCountMap := map[int]int{}
+    if len(ids) > 0 {
+        var rows []countRow
+        DB.Table("event_attendance").
+            Select("custom_event_schedule_id AS id, COUNT(*) AS cnt").
+            Where("custom_event_schedule_id IN ? AND attended = ?", ids, true).
+            Group("custom_event_schedule_id").
+            Scan(&rows)
+        for _, r := range rows {
+            attendedCountMap[r.ID] = r.Cnt
+        }
+    }
+
+    // Check which schedules have granted competencies (making them non-deletable)
+    hasGrantedCompetenciesMap := map[int]bool{}
+    if len(ids) > 0 {
+        var rows []struct{ ID int }
+        DB.Table("employee_competencies").
+            Select("granted_by_schedule_id AS id").
+            Where("granted_by_schedule_id IN ?", ids).
+            Group("granted_by_schedule_id").
+            Scan(&rows)
+        for _, r := range rows {
+            hasGrantedCompetenciesMap[r.ID] = true
+        }
+    }
+
+    // Current user's role entry (Booked/Rejected/Attended/Not Attended/Attendee/etc.)
+    myBookingMap := map[int]string{}
+    if currentEmployee != nil && len(ids) > 0 {
+        type myRow struct{ ID int; Role string }
+        var rows []myRow
+        DB.Table("event_schedule_employees").
+            Select("custom_event_schedule_id AS id, role").
+            Where("employee_number = ? AND custom_event_schedule_id IN ?", currentEmployee.Employeenumber, ids).
+            Scan(&rows)
+        for _, r := range rows {
+            myBookingMap[r.ID] = r.Role
+        }
+    }
+
+    // Compute RSVP eligibility (false for completed)
+    canRSVPMap := map[int]bool{}
+    if currentEmployee != nil && len(ids) > 0 {
+        // User’s current positions
+        posRows := []struct{ Code string }{}
+        DB.Table("employment_history").
+            Select("position_matrix_code AS code").
+            Where("employee_number = ? AND (end_date IS NULL OR end_date > NOW())", currentEmployee.Employeenumber).
+            Scan(&posRows)
+        posCodes := make([]string, 0, len(posRows))
+        for _, r := range posRows { if r.Code != "" { posCodes = append(posCodes, r.Code) } }
+
+        // Schedules targeted by user positions
+        posEligible := map[int]bool{}
+        if len(posCodes) > 0 {
+            var rows []struct{ ID int }
+            DB.Table("event_schedule_position_targets").
+                Select("custom_event_schedule_id AS id").
+                Where("custom_event_schedule_id IN ? AND position_matrix_code IN ?", ids, posCodes).
+                Group("custom_event_schedule_id").
+                Scan(&rows)
+            for _, r := range rows { posEligible[r.ID] = true }
+        }
+
+        // Counts to detect open events
+        empLinkCount := map[int]int{}
+        if len(ids) > 0 {
+            var rows []countRow
+            DB.Table("event_schedule_employees").
+                Select("custom_event_schedule_id AS id, COUNT(*) AS cnt").
+                Where("custom_event_schedule_id IN ?", ids).
+                Group("custom_event_schedule_id").
+                Scan(&rows)
+            for _, r := range rows { empLinkCount[r.ID] = r.Cnt }
+        }
+        posLinkCount := map[int]int{}
+        if len(ids) > 0 {
+            var rows []countRow
+            DB.Table("event_schedule_position_targets").
+                Select("custom_event_schedule_id AS id, COUNT(*) AS cnt").
+                Where("custom_event_schedule_id IN ?", ids).
+                Group("custom_event_schedule_id").
+                Scan(&rows)
+            for _, r := range rows { posLinkCount[r.ID] = r.Cnt }
+        }
+
+        for _, s := range schedules {
+            id := int(s.CustomEventScheduleID)
+            if strings.EqualFold(s.StatusName, "Completed") {
+                canRSVPMap[id] = false
+                continue
+            }
+            explicit := false
+            if _, ok := myBookingMap[id]; ok { explicit = true }
+            open := (empLinkCount[id] == 0 && posLinkCount[id] == 0)
+            canRSVPMap[id] = explicit || posEligible[id] || open
+        }
+    }
+
+    type scheduleDTO struct {
+        models.CustomEventSchedule
+        CanEdit                bool   `json:"canEdit"`
+        CanDelete              bool   `json:"canDelete"`
+        HasGrantedCompetencies bool   `json:"hasGrantedCompetencies"`
+        CreatorID              *int64 `json:"creatorUserId"`
+        BookedCount            int    `json:"bookedCount"`
+        SpotsLeft              *int   `json:"spotsLeft,omitempty"`
+        MyBooking              string `json:"myBooking,omitempty"`
+        CanRSVP                bool   `json:"canRSVP"`
+    }
+    out := make([]scheduleDTO, 0, len(schedules))
+    for _, s := range schedules {
+        creatorID := s.CreatedByUserID
+        canManage := false
+        if isAdmin || isHR {
+            canManage = true
+        } else if creatorID != nil && currentUser != nil && *creatorID == currentUser.ID {
+            canManage = true
+        }
+
+        // Check if this schedule has granted competencies (which prevents deletion)
+        id := int(s.CustomEventScheduleID)
+        hasGrantedCompetencies := hasGrantedCompetenciesMap[id]
+        
+        // Can delete only if user can manage AND the event hasn't granted competencies
+        canDelete := canManage && !hasGrantedCompetencies
+
+        // Completed events: use attended count and disable spots
+        var bc int
+        var leftPtr *int
+        if strings.EqualFold(s.StatusName, "Completed") {
+            bc = attendedCountMap[id]
+            leftPtr = nil
+        } else {
+            bc = bookedCountMap[id]
+            if s.MaximumAttendees > 0 {
+                left := s.MaximumAttendees - bc
+                if left < 0 { left = 0 }
+                leftPtr = &left
+            }
+        }
+
+        my := myBookingMap[id]
+        canRSVP := canRSVPMap[id]
+
+        out = append(out, scheduleDTO{
+            CustomEventSchedule:    s,
+            CanEdit:                canManage,
+            CanDelete:              canDelete,
+            HasGrantedCompetencies: hasGrantedCompetencies,
+            CreatorID:              creatorID,
+            BookedCount:            bc,
+            SpotsLeft:              leftPtr,
+            MyBooking:              my,
+            CanRSVP:                canRSVP,
+        })
+    }
+
+    c.JSON(http.StatusOK, out)
 }
 
 // UpdateEventScheduleHandler updates an existing scheduled event.
@@ -497,34 +683,96 @@ func UpdateEventScheduleHandler(c *gin.Context) {
 	}
 
 	// Update fields from request
-	scheduleToUpdate.CustomEventID = req.CustomEventID
-	scheduleToUpdate.Title = req.Title
-	scheduleToUpdate.EventStartDate = req.EventStartDate
-	scheduleToUpdate.EventEndDate = req.EventEndDate
-	scheduleToUpdate.RoomName = req.RoomName
-	scheduleToUpdate.MaximumAttendees = req.MaximumAttendees
-	scheduleToUpdate.MinimumAttendees = req.MinimumAttendees
-	scheduleToUpdate.StatusName = req.StatusName
-	scheduleToUpdate.Color = req.Color
+	// Snapshot the original creator to prevent accidental ownership transfer
+	origCreator := scheduleToUpdate.CreatedByUserID
 
-	if err := DB.Save(&scheduleToUpdate).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event schedule in database"})
-		return
+	// Explicitly update only mutable fields; never touch created_by_user_id
+	updates := map[string]any{
+		"custom_event_id":    req.CustomEventID,
+		"title":              req.Title,
+		"event_start_date":   req.EventStartDate,
+		"event_end_date":     req.EventEndDate,
+		"room_name":          req.RoomName,
+		"maximum_attendees":  req.MaximumAttendees,
+		"minimum_attendees":  req.MinimumAttendees,
+		"status_name":        req.StatusName,
+		"color":              req.Color,
 	}
+
+	if err := DB.Model(&models.CustomEventSchedule{}).
+        Where("custom_event_schedule_id = ?", scheduleID).
+        Omit("created_by_user_id", "creation_date"). // protect ownership
+        Updates(updates).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update event schedule in database"})
+        return
+    }
+
+    // Defensive: ensure ownership didn't change due to triggers or defaults
+    if origCreator != nil {
+        _ = DB.Model(&models.CustomEventSchedule{}).
+            Where("custom_event_schedule_id = ?", scheduleID).
+            Update("created_by_user_id", *origCreator).Error
+    }
+
+    // Reload entity so subsequent logic has fresh values
+    if err := DB.First(&scheduleToUpdate, scheduleID).Error; err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to reload updated schedule"})
+        return
+    }
 
 	// Update links: replace sets if provided
-	if req.EmployeeNumbers != nil {
-		_ = DB.Where("custom_event_schedule_id = ?", scheduleToUpdate.CustomEventScheduleID).Delete(&models.EventScheduleEmployee{})
-		for _, emp := range req.EmployeeNumbers {
-			_ = DB.Create(&models.EventScheduleEmployee{CustomEventScheduleID: scheduleToUpdate.CustomEventScheduleID, EmployeeNumber: emp, Role: "Attendee"}).Error
-		}
-	}
-	if req.PositionCodes != nil {
-		_ = DB.Where("custom_event_schedule_id = ?", scheduleToUpdate.CustomEventScheduleID).Delete(&models.EventSchedulePositionTarget{})
-		for _, pos := range req.PositionCodes {
-			_ = DB.Create(&models.EventSchedulePositionTarget{CustomEventScheduleID: scheduleToUpdate.CustomEventScheduleID, PositionMatrixCode: pos}).Error
-		}
-	}
+    if req.EmployeeNumbers != nil {
+        // Load existing links so we can preserve their roles (Booked/Rejected/Attended/etc.)
+        var existingLinks []models.EventScheduleEmployee
+        _ = DB.Where("custom_event_schedule_id = ?", scheduleToUpdate.CustomEventScheduleID).
+            Find(&existingLinks)
+
+        oldRoles := make(map[string]string, len(existingLinks))
+        for _, l := range existingLinks {
+            oldRoles[l.EmployeeNumber] = l.Role
+        }
+
+        // Build the new set from request
+        newSet := make(map[string]string, len(req.EmployeeNumbers))
+        for _, emp := range req.EmployeeNumbers {
+            // Default for newly added explicit employees
+            newSet[emp] = "Attendee"
+        }
+
+        // Preserve any existing non-Attendee roles (e.g., Booked/Rejected/Attended/Not Attended/Facilitator)
+        for _, l := range existingLinks {
+            if !strings.EqualFold(strings.TrimSpace(l.Role), "attendee") {
+                // Ensure RSVP’d/role’d employees are kept even if not in the submitted explicit list
+                newSet[l.EmployeeNumber] = l.Role
+            }
+        }
+
+        // Replace rows
+        _ = DB.Where("custom_event_schedule_id = ?", scheduleToUpdate.CustomEventScheduleID).
+            Delete(&models.EventScheduleEmployee{})
+
+        // Recreate with preserved roles
+        for emp, role := range newSet {
+            if r := strings.TrimSpace(role); r == "" {
+                role = "Attendee"
+            }
+            _ = DB.Create(&models.EventScheduleEmployee{
+                CustomEventScheduleID: scheduleToUpdate.CustomEventScheduleID,
+                EmployeeNumber:        emp,
+                Role:                  role,
+            }).Error
+        }
+    }
+    if req.PositionCodes != nil {
+        _ = DB.Where("custom_event_schedule_id = ?", scheduleToUpdate.CustomEventScheduleID).
+            Delete(&models.EventSchedulePositionTarget{})
+        for _, pos := range req.PositionCodes {
+            _ = DB.Create(&models.EventSchedulePositionTarget{
+                CustomEventScheduleID: scheduleToUpdate.CustomEventScheduleID,
+                PositionMatrixCode:    pos,
+            }).Error
+        }
+    }
 
 	// If status changed to Completed, and the definition grants a competency, grant to attendees
 	if scheduleToUpdate.StatusName == "Completed" {
@@ -573,6 +821,22 @@ func DeleteEventScheduleHandler(c *gin.Context) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "You are not permitted to delete this event"})
 			return
 		}
+	}
+
+	// Check if this schedule has granted competencies to any employees
+	var competencyCount int64
+	if err := DB.Model(&models.EmployeeCompetency{}).
+		Where("granted_by_schedule_id = ?", scheduleID).
+		Count(&competencyCount).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check competency grants"})
+		return
+	}
+
+	if competencyCount > 0 {
+		c.JSON(http.StatusConflict, gin.H{
+			"error": "Cannot delete this event as it has granted competencies to employees. Please contact an administrator if you need to remove this event.",
+		})
+		return
 	}
 
 	result := DB.Delete(&models.CustomEventSchedule{}, scheduleID)
@@ -631,83 +895,83 @@ type AttendancePayload struct {
 	Attendance      map[string]bool `json:"attendance"` // optional map employeeNumber -> attended
 }
 
-// SetAttendanceHandler sets attendance for a schedule; Admin/HR only.
-// Behavior: replaces the entire attendance set for the given schedule with the
-// provided candidate employees. Any employee omitted from the request will be
-// removed. The "attendance" map determines who is marked attended=true; all
-// others default to false.
-func SetAttendanceHandler(c *gin.Context) {
-	scheduleIDStr := c.Param("scheduleID")
-	scheduleID, err := strconv.Atoi(scheduleIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID"})
-		return
-	}
+// // SetAttendanceHandler sets attendance for a schedule; Admin/HR only.
+// // Behavior: replaces the entire attendance set for the given schedule with the
+// // provided candidate employees. Any employee omitted from the request will be
+// // removed. The "attendance" map determines who is marked attended=true; all
+// // others default to false.
+// func SetAttendanceHandler(c *gin.Context) {
+// 	scheduleIDStr := c.Param("scheduleID")
+// 	scheduleID, err := strconv.Atoi(scheduleIDStr)
+// 	if err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID"})
+// 		return
+// 	}
 
-	_, _, isAdmin, isHR, err := currentUserContextFn(c)
-	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
-		return
-	}
-	if !isAdmin && !isHR {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
-		return
-	}
+// 	_, _, isAdmin, isHR, err := currentUserContextFn(c)
+// 	if err != nil {
+// 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+// 		return
+// 	}
+// 	if !isAdmin && !isHR {
+// 		c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+// 		return
+// 	}
 
-	var payload AttendancePayload
-	if err := c.ShouldBindJSON(&payload); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"})
-		return
-	}
+// 	var payload AttendancePayload
+// 	if err := c.ShouldBindJSON(&payload); err != nil {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"})
+// 		return
+// 	}
 
-	now := time.Now()
-	// Build the full candidate set from provided arrays and map keys
-	candidateSet := map[string]struct{}{}
-	for _, e := range payload.EmployeeNumbers {
-		if e != "" {
-			candidateSet[e] = struct{}{}
-		}
-	}
-	for e := range payload.Attendance {
-		if e != "" {
-			candidateSet[e] = struct{}{}
-		}
-	}
+// 	now := time.Now()
+// 	// Build the full candidate set from provided arrays and map keys
+// 	candidateSet := map[string]struct{}{}
+// 	for _, e := range payload.EmployeeNumbers {
+// 		if e != "" {
+// 			candidateSet[e] = struct{}{}
+// 		}
+// 	}
+// 	for e := range payload.Attendance {
+// 		if e != "" {
+// 			candidateSet[e] = struct{}{}
+// 		}
+// 	}
 
-	// If nothing provided, treat as bad request
-	if len(candidateSet) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "No employees provided for attendance"})
-		return
-	}
+// 	// If nothing provided, treat as bad request
+// 	if len(candidateSet) == 0 {
+// 		c.JSON(http.StatusBadRequest, gin.H{"error": "No employees provided for attendance"})
+// 		return
+// 	}
 
-	// Clear existing attendance rows for this schedule to avoid stale data
-	_ = DB.Where("custom_event_schedule_id = ?", scheduleID).Delete(&models.EventAttendance{})
+// 	// Clear existing attendance rows for this schedule to avoid stale data
+// 	_ = DB.Where("custom_event_schedule_id = ?", scheduleID).Delete(&models.EventAttendance{})
 
-	// Insert fresh rows: default to not attended unless explicitly true in map
-	for e := range candidateSet {
-		attended, ok := payload.Attendance[e]
-		if !ok {
-			attended = false
-		}
-		var checkIn *time.Time
-		if attended {
-			checkIn = &now
-		}
-		// Important: explicitly persist Attended=false for non-attendees.
-		att := models.EventAttendance{CustomEventScheduleID: scheduleID, EmployeeNumber: e, Attended: attended, CheckInTime: checkIn}
-		_ = DB.Create(&att).Error
-	}
+// 	// Insert fresh rows: default to not attended unless explicitly true in map
+// 	for e := range candidateSet {
+// 		attended, ok := payload.Attendance[e]
+// 		if !ok {
+// 			attended = false
+// 		}
+// 		var checkIn *time.Time
+// 		if attended {
+// 			checkIn = &now
+// 		}
+// 		// Important: explicitly persist Attended=false for non-attendees.
+// 		att := models.EventAttendance{CustomEventScheduleID: scheduleID, EmployeeNumber: e, Attended: attended, CheckInTime: checkIn}
+// 		_ = DB.Create(&att).Error
+// 	}
 
-	// If the schedule is already completed, recompute competency grants now
-	var sched models.CustomEventSchedule
-	if err := DB.Select("status_name").First(&sched, scheduleID).Error; err == nil {
-		if sched.StatusName == "Completed" {
-			go grantCompetenciesForCompletedSchedule(scheduleID)
-		}
-	}
+// 	// If the schedule is already completed, recompute competency grants now
+// 	var sched models.CustomEventSchedule
+// 	if err := DB.Select("status_name").First(&sched, scheduleID).Error; err == nil {
+// 		if sched.StatusName == "Completed" {
+// 			go grantCompetenciesForCompletedSchedule(scheduleID)
+// 		}
+// 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Attendance saved"})
-}
+// 	c.JSON(http.StatusOK, gin.H{"message": "Attendance saved"})
+// }
 
 // GetAttendanceHandler lists attendance records for a schedule.
 func GetAttendanceHandler(c *gin.Context) {
@@ -972,4 +1236,251 @@ func CheckEmployeesHaveCompetency(c *gin.Context) {
 		m[r.EmployeeNumber] = true
 	}
 	c.JSON(http.StatusOK, gin.H{"result": m})
+}
+
+type rsvpPayload struct {
+    Choice string `json:"choice"` // "book" | "reject"
+}
+
+// RSVPHandler lets the current user book or reject an event, with capacity enforcement.
+func RSVPHandler(c *gin.Context) {
+    scheduleIDStr := c.Param("scheduleID")
+    scheduleID, err := strconv.Atoi(scheduleIDStr)
+    if err != nil || scheduleID <= 0 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID"})
+        return
+    }
+    currentUser, currentEmployee, _, _, err := currentUserContextFn(c)
+    if err != nil || currentEmployee == nil || currentUser == nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+        return
+    }
+
+    var payload rsvpPayload
+    if err := c.ShouldBindJSON(&payload); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"})
+        return
+    }
+    choice := strings.ToLower(strings.TrimSpace(payload.Choice))
+    if choice != "book" && choice != "reject" {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Choice must be 'book' or 'reject'"})
+        return
+    }
+
+    // Verify eligibility: user must be explicitly selected or targeted by a position
+    eligible := false
+    // Explicit
+    var cnt int64
+    _ = DB.Model(&models.EventScheduleEmployee{}).
+        Where("custom_event_schedule_id = ? AND employee_number = ?", scheduleID, currentEmployee.Employeenumber).
+        Count(&cnt)
+    if cnt > 0 {
+        eligible = true
+    }
+    // Targeted by position
+    if !eligible {
+        rows := []struct{ Position string }{}
+        DB.Table("employment_history").
+            Select("position_matrix_code AS position").
+            Where("employee_number = ? AND (end_date IS NULL OR end_date > NOW())", currentEmployee.Employeenumber).
+            Scan(&rows)
+        if len(rows) > 0 {
+            pos := make([]string, 0, len(rows))
+            for _, r := range rows {
+                pos = append(pos, r.Position)
+            }
+            var tcnt int64
+            _ = DB.Model(&models.EventSchedulePositionTarget{}).
+                Where("custom_event_schedule_id = ? AND position_matrix_code IN ?", scheduleID, pos).
+                Count(&tcnt)
+            if tcnt > 0 {
+                eligible = true
+            }
+        }
+    }
+    // Open event (no explicit employees and no position targets): allow all users
+    if !eligible {
+        var empLinks, posTargets int64
+        _ = DB.Model(&models.EventScheduleEmployee{}).Where("custom_event_schedule_id = ?", scheduleID).Count(&empLinks)
+        _ = DB.Model(&models.EventSchedulePositionTarget{}).Where("custom_event_schedule_id = ?", scheduleID).Count(&posTargets)
+        if empLinks == 0 && posTargets == 0 {
+            eligible = true
+        }
+    }
+    if !eligible {
+        c.JSON(http.StatusForbidden, gin.H{"error": "You are not eligible for this event"})
+        return
+    }
+
+    type rsvpResult struct {
+        MyBooking   string `json:"myBooking"`
+        BookedCount int    `json:"bookedCount"`
+        SpotsLeft   *int   `json:"spotsLeft,omitempty"`
+    }
+
+    res := rsvpResult{}
+    err = DB.Transaction(func(tx *gorm.DB) error {
+        // Lock schedule row to serialize capacity checks
+        var sched models.CustomEventSchedule
+        if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+            Preload("CustomEventDefinition").
+            First(&sched, scheduleID).Error; err != nil {
+            return fmt.Errorf("schedule not found")
+        }
+
+        // Load existing RSVP of current user (if any)
+        var link models.EventScheduleEmployee
+        _ = tx.Where("custom_event_schedule_id = ? AND employee_number = ?", scheduleID, currentEmployee.Employeenumber).
+            First(&link).Error
+        existing := strings.ToLower(link.Role)
+
+        // Compute current booked count
+        var bookedCnt int64
+        _ = tx.Model(&models.EventScheduleEmployee{}).
+            Where("custom_event_schedule_id = ? AND role = ?", scheduleID, "Booked").
+            Count(&bookedCnt)
+
+        // Enforce capacity if booking (0 = unlimited)
+        if choice == "book" {
+            if sched.MaximumAttendees > 0 {
+                capacity := int64(sched.MaximumAttendees)
+                if bookedCnt >= capacity && existing != "booked" {
+                    return fmt.Errorf("event is fully booked")
+                }
+            }
+        }
+
+        // Upsert RSVP row
+        newRole := "Rejected"
+        if choice == "book" {
+            newRole = "Booked"
+        }
+        if link.CustomEventScheduleID == 0 {
+            link = models.EventScheduleEmployee{
+                CustomEventScheduleID: scheduleID,
+                EmployeeNumber:        currentEmployee.Employeenumber,
+                Role:                  newRole,
+            }
+            if err := tx.Create(&link).Error; err != nil {
+                return err
+            }
+        } else {
+            if err := tx.Model(&models.EventScheduleEmployee{}).
+                Where("custom_event_schedule_id = ? AND employee_number = ?", scheduleID, currentEmployee.Employeenumber).
+                Update("role", newRole).Error; err != nil {
+                return err
+            }
+        }
+
+        // Recompute after change
+        bookedCnt = 0
+        _ = tx.Model(&models.EventScheduleEmployee{}).
+            Where("custom_event_schedule_id = ? AND role = ?", scheduleID, "Booked").
+            Count(&bookedCnt)
+
+        res.MyBooking = newRole
+        res.BookedCount = int(bookedCnt)
+        if sched.MaximumAttendees > 0 {
+            left := sched.MaximumAttendees - int(bookedCnt)
+            if left < 0 {
+                left = 0
+            }
+            res.SpotsLeft = &left
+        } else {
+            res.SpotsLeft = nil
+        }
+        return nil
+    })
+    if err != nil {
+        if strings.Contains(err.Error(), "fully booked") {
+            c.JSON(http.StatusConflict, gin.H{"error": "Event is fully booked"})
+            return
+        }
+        if strings.Contains(err.Error(), "schedule not found") {
+            c.JSON(http.StatusNotFound, gin.H{"error": "Event schedule not found"})
+            return
+        }
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update RSVP"})
+        return
+    }
+
+    c.JSON(http.StatusOK, res)
+}
+
+// SetAttendanceHandler sets attendance for a schedule; Admin/HR only.
+// Behavior: replaces the entire attendance set for the given schedule with the
+// provided candidate employees and marks event_schedule_employees role to Attended/Not Attended.
+func SetAttendanceHandler(c *gin.Context) {
+    scheduleIDStr := c.Param("scheduleID")
+    scheduleID, err := strconv.Atoi(scheduleIDStr)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Schedule ID"})
+        return
+    }
+
+    _, _, isAdmin, isHR, err := currentUserContextFn(c)
+    if err != nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
+        return
+    }
+    if !isAdmin && !isHR {
+        c.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+        return
+    }
+
+    var payload AttendancePayload
+    if err := c.ShouldBindJSON(&payload); err != nil {
+     c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid payload"})
+     return
+    }
+    now := time.Now()
+
+    candidateSet := map[string]struct{}{}
+    for _, e := range payload.EmployeeNumbers { if e != "" { candidateSet[e] = struct{}{} } }
+    for e := range payload.Attendance { if e != "" { candidateSet[e] = struct{}{} } }
+    if len(candidateSet) == 0 {
+        c.JSON(http.StatusBadRequest, gin.H{"error": "No employees provided for attendance"})
+        return
+    }
+
+    err = DB.Transaction(func(tx *gorm.DB) error {
+        // Replace attendance rows
+        if err := tx.Where("custom_event_schedule_id = ?", scheduleID).Delete(&models.EventAttendance{}).Error; err != nil {
+            return err
+        }
+        for e := range candidateSet {
+            attended := payload.Attendance[e]
+            var checkIn *time.Time
+            if attended { checkIn = &now }
+            att := models.EventAttendance{CustomEventScheduleID: scheduleID, EmployeeNumber: e, Attended: attended, CheckInTime: checkIn}
+            if err := tx.Create(&att).Error; err != nil { return err }
+        }
+
+        // Update event_schedule_employees roles accordingly
+        for e := range candidateSet {
+            newRole := "Not Attended"
+            if payload.Attendance[e] {
+                newRole = "Attended"
+            }
+            if err := tx.Model(&models.EventScheduleEmployee{}).
+                Where("custom_event_schedule_id = ? AND employee_number = ?", scheduleID, e).
+                Update("role", newRole).Error; err != nil {
+                return err
+            }
+        }
+        return nil
+    })
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save attendance"})
+        return
+    }
+
+    // If the schedule is completed, (re)grant linked competencies to attended employees
+    var sched models.CustomEventSchedule
+    if err := DB.Select("status_name").First(&sched, scheduleID).Error; err == nil {
+        if sched.StatusName == "Completed" {
+            go grantCompetenciesForCompletedSchedule(scheduleID)
+        }
+    }
+    c.JSON(http.StatusOK, gin.H{"message": "Attendance saved"})
 }

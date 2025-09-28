@@ -53,6 +53,10 @@ function GenericSelectModal<T>({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(defaultPageSize);
 
+  // Use useMemo to stabilize the array reference
+  const safeItems = useMemo<T[]>(() => (Array.isArray(items) ? items : []), [items]);
+  const disabledSet = useMemo(() => new Set(disabledIds ?? []), [disabledIds]);
+
   useEffect(() => {
     if (isOpen) {
       setSelected(new Set(initialSelected ?? []));
@@ -60,20 +64,18 @@ function GenericSelectModal<T>({
       setSearch('');
       setPageSize(defaultPageSize);
     }
-    // Intentionally run only when modal visibility changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
-  const disabledSet = useMemo(() => new Set(disabledIds ?? []), [disabledIds]);
   const normalizedSearch = search.trim().toLowerCase();
 
   const filtered = useMemo(() => {
-    if (!normalizedSearch || (searchFields?.length ?? 0) === 0) return items;
+    if (!normalizedSearch || (searchFields?.length ?? 0) === 0) return safeItems;
     const fields = searchFields as (keyof T)[];
-    return items.filter((it) =>
+    return safeItems.filter((it) =>
       fields.some((f) => (String((it as any)[f]) || '').toLowerCase().includes(normalizedSearch))
     );
-  }, [items, normalizedSearch]);
+  }, [safeItems, normalizedSearch, searchFields]);
 
   const total = filtered.length;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));

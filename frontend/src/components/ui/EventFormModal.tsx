@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -79,8 +79,10 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
     const [users, setUsers] = useState<User[]>([]);
     const [positions, setPositions] = useState<JobPosition[]>([]);
     const [allPositions, setAllPositions] = useState<JobPosition[]>([]);
-    const [attendance, setAttendance] = useState<Record<string, boolean>>({});
-    const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+    const [employeesInPositions, setEmployeesInPositions] = useState<string[]>([]);
+    // Removed legacy attendance state and modal
+    // const [attendance, setAttendance] = useState<Record<string, boolean>>({});
+    // const [showAttendanceModal, setShowAttendanceModal] = useState(false);
 
     const { register, handleSubmit, reset, control, watch, setValue, formState: { errors, isSubmitting } } = useForm<ScheduleFormData>({
         resolver: zodResolver(scheduleSchema),
@@ -188,7 +190,6 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
         return () => { cancelled = true; };
     }, [isOpen, isElevated, allPositions, watchCustomEventId, eventDefinitions, initialData?.customEventId]);
 
-    const [employeesInPositions, setEmployeesInPositions] = useState<string[]>([]);
     useEffect(() => {
         if (!isOpen) return;
         let active = true;
@@ -215,23 +216,6 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
         }
     }, [isOpen, employeesInPositions, setValue, watch]);
 
-    useEffect(() => {
-        if (!isOpen || !isEditMode || !isElevated || !initialData?.id) return;
-        let active = true;
-        (async () => {
-            try {
-                const rows = await eventService.getAttendance(Number(initialData.id));
-                if (!active) return;
-                const map: Record<string, boolean> = {};
-                rows.forEach((r: any) => { map[r.employeeNumber ?? r.EmployeeNumber] = !!(r.attended ?? r.Attended); });
-                setAttendance(map);
-            } catch (e) {
-                console.log("Couldn't get employee attendance:", e)
-            }
-        })();
-        return () => { active = false; };
-    }, [isOpen, isEditMode, isElevated, initialData?.id]);
-
     const onSubmit = async (data: ScheduleFormData) => {
         setApiError(null);
         try {
@@ -242,11 +226,11 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
         }
     };
 
-    const grantedCompetencyId = useMemo(() => {
-        const selectedId = watchCustomEventId ?? initialData?.customEventId ?? 0;
-        const def = eventDefinitions.find((d) => d.CustomEventID === selectedId);
-        return def?.GrantsCertificateID ?? 0;
-    }, [eventDefinitions, watchCustomEventId, initialData?.customEventId]);
+    // const grantedCompetencyId = useMemo(() => {
+    //     const selectedId = watchCustomEventId ?? initialData?.customEventId ?? 0;
+    //     const def = eventDefinitions.find((d) => d.CustomEventID === selectedId);
+    //     return def?.GrantsCertificateID ?? 0;
+    // }, [eventDefinitions, watchCustomEventId, initialData?.customEventId]);
 
     if (!isOpen) return null;
 
@@ -481,15 +465,9 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                             />
                         </div>
 
-                        {/* Combined action row: Record Attendance (left) + Cancel/Save (right) to reduce vertical height */}
+                        {/* Combined action row: remove legacy "Record Attendance" button */}
                         <div className="flex items-center justify-between pt-4">
-                            <div>
-                                {isElevated && isEditMode && (
-                                    <Button type="button" className="px-4 py-2 text-sm font-medium text-white bg-custom-primary rounded-md shadow-sm hover:bg-custom-primary-hover" onClick={() => setShowAttendanceModal(true)}>
-                                        Record Attendance
-                                    </Button>
-                                )}
-                            </div>
+                            <div>{/* (legacy Record Attendance removed) */}</div>
                             <div className="flex items-center space-x-3">
                                 <Button type="button" onClick={onClose} disabled={isSubmitting} variant="outline">
                                     Cancel
@@ -500,19 +478,6 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                             </div>
                         </div>
                     </form>
-                )}
-                {/* Attendance modal rendered at root level to avoid nesting issues */}
-                {isElevated && isEditMode && (
-                    <AttendanceModal
-                        isOpen={showAttendanceModal}
-                        onClose={() => setShowAttendanceModal(false)}
-                        employees={users}
-                        selectedEmployees={initialData?.employeeNumbers ?? []}
-                        attendance={attendance}
-                        onChange={(next) => setAttendance(next)}
-                        scheduleId={initialData?.id}
-                        competencyId={grantedCompetencyId}
-                    />
                 )}
                 {/* Selection modals */}
                 {isElevated && (
@@ -554,114 +519,3 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
 };
 
 export default EventFormModal;
-
-// Separate Attendance Modal
-const AttendanceModal: React.FC<{
-    isOpen: boolean;
-    onClose: () => void;
-    employees: User[];
-    selectedEmployees: string[];
-    attendance: Record<string, boolean>;
-    onChange: (map: Record<string, boolean>) => void;
-    scheduleId?: string;
-    competencyId?: number;
-}> = ({ isOpen, onClose, employees, selectedEmployees, attendance, onChange, scheduleId, competencyId }) => {
-    const [candidates, setCandidates] = useState<{ employeeNumber: string; name: string }[]>([]);
-
-    // Load combined candidate list from backend (explicit + position-based). Merge with explicit for safety.
-    useEffect(() => {
-        let active = true;
-        (async () => {
-            try {
-                const list = await eventService.getAttendanceCandidates(Number(scheduleId));
-                if (!active) return;
-                const explicit = employees
-                    .filter(e => selectedEmployees.includes(e.employeeNumber))
-                    .map(e => ({ employeeNumber: e.employeeNumber, name: e.name }));
-                const map: Record<string, { employeeNumber: string; name: string }> = {};
-                [...list, ...explicit].forEach(x => { map[x.employeeNumber] = x; });
-                setCandidates(Object.values(map));
-            } catch {
-                const explicit = employees
-                    .filter(e => selectedEmployees.includes(e.employeeNumber))
-                    .map(e => ({ employeeNumber: e.employeeNumber, name: e.name }));
-                setCandidates(explicit);
-            }
-        })();
-        return () => { active = false; };
-    }, [isOpen, scheduleId, selectedEmployees.length]);
-
-    const [fulfilled, setFulfilled] = useState<Record<string, boolean>>({});
-
-    useEffect(() => {
-        let active = true;
-        (async () => {
-            if (!competencyId || competencyId <= 0 || candidates.length === 0) { setFulfilled({}); return; }
-            try {
-                const map = await eventService.checkEmployeesHaveCompetency(competencyId, candidates.map(i => i.employeeNumber));
-                if (!active) return; setFulfilled(map);
-            } catch { if (active) setFulfilled({}); }
-        })();
-        return () => { active = false; };
-    }, [competencyId, isOpen, scheduleId, candidates.length]);
-
-    if (!isOpen || !scheduleId) return null;
-
-
-    const toggle = (empNum: string) => onChange({ ...attendance, [empNum]: !attendance[empNum] });
-    const markAll = () => {
-        const next: Record<string, boolean> = { ...attendance };
-        candidates.forEach(c => { next[c.employeeNumber] = true; });
-        onChange(next);
-    };
-    const markNone = () => {
-        const next: Record<string, boolean> = { ...attendance };
-        candidates.forEach(c => { next[c.employeeNumber] = false; });
-        onChange(next);
-    };
-    const save = async () => { await eventService.setAttendance(Number(scheduleId), { employeeNumbers: candidates.map(i => i.employeeNumber), attendance }); onClose(); };
-
-    return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-gray-600 bg-opacity-50 p-4">
-            <div className="relative w-full max-w-md mx-auto bg-white dark:bg-dark-div rounded-lg shadow-xl">
-                <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
-                    <h3 className="text-lg font-semibold">Record Attendance</h3>
-                    <button type="button" onClick={onClose} className="p-1">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                    </button>
-                </div>
-                <div className="p-4">
-                    {candidates.length === 0 ? (
-                        <p className="text-sm text-gray-600">No explicitly selected employees for this event.</p>
-                    ) : (
-                        <div className="grid grid-cols-1 gap-2 max-h-60 overflow-auto">
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="text-xs text-gray-500">Candidates include explicit employees and those currently in targeted positions.</div>
-                                <div className="flex gap-2">
-                                    <Button type="button" variant="outline" onClick={markNone}>Clear</Button>
-                                    <Button type="button" variant="primary" onClick={markAll}>Mark all</Button>
-                                </div>
-                            </div>
-                            {candidates.map(e => (
-                                <label key={e.employeeNumber} className="flex items-center justify-between gap-2 text-sm">
-                                    <span className="flex items-center gap-2">
-                                        <input type="checkbox" checked={!!attendance[e.employeeNumber]} onChange={() => toggle(e.employeeNumber)} />
-                                        <span>{e.name} ({e.employeeNumber})</span>
-                                    </span>
-                                    {fulfilled[e.employeeNumber] && (
-                                        <span className="text-green-600 text-xs font-medium">Fulfilled</span>
-                                    )}
-                                </label>
-                            ))}
-                        </div>
-                    )}
-                    <p className="text-xs text-gray-500 mt-3">Mark those who attended; when you set the event status to Completed and save, any competency linked to the event type will be granted to the marked attendees.</p>
-                </div>
-                <div className="flex items-center justify-end gap-2 p-4 border-t dark:border-gray-700">
-                    <Button type="button" variant="outline" onClick={onClose}>Close</Button>
-                    <Button type="button" variant="primary" onClick={save}>Save Attendance</Button>
-                </div>
-            </div>
-        </div>
-    );
-};

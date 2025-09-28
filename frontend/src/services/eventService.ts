@@ -32,11 +32,17 @@ export interface BackendScheduledEvent {
     Positions?: { position_matrix_code: string }[];
     canEdit?: boolean;
     canDelete?: boolean;
+    hasGrantedCompetencies?: boolean;
     creatorUserId?: number;
+    // new booking fields
+    bookedCount?: number;
+    spotsLeft?: number;
+    myBooking?: string; // 'Booked' | 'Rejected' | undefined
+    canRSVP?: boolean;  // ADD
 }
 
 export interface CalendarEvent extends EventInput {
-    id: string; 
+    id: string;
     extendedProps: {
         scheduleId: number;
         definitionId: number;
@@ -47,13 +53,19 @@ export interface CalendarEvent extends EventInput {
         statusName: string;
         creationDate: string;
         facilitator?: string;
-    relevantParties?: string; // Added for consistency
-    employees?: string[]; // employee numbers linked to this schedule
-    positions?: string[]; // position codes targeted by this schedule
+    relevantParties?: string;
+    employees?: string[];
+    positions?: string[];
         color: string;
     canEdit?: boolean;
     canDelete?: boolean;
+    hasGrantedCompetencies?: boolean;
     creatorUserId?: number;
+    // booking UI helpers
+    myBooking?: 'Booked' | 'Rejected' | 'Attended' | 'Not Attended';
+    bookedCount?: number;
+    spotsLeft?: number;
+    canRSVP?: boolean;
     // Client-only props for multi-day visualization
     seriesStart?: string;
     seriesEnd?: string;
@@ -104,12 +116,12 @@ export const deleteEventDefinition = async (definitionId: number): Promise<void>
 export const getScheduledEvents = async (): Promise<CalendarEvent[]> => {
     const response = await api<BackendScheduledEvent[]>('event-schedules');
 
-    // Robust boolean coercion to avoid truthy string values like 'false'
     const toBool = (v: any): boolean => v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'true';
 
     return response.map(raw => {
         const canEdit = toBool((raw as any).canEdit ?? (raw as any).CanEdit);
         const canDelete = toBool((raw as any).canDelete ?? (raw as any).CanDelete);
+        const canRSVP = toBool((raw as any).canRSVP ?? (raw as any).CanRSVP);
         return {
             id: String(raw.CustomEventScheduleID),
             title: raw.Title,
@@ -136,7 +148,12 @@ export const getScheduledEvents = async (): Promise<CalendarEvent[]> => {
                 color: raw.color,
                 canEdit,
                 canDelete,
+                hasGrantedCompetencies: toBool((raw as any).hasGrantedCompetencies ?? (raw as any).HasGrantedCompetencies),
                 creatorUserId: (raw as any).creatorUserId ?? (raw as any).CreatorID,
+                myBooking: (raw.myBooking as any) || undefined,
+                bookedCount: raw.bookedCount,
+                spotsLeft: raw.spotsLeft,
+                canRSVP, // ADD
             }
         } as CalendarEvent;
     });
@@ -170,6 +187,14 @@ export const deleteScheduledEvent = async (scheduleId: number): Promise<void> =>
     await api(`event-schedules/${scheduleId}`, { method: 'DELETE' });
 };
 
+// RSVP (Book/Reject) for current user
+export const rsvpScheduledEvent = async (scheduleId: number, choice: 'book' | 'reject'): Promise<{ myBooking: string; bookedCount: number; spotsLeft?: number; }> => {
+    return api<{ myBooking: string; bookedCount: number; spotsLeft?: number }>(`event-schedules/${scheduleId}/rsvp`, {
+        method: 'POST',
+        data: { choice }
+    });
+};
+
 // --- Attendance ---
 export interface AttendanceRow { id?: number; employeeNumber: string; attended: boolean; checkInTime?: string; }
 export const getAttendance = async (scheduleId: number): Promise<AttendanceRow[]> => {
@@ -182,6 +207,11 @@ export const setAttendance = async (scheduleId: number, data: { employeeNumbers?
 
 // Returns explicit employees linked to the schedule, plus those currently in targeted positions
 export interface AttendanceCandidate { employeeNumber: string; name: string; }
+// New: list of booked employees for attendance selection on completion
+export const getBookedEmployees = async (scheduleId: number): Promise<AttendanceCandidate[]> => {
+    return api<AttendanceCandidate[]>(`event-schedules/${scheduleId}/booked`, { method: 'GET' });
+};
+
 export const getAttendanceCandidates = async (scheduleId: number): Promise<AttendanceCandidate[]> => {
     return api<AttendanceCandidate[]>(`event-schedules/${scheduleId}/attendance-candidates`, { method: 'GET' });
 };
