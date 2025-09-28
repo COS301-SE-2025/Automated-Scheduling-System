@@ -40,8 +40,19 @@ const RoleModal: React.FC<RoleModalProps> = ({ isOpen, mode, onClose, onSave, ro
     }
   }, [isOpen, role, reset]);
 
+  // Pages that are always granted (cannot be toggled off in UI)
+  const baselinePages: AllowedPage[] = [
+    'dashboard',
+    'calendar',
+    'events',
+    'main-help',
+    'event-definitions', // newly enforced baseline
+  ];
+  const baselineSet = new Set<AllowedPage>(baselinePages);
+
   const onSubmit: SubmitHandler<RoleFormData> = async (data) => {
-    let perms = data.permissions;
+    // remove baseline pages from the variable portion we persist (backend already ensures baseline additions)
+    let perms = data.permissions.filter(p => !baselineSet.has(p));
     if ((role?.name === 'Admin' || data.name === 'Admin') && !perms.includes('roles' as AllowedPage)) {
       perms = [...perms, 'roles' as AllowedPage];
     }
@@ -79,14 +90,14 @@ const RoleModal: React.FC<RoleModalProps> = ({ isOpen, mode, onClose, onSave, ro
             <label className="block text-sm font-medium text-gray-700 dark:text-dark-secondary mb-2">Permissions</label>
            
             <div className="mb-2 flex flex-wrap gap-2">
-                {['dashboard', 'calendar', 'events', 'main-help'].map((p) => (
+              {baselinePages.map((p) => (
                 <span key={p} className="inline-flex items-center rounded px-2 py-0.5 text-xs font-semibold bg-gray-100 text-gray-800 dark:bg-dark-accent dark:text-dark-primary">
                   {p}
                 </span>
               ))}
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {allPages.map(p => {
+              {allPages.filter(p => !baselineSet.has(p.value)).map(p => {
                 const isAdminRole = role?.name === 'Admin';
                 const isRolesPerm = p.value === 'roles';
                 const disabled = isView || (isAdminRole && isRolesPerm);
