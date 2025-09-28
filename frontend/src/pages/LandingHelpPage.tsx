@@ -2,7 +2,7 @@ import React from 'react';
 import LandingLayout from '../layouts/LandingLayout';
 import FeatureBlock from '../components/ui/FeatureBlock';
 import FeatureGrid from '../components/ui/FeatureGrid';
-import { Globe, LifeBuoy, LogIn, HelpCircle } from 'lucide-react';
+import { Globe, LifeBuoy, LogIn } from 'lucide-react';
 
 const LandingHelpPage: React.FC = () => {
     return (
@@ -62,15 +62,6 @@ const LandingHelpPage: React.FC = () => {
                     >
                         <p>
                             To access your dashboard, please use the 'Login' button in the navigation bar. If you're new, click 'Sign Up' to create an account.
-                        </p>
-                    </FeatureBlock>
-                    
-                    <FeatureBlock
-                        title="Frequently Asked Questions"
-                        icon={<HelpCircle size={24} />}
-                    >
-                        <p>
-                            Have a question about how to use the scheduling system? Check our FAQ section for quick answers to common queries.
                         </p>
                     </FeatureBlock>
 

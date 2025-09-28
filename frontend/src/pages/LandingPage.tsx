@@ -30,6 +30,15 @@ const LandingPage: React.FC = () => {
             <p className="mt-4 max-w-2xl mx-auto text-base text-custom-text dark:text-dark-text">
                         A powerful, unified platform for managing events, users, and internal processes with ease and efficiency.
                     </p>
+                    <div className="mt-4">
+                        <a
+                            href="/automatedscheduling_mobile_app.apk"
+                            download="AutomatedScheduling-Mobile.apk"
+                            className="inline-block px-6 py-3 font-semibold text-white bg-custom-secondary rounded-lg shadow hover:bg-opacity-90 transition-all duration-300"
+                        >
+                            Download Android App (APK)
+                        </a>
+                    </div>
                 </div>
             </section>
 
