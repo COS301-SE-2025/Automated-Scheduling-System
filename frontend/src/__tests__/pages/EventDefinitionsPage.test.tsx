@@ -112,4 +112,19 @@ describe("EventDefinitionsPage", () => {
       expect(mockGetEventDefinitions).toHaveBeenCalled();
     });
   });
+
+  it("shows message when no definitions exist", async () => {
+    mockGetEventDefinitions.mockResolvedValueOnce([]);
+    render(<MemoryRouter><EventDefinitionsPage /></MemoryRouter>);
+    await waitFor(() => expect(mockGetEventDefinitions).toHaveBeenCalled());
+    const empty = screen.queryByText(/no event definitions/i) || screen.queryByText(/none defined/i);
+    expect(empty).toBeTruthy();
+  });
+
+  it("handles fetch error gracefully", async () => {
+    mockGetEventDefinitions.mockRejectedValueOnce(new Error('fetch fail'));
+    render(<MemoryRouter><EventDefinitionsPage /></MemoryRouter>);
+    const err = await screen.findByText(/could not load event definitions/i);
+    expect(err).toBeInTheDocument();
+  });
 });

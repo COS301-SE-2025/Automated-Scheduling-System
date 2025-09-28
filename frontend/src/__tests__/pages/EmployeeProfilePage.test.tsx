@@ -61,8 +61,11 @@ const mockGetEmployeeCompetencyProfile = vi.fn().mockResolvedValue({
   ],
 });
 
+const mockUpdateEmployeeProfile = vi.fn().mockResolvedValue(undefined);
+
 vi.mock("../../services/profileService", () => ({
   getEmployeeCompetencyProfile: (...args: any[]) => mockGetEmployeeCompetencyProfile(...args),
+  updateEmployeeProfile: (...args: any[]) => mockUpdateEmployeeProfile(...args),
 }));
 
 vi.mock("../../hooks/useAuth", () => ({
@@ -129,6 +132,179 @@ describe("EmployeeProfilePage", () => {
       expect(screen.getByText("Employee ID: EMP001")).toBeInTheDocument();
       expect(screen.getByText("Position: Software Developer (DEV001)")).toBeInTheDocument();
     });
+  });
+
+  // ---------------- Settings Tab Tests ----------------
+  it("shows validation error when trying to save with both email and phone empty", async () => {
+    render(
+      <MemoryRouter>
+        <EmployeeProfilePage />
+      </MemoryRouter>
+    );
+
+    const settingsTab = await screen.findByText("Settings");
+    await user.click(settingsTab);
+
+    // Ensure inputs are empty
+  const emailInput = screen.getByPlaceholderText(/your.email@company.com/i) as HTMLInputElement;
+  const phoneInput = screen.getByPlaceholderText(/\+27 00 000 0000/i) as HTMLInputElement;
+    expect(emailInput.value).toBe("");
+    expect(phoneInput.value).toBe("");
+
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Please enter at least an email address or phone number.')).toBeInTheDocument();
+    });
+  });
+
+  it("shows validation error for invalid email format", async () => {
+    render(
+      <MemoryRouter>
+        <EmployeeProfilePage />
+      </MemoryRouter>
+    );
+    const settingsTab = await screen.findByText("Settings");
+    await user.click(settingsTab);
+
+  const emailInput = screen.getByPlaceholderText(/your.email@company.com/i) as HTMLInputElement;
+    await user.type(emailInput, 'invalid-email');
+
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Please enter a valid email address.')).toBeInTheDocument();
+    });
+  });
+
+  it("saves profile successfully and shows success message", async () => {
+    // Use a deferred promise to reliably observe the loading state before completion
+    let resolveUpdate: (value: undefined) => void;
+    mockUpdateEmployeeProfile.mockImplementationOnce(
+      () => new Promise<undefined>((res) => { resolveUpdate = res; })
+    );
+    render(
+      <MemoryRouter>
+        <EmployeeProfilePage />
+      </MemoryRouter>
+    );
+    const settingsTab = await screen.findByText("Settings");
+    await user.click(settingsTab);
+
+  const emailInput = screen.getByPlaceholderText(/your.email@company.com/i);
+    await user.type(emailInput, 'user@example.com');
+
+    const saveButton = screen.getByRole('button', { name: /Save Changes/i });
+    await user.click(saveButton);
+
+    // Wait until the button reflects loading (disabled) state
+    await waitFor(() => {
+      expect(saveButton).toBeDisabled();
+    });
+
+    // Resolve the deferred promise to simulate API completion
+    resolveUpdate!(undefined);
+
+    // Now expect success message and button re-enabled
+    await waitFor(() => {
+      expect(screen.getByText('Profile updated successfully!')).toBeInTheDocument();
+      expect(saveButton).not.toBeDisabled();
+    });
+    expect(mockUpdateEmployeeProfile).toHaveBeenCalledWith({ email: 'user@example.com', phone: '' });
+  });
+
+  it("shows network error message on network failure", async () => {
+    mockUpdateEmployeeProfile.mockRejectedValueOnce(new Error('network timeout'));
+    render(
+      <MemoryRouter>
+        <EmployeeProfilePage />
+      </MemoryRouter>
+    );
+    const settingsTab = await screen.findByText("Settings");
+    await user.click(settingsTab);
+  const emailInput = screen.getByPlaceholderText(/your.email@company.com/i);
+    await user.type(emailInput, 'user@example.com');
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }));
+    await waitFor(() => {
+      expect(screen.getByText('Network error. Please check your connection and try again.')).toBeInTheDocument();
+    });
+  });
+
+  it("shows not implemented message when API returns 404", async () => {
+    mockUpdateEmployeeProfile.mockRejectedValueOnce(new Error('Request failed with status 404'));
+    render(
+      <MemoryRouter>
+        <EmployeeProfilePage />
+      </MemoryRouter>
+    );
+    const settingsTab = await screen.findByText("Settings");
+    await user.click(settingsTab);
+  const phoneInput = screen.getByPlaceholderText(/\+27 00 000 0000/i);
+    await user.type(phoneInput, '1234567890');
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }));
+    await waitFor(() => {
+      expect(screen.getByText('Profile update endpoint not implemented yet. Contact your system administrator.')).toBeInTheDocument();
+    });
+  });
+
+  it("shows generic failure message for other errors", async () => {
+    mockUpdateEmployeeProfile.mockRejectedValueOnce(new Error('Boom'));
+    render(
+      <MemoryRouter>
+        <EmployeeProfilePage />
+      </MemoryRouter>
+    );
+    const settingsTab = await screen.findByText("Settings");
+    await user.click(settingsTab);
+  const emailInput = screen.getByPlaceholderText(/your.email@company.com/i);
+    await user.type(emailInput, 'user@example.com');
+    await user.click(screen.getByRole('button', { name: /Save Changes/i }));
+    await waitFor(() => {
+      expect(screen.getByText(/Failed to update profile: Boom/)).toBeInTheDocument();
+    });
+  });
+
+  it("cancel resets form values to original prefilled values", async () => {
+    mockGetEmployeeCompetencyProfile.mockResolvedValueOnce({
+      employee: {
+        employeeNumber: 'EMP999',
+        name: 'Prefilled User',
+        positionCode: 'DEV777',
+        positionTitle: 'Engineer',
+        email: 'prefilled@example.com',
+        phone: '+123456'
+      },
+      completed: [],
+      required: []
+    });
+
+    render(
+      <MemoryRouter>
+        <EmployeeProfilePage />
+      </MemoryRouter>
+    );
+
+    const settingsTab = await screen.findByText("Settings");
+    await user.click(settingsTab);
+
+  const emailInput = await screen.findByPlaceholderText(/your.email@company.com/i) as HTMLInputElement;
+  const phoneInput = screen.getByPlaceholderText(/\+27 00 000 0000/i) as HTMLInputElement;
+    expect(emailInput.value).toBe('prefilled@example.com');
+    expect(phoneInput.value).toBe('+123456');
+
+    // Change values
+    await user.clear(emailInput);
+    await user.type(emailInput, 'changed@example.com');
+    await user.clear(phoneInput);
+    await user.type(phoneInput, '+654321');
+    expect(emailInput.value).toBe('changed@example.com');
+    expect(phoneInput.value).toBe('+654321');
+
+    await user.click(screen.getByRole('button', { name: /Cancel/i }));
+
+    // Reverted
+    expect(emailInput.value).toBe('prefilled@example.com');
+    expect(phoneInput.value).toBe('+123456');
   });
 
   it("shows loading state initially", async () => {
@@ -350,10 +526,12 @@ describe("EmployeeProfilePage", () => {
     );
 
     await waitFor(() => {
-      // Check if dates are formatted properly
-      expect(screen.getByText("1/15/2024")).toBeInTheDocument(); // achievementDate
-      expect(screen.getByText("1/15/2025")).toBeInTheDocument(); // expiryDate
-      expect(screen.getByText("1/1/2024")).toBeInTheDocument(); // expiry date
+      const expectedAchievement = new Date('2024-01-15').toLocaleDateString();
+      const expectedExpiry1 = new Date('2025-01-15').toLocaleDateString();
+      const expectedExpiry2 = new Date('2024-01-01').toLocaleDateString();
+      expect(screen.getByText(expectedAchievement)).toBeInTheDocument();
+      expect(screen.getByText(expectedExpiry1)).toBeInTheDocument();
+      expect(screen.getByText(expectedExpiry2)).toBeInTheDocument();
     });
   });
 
