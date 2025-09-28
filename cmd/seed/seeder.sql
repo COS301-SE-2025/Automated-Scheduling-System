@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS event_schedule_employees (
     schedule_employee_id BIGSERIAL PRIMARY KEY,
     custom_event_schedule_id INT NOT NULL REFERENCES custom_event_schedules(custom_event_schedule_id) ON DELETE CASCADE,
     employee_number VARCHAR(200) NOT NULL REFERENCES employee(EmployeeNumber) ON DELETE CASCADE,
-    role VARCHAR(50) DEFAULT 'Attendee',
+    role VARCHAR(50) DEFAULT 'Attendee', -- Selected -> booked/rejected
     UNIQUE(custom_event_schedule_id, employee_number)
 );
 

@@ -24,7 +24,8 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
     const { title, start, end, extendedProps } = event;
 
     // Replace explicit-only check with server-provided flag
-    const canShowRSVP = extendedProps?.canRSVP === true;
+    const isCompleted = String(extendedProps?.statusName || '').toLowerCase() === 'completed';
+    const canShowRSVP = extendedProps?.canRSVP === true && !isCompleted;
 
     const actualEndDate = extendedProps.isMultiDay && extendedProps.originalEnd
         ? new Date(extendedProps.originalEnd)
@@ -39,7 +40,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
     // New RBAC: use server-provided flags for edit/delete rights. Require strict true.
     const canManage = event?.extendedProps?.canEdit === true;
 
-    const myBooking = (event?.extendedProps as any)?.myBooking as ('Booked' | 'Rejected' | undefined);
+    const myBooking = (event?.extendedProps as any)?.myBooking as ('Booked' | 'Rejected' | 'Attended' | 'Not Attended' | undefined);
     const spotsLeft = (event?.extendedProps as any)?.spotsLeft as number | undefined;
     const maxAtt = (event?.extendedProps as any)?.maxAttendees as number | undefined;
     const bookedCount = (event?.extendedProps as any)?.bookedCount as number | undefined;
@@ -235,6 +236,21 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
                             >
                                 {rsvpLoading === 'reject' ? 'Updating...' : (myBooking === 'Rejected' ? 'Rejected' : 'Reject')}
                             </Button>
+                        </div>
+                    )}
+                    {/* Completed: show attendance state */}
+                    {isCompleted && (
+                        <div className="flex items-center gap-2">
+                            {typeof maxAtt === 'number' && (
+                                <span className="text-xs text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">
+                                    Attended: {bookedCount ?? 0}
+                                </span>
+                            )}
+                            {myBooking && (
+                                <span className={`text-xs px-2 py-1 rounded ${myBooking === 'Attended' ? 'bg-green-600 text-white' : 'bg-gray-400 text-white'}`}>
+                                    You: {myBooking}
+                                </span>
+                            )}
                         </div>
                     )}
 

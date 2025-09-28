@@ -52,18 +52,18 @@ export interface CalendarEvent extends EventInput {
         statusName: string;
         creationDate: string;
         facilitator?: string;
-    relevantParties?: string; // Added for consistency
-    employees?: string[]; // employee numbers linked to this schedule
-    positions?: string[]; // position codes targeted by this schedule
+    relevantParties?: string;
+    employees?: string[];
+    positions?: string[];
         color: string;
     canEdit?: boolean;
     canDelete?: boolean;
     creatorUserId?: number;
     // booking UI helpers
-    myBooking?: 'Booked' | 'Rejected';
+    myBooking?: 'Booked' | 'Rejected' | 'Attended' | 'Not Attended';
     bookedCount?: number;
     spotsLeft?: number;
-    canRSVP?: boolean; // ADD
+    canRSVP?: boolean;
     // Client-only props for multi-day visualization
     seriesStart?: string;
     seriesEnd?: string;
@@ -204,6 +204,11 @@ export const setAttendance = async (scheduleId: number, data: { employeeNumbers?
 
 // Returns explicit employees linked to the schedule, plus those currently in targeted positions
 export interface AttendanceCandidate { employeeNumber: string; name: string; }
+// New: list of booked employees for attendance selection on completion
+export const getBookedEmployees = async (scheduleId: number): Promise<AttendanceCandidate[]> => {
+    return api<AttendanceCandidate[]>(`event-schedules/${scheduleId}/booked`, { method: 'GET' });
+};
+
 export const getAttendanceCandidates = async (scheduleId: number): Promise<AttendanceCandidate[]> => {
     return api<AttendanceCandidate[]>(`event-schedules/${scheduleId}/attendance-candidates`, { method: 'GET' });
 };
