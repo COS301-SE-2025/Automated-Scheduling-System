@@ -89,43 +89,73 @@ func (p *RelativeDateParser) ParseRelativeDate(dateExpr string) (time.Time, erro
 	// Now convert to lowercase for relative expressions
 	lowerExpr := strings.ToLower(dateExpr)
 
+	// Check if there's a time component (HH:MM at the end)
+	timeRegex := regexp.MustCompile(`\s+(\d{1,2}):(\d{2})$`)
+	timeMatches := timeRegex.FindStringSubmatch(lowerExpr)
+	var specifiedTime *time.Time
+
+	// If time is specified, parse it and remove from expression
+	if len(timeMatches) == 3 {
+		hour, err1 := strconv.Atoi(timeMatches[1])
+		minute, err2 := strconv.Atoi(timeMatches[2])
+		if err1 == nil && err2 == nil && hour >= 0 && hour < 24 && minute >= 0 && minute < 60 {
+			// Remove time part from expression for date parsing
+			lowerExpr = timeRegex.ReplaceAllString(lowerExpr, "")
+			// Store the time components
+			tempTime := time.Date(2000, 1, 1, hour, minute, 0, 0, time.Local)
+			specifiedTime = &tempTime
+		}
+	}
+
 	// Handle relative date expressions
+	var baseDate time.Time
 	switch lowerExpr {
 	case "now", "today":
-		return p.baseTime, nil
+		baseDate = p.baseTime
 	case "tomorrow":
-		return p.baseTime.AddDate(0, 0, 1), nil
+		baseDate = p.baseTime.AddDate(0, 0, 1)
 	case "next week":
-		return p.baseTime.AddDate(0, 0, 7), nil
+		baseDate = p.baseTime.AddDate(0, 0, 7)
 	case "next month":
-		return p.baseTime.AddDate(0, 1, 0), nil
+		baseDate = p.baseTime.AddDate(0, 1, 0)
 	case "next year":
-		return p.baseTime.AddDate(1, 0, 0), nil
+		baseDate = p.baseTime.AddDate(1, 0, 0)
+	default:
+		// Handle "in X unit" format
+		inRegex := regexp.MustCompile(`^in\s+(\d+)\s+(day|days|week|weeks|month|months|year|years)$`)
+		matches := inRegex.FindStringSubmatch(lowerExpr)
+		if len(matches) == 3 {
+			amount, err := strconv.Atoi(matches[1])
+			if err != nil {
+				return time.Time{}, fmt.Errorf("invalid number in relative date: %s", matches[1])
+			}
+
+			unit := matches[2]
+			switch {
+			case strings.HasPrefix(unit, "day"):
+				baseDate = p.baseTime.AddDate(0, 0, amount)
+			case strings.HasPrefix(unit, "week"):
+				baseDate = p.baseTime.AddDate(0, 0, amount*7)
+			case strings.HasPrefix(unit, "month"):
+				baseDate = p.baseTime.AddDate(0, amount, 0)
+			case strings.HasPrefix(unit, "year"):
+				baseDate = p.baseTime.AddDate(amount, 0, 0)
+			default:
+				return time.Time{}, fmt.Errorf("unsupported date expression: %s", dateExpr)
+			}
+		} else {
+			return time.Time{}, fmt.Errorf("unsupported date expression: %s", dateExpr)
+		}
 	}
 
-	// Handle "in X unit" format
-	inRegex := regexp.MustCompile(`^in\s+(\d+)\s+(day|days|week|weeks|month|months|year|years)$`)
-	matches := inRegex.FindStringSubmatch(lowerExpr)
-	if len(matches) == 3 {
-		amount, err := strconv.Atoi(matches[1])
-		if err != nil {
-			return time.Time{}, fmt.Errorf("invalid number in relative date: %s", matches[1])
-		}
-
-		unit := matches[2]
-		switch {
-		case strings.HasPrefix(unit, "day"):
-			return p.baseTime.AddDate(0, 0, amount), nil
-		case strings.HasPrefix(unit, "week"):
-			return p.baseTime.AddDate(0, 0, amount*7), nil
-		case strings.HasPrefix(unit, "month"):
-			return p.baseTime.AddDate(0, amount, 0), nil
-		case strings.HasPrefix(unit, "year"):
-			return p.baseTime.AddDate(amount, 0, 0), nil
-		}
+	// If a specific time was provided, set it on the base date
+	if specifiedTime != nil {
+		return time.Date(baseDate.Year(), baseDate.Month(), baseDate.Day(),
+			specifiedTime.Hour(), specifiedTime.Minute(), 0, 0, baseDate.Location()), nil
 	}
 
-	return time.Time{}, fmt.Errorf("unsupported date expression: %s", dateExpr)
+	// Return the base date/time
+	return baseDate, nil
 }
 
 // NotificationAction handles sending notifications
