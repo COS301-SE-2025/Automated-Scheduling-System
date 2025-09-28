@@ -86,8 +86,8 @@ Here’s the team behind **Automated Scheduling System**:
 | **Backend**                         | Go                                   | <img src="https://skillicons.dev/icons?i=go"/>                                                                                                  |
 | **Project Management & Deployment** | Git, GitHub Actions, npm, Docker     | <img src="https://skillicons.dev/icons?i=git,githubactions,npm,docker"/>                                                                        |
 | **Testing**                         | Vitest, Go-Test                      | <img src="https://skillicons.dev/icons?i=vitest"/><img src="https://img.shields.io/badge/Go-Testing-brightgreen?style=for-the-badge&logo=go" /> |
-| **Mobile**                          | REACT Native, TypeScript, Expo       | <img src="https://skillicons.dev/icons?i=react,typescript"/> <img width="50" height="50" alt="image" src="https://github.com/user-attachments/assets/404dfdbe-5c0e-4c43-b2f5-1a86d0e921a5" />
-                                                                                   |
+| **Mobile**                          | REACT Native, TypeScript, Expo       | <img src="https://skillicons.dev/icons?i=react,typescript"/> <img width="50" height="50" alt="image" src="https://github.com/user-attachments/assets/404dfdbe-5c0e-4c43-b2f5-1a86d0e921a5" /> |
+                                                                                   
 
 ---
 ## 👨‍💻 Access the Deployed Application Here:
