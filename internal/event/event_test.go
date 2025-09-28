@@ -956,97 +956,108 @@ func TestRSVPHandler_NotEligible_Unit(t *testing.T) {
 }
 
 func TestRSVPHandler_FullyBooked_Conflict_Unit(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	db, mock := newMockDB(t)
-	scheduleID := 77
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT count(*) FROM "event_schedule_employees" WHERE custom_event_schedule_id = $1 AND employee_number = $2`)).
-		WithArgs(scheduleID, "E999").
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
-	mock.ExpectBegin()
-	// GORM adds ORDER BY ... LIMIT 1 FOR UPDATE; allow optional ORDER BY/LIMIT tokens
-	mock.ExpectQuery(`SELECT \* FROM "custom_event_schedules" WHERE "custom_event_schedules"."custom_event_schedule_id" = \$1(?: .*?)? FOR UPDATE`).
-		WithArgs(scheduleID, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "custom_event_id", "maximum_attendees", "status_name"}).AddRow(scheduleID, 15, 1, "Scheduled"))
-	mock.ExpectQuery(`SELECT \* FROM "custom_event_definitions" WHERE "custom_event_definitions"."custom_event_id" (?:= \$1|IN \(\$1\))`).
-		WithArgs(15).
-		WillReturnRows(sqlmock.NewRows([]string{"custom_event_id"}).AddRow(15))
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "event_schedule_employees" WHERE "event_schedule_employees"."custom_event_schedule_id" = $1 AND "event_schedule_employees"."employee_number" = $2 ORDER BY "event_schedule_employees"."schedule_employee_id" LIMIT $3`)).
-		WithArgs(scheduleID, "E999", 1).
-		WillReturnRows(sqlmock.NewRows([]string{"schedule_employee_id", "custom_event_schedule_id", "employee_number", "role"}).AddRow(5, scheduleID, "E999", "Attendee"))
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT count(*) FROM "event_schedule_employees" WHERE custom_event_schedule_id = $1 AND role = $2`)).
-		WithArgs(scheduleID, "Booked").
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
-	mock.ExpectRollback()
-	c, rec := rsvpCtx(t, db, fmt.Sprint(scheduleID), map[string]any{"choice": "book"})
-	RSVPHandler(c)
-	require.Equal(t, http.StatusConflict, rec.Code)
-	require.NoError(t, mock.ExpectationsWereMet())
+    gin.SetMode(gin.TestMode)
+    db, mock := newMockDB(t)
+    scheduleID := 77
+    mock.ExpectQuery(regexp.QuoteMeta(`SELECT count(*) FROM "event_schedule_employees" WHERE custom_event_schedule_id = $1 AND employee_number = $2`)).
+        WithArgs(scheduleID, "E999").
+        WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+    mock.ExpectBegin()
+    // GORM adds ORDER BY ... LIMIT 1 FOR UPDATE; allow optional ORDER BY/LIMIT tokens
+    mock.ExpectQuery(`SELECT \* FROM "custom_event_schedules" WHERE "custom_event_schedules"\."custom_event_schedule_id" = \$1(?: .*?)? FOR UPDATE`).
+        WithArgs(scheduleID, 1).
+        WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "custom_event_id", "maximum_attendees", "status_name"}).AddRow(scheduleID, 15, 1, "Scheduled"))
+    mock.ExpectQuery(`SELECT \* FROM "custom_event_definitions" WHERE "custom_event_definitions"\."custom_event_id" (?:= \$1|IN \(\$1\))`).
+        WithArgs(15).
+        WillReturnRows(sqlmock.NewRows([]string{"custom_event_id"}).AddRow(15))
+    // Relaxed: match unqualified WHERE columns as emitted by GORM
+    mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "event_schedule_employees" WHERE custom_event_schedule_id = $1 AND employee_number = $2 ORDER BY "event_schedule_employees"."schedule_employee_id" LIMIT $3`)).
+        WithArgs(scheduleID, "E999", 1).
+        WillReturnRows(sqlmock.NewRows([]string{"schedule_employee_id", "custom_event_schedule_id", "employee_number", "role"}).AddRow(5, scheduleID, "E999", "Attendee"))
+    mock.ExpectQuery(regexp.QuoteMeta(`SELECT count(*) FROM "event_schedule_employees" WHERE custom_event_schedule_id = $1 AND role = $2`)).
+        WithArgs(scheduleID, "Booked").
+        WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+    mock.ExpectRollback()
+    c, rec := rsvpCtx(t, db, fmt.Sprint(scheduleID), map[string]any{"choice": "book"})
+    RSVPHandler(c)
+    require.Equal(t, http.StatusConflict, rec.Code)
+    require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestRSVPHandler_Book_Success_NewRow_Unit(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	db, mock := newMockDB(t)
-	scheduleID := 88
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT count(*) FROM "event_schedule_employees" WHERE custom_event_schedule_id = $1 AND employee_number = $2`)).
-		WithArgs(scheduleID, "E999").
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
-	mock.ExpectBegin()
-	mock.ExpectQuery(`SELECT \* FROM "custom_event_schedules" WHERE "custom_event_schedules"."custom_event_schedule_id" = \$1(?: .*?)? FOR UPDATE`).
-		WithArgs(scheduleID, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "custom_event_id", "maximum_attendees", "status_name"}).AddRow(scheduleID, 22, 2, "Scheduled"))
-	mock.ExpectQuery(`SELECT \* FROM "custom_event_definitions" WHERE "custom_event_definitions"."custom_event_id" (?:= \$1|IN \(\$1\))`).
-		WithArgs(22).
-		WillReturnRows(sqlmock.NewRows([]string{"custom_event_id"}).AddRow(22))
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "event_schedule_employees" WHERE "event_schedule_employees"."custom_event_schedule_id" = $1 AND "event_schedule_employees"."employee_number" = $2 ORDER BY "event_schedule_employees"."schedule_employee_id" LIMIT $3`)).
-		WithArgs(scheduleID, "E999", 1).
-		WillReturnRows(sqlmock.NewRows([]string{"schedule_employee_id", "custom_event_schedule_id", "employee_number", "role"}))
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT count(*) FROM "event_schedule_employees" WHERE custom_event_schedule_id = $1 AND role = $2`)).
-		WithArgs(scheduleID, "Booked").
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
-	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO "event_schedule_employees" ("custom_event_schedule_id","employee_number","role") VALUES ($1,$2,$3) RETURNING "schedule_employee_id"`)).
-		WithArgs(scheduleID, "E999", "Booked").
-		WillReturnRows(sqlmock.NewRows([]string{"schedule_employee_id"}).AddRow(200))
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT count(*) FROM "event_schedule_employees" WHERE custom_event_schedule_id = $1 AND role = $2`)).
-		WithArgs(scheduleID, "Booked").
-		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
-	mock.ExpectCommit()
-	c, rec := rsvpCtx(t, db, fmt.Sprint(scheduleID), map[string]any{"choice": "book"})
-	RSVPHandler(c)
-	require.Equal(t, http.StatusOK, rec.Code)
-	require.NoError(t, mock.ExpectationsWereMet())
-	require.Contains(t, rec.Body.String(), "Booked")
+    gin.SetMode(gin.TestMode)
+    db, mock := newMockDB(t)
+    scheduleID := 88
+    mock.ExpectQuery(regexp.QuoteMeta(`SELECT count(*) FROM "event_schedule_employees" WHERE custom_event_schedule_id = $1 AND employee_number = $2`)).
+        WithArgs(scheduleID, "E999").
+        WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+    mock.ExpectBegin()
+    mock.ExpectQuery(`SELECT \* FROM "custom_event_schedules" WHERE "custom_event_schedules"\."custom_event_schedule_id" = \$1(?: .*?)? FOR UPDATE`).
+        WithArgs(scheduleID, 1).
+        WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "custom_event_id", "maximum_attendees", "status_name"}).AddRow(scheduleID, 22, 2, "Scheduled"))
+    mock.ExpectQuery(`SELECT \* FROM "custom_event_definitions" WHERE "custom_event_definitions"\."custom_event_id" (?:= \$1|IN \(\$1\))`).
+        WithArgs(22).
+        WillReturnRows(sqlmock.NewRows([]string{"custom_event_id"}).AddRow(22))
+    // Relaxed: match unqualified WHERE columns
+    mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "event_schedule_employees" WHERE custom_event_schedule_id = $1 AND employee_number = $2 ORDER BY "event_schedule_employees"."schedule_employee_id" LIMIT $3`)).
+        WithArgs(scheduleID, "E999", 1).
+        WillReturnRows(sqlmock.NewRows([]string{"schedule_employee_id", "custom_event_schedule_id", "employee_number", "role"}))
+    mock.ExpectQuery(regexp.QuoteMeta(`SELECT count(*) FROM "event_schedule_employees" WHERE custom_event_schedule_id = $1 AND role = $2`)).
+        WithArgs(scheduleID, "Booked").
+        WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+    mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO "event_schedule_employees" ("custom_event_schedule_id","employee_number","role") VALUES ($1,$2,$3) RETURNING "schedule_employee_id"`)).
+        WithArgs(scheduleID, "E999", "Booked").
+        WillReturnRows(sqlmock.NewRows([]string{"schedule_employee_id"}).AddRow(200))
+    mock.ExpectQuery(regexp.QuoteMeta(`SELECT count(*) FROM "event_schedule_employees" WHERE custom_event_schedule_id = $1 AND role = $2`)).
+        WithArgs(scheduleID, "Booked").
+        WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
+    mock.ExpectCommit()
+    c, rec := rsvpCtx(t, db, fmt.Sprint(scheduleID), map[string]any{"choice": "book"})
+    RSVPHandler(c)
+    require.Equal(t, http.StatusOK, rec.Code)
+    require.NoError(t, mock.ExpectationsWereMet())
+    require.Contains(t, rec.Body.String(), "Booked")
 }
 
 // ================= SetAttendanceHandler Success =================
 
 func TestSetAttendanceHandler_Success_Unit(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	db, mock := newMockDB(t)
-	payload := AttendancePayload{EmployeeNumbers: []string{"E001", "E002"}, Attendance: map[string]bool{"E001": true}}
-	c, rec := ctxWithJSON(t, db, "POST", "/attendance/5", payload)
-	c.Params = gin.Params{gin.Param{Key: "scheduleID", Value: "5"}}
-	mock.ExpectBegin()
-	// Handler's generated SQL omits table alias quoting around where clause
-	mock.ExpectExec(`DELETE FROM "event_attendance" WHERE custom_event_schedule_id = \$1`).
-		WithArgs(5).WillReturnResult(sqlmock.NewResult(0, 2))
-	// Attendance inserts now include additional nullable columns & created_at and RETURNING "id".
-	mock.ExpectQuery(`INSERT INTO "event_attendance" \("custom_event_schedule_id","employee_number","attended","check_in_time".*\) VALUES \(\$1,\$2,\$3,\$4,\$5,\$6\) RETURNING "id"`).
-		WithArgs(5, "E001", true, sqlmock.AnyArg(), nil, sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
-	mock.ExpectQuery(`INSERT INTO "event_attendance" \("custom_event_schedule_id","employee_number","attended","check_in_time".*\) VALUES \(\$1,\$2,\$3,\$4,\$5,\$6\) RETURNING "id"`).
-		WithArgs(5, "E002", false, nil, nil, sqlmock.AnyArg()).
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(2))
-	mock.ExpectExec(regexp.QuoteMeta(`UPDATE "event_schedule_employees" SET "role"=$1 WHERE custom_event_schedule_id = $2 AND employee_number = $3`)).
-		WithArgs("Attended", 5, "E001").
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectExec(regexp.QuoteMeta(`UPDATE "event_schedule_employees" SET "role"=$1 WHERE custom_event_schedule_id = $2 AND employee_number = $3`)).
-		WithArgs("Not Attended", 5, "E002").
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectCommit()
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT "status_name" FROM "custom_event_schedules" WHERE "custom_event_schedules"."custom_event_schedule_id" = $1 ORDER BY "custom_event_schedules"."custom_event_schedule_id" LIMIT $2`)).
-		WithArgs(5, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"status_name"}).AddRow("Scheduled"))
-	SetAttendanceHandler(c)
-	require.Equal(t, http.StatusOK, rec.Code)
-	require.NoError(t, mock.ExpectationsWereMet())
+    gin.SetMode(gin.TestMode)
+    db, mock := newMockDB(t)
+
+    // Allow matching expectations in any order because handler iterates a map
+    mock.MatchExpectationsInOrder(false)
+
+    payload := AttendancePayload{EmployeeNumbers: []string{"E001", "E002"}, Attendance: map[string]bool{"E001": true}}
+    c, rec := ctxWithJSON(t, db, "POST", "/attendance/5", payload)
+    c.Params = gin.Params{gin.Param{Key: "scheduleID", Value: "5"}}
+
+    mock.ExpectBegin()
+    mock.ExpectExec(`DELETE FROM "event_attendance" WHERE custom_event_schedule_id = \$1`).
+        WithArgs(5).
+        WillReturnResult(sqlmock.NewResult(0, 2))
+
+    // Two inserts can occur in any order; declare both expectations
+    mock.ExpectQuery(`INSERT INTO "event_attendance" \("custom_event_schedule_id","employee_number","attended","check_in_time".*\) VALUES \(\$1,\$2,\$3,\$4,\$5,\$6\) RETURNING "id"`).
+        WithArgs(5, "E001", true, sqlmock.AnyArg(), nil, sqlmock.AnyArg()).
+        WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
+    mock.ExpectQuery(`INSERT INTO "event_attendance" \("custom_event_schedule_id","employee_number","attended","check_in_time".*\) VALUES \(\$1,\$2,\$3,\$4,\$5,\$6\) RETURNING "id"`).
+        WithArgs(5, "E002", false, nil, nil, sqlmock.AnyArg()).
+        WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(2))
+
+    mock.ExpectExec(regexp.QuoteMeta(`UPDATE "event_schedule_employees" SET "role"=$1 WHERE custom_event_schedule_id = $2 AND employee_number = $3`)).
+        WithArgs("Attended", 5, "E001").
+        WillReturnResult(sqlmock.NewResult(0, 1))
+    mock.ExpectExec(regexp.QuoteMeta(`UPDATE "event_schedule_employees" SET "role"=$1 WHERE custom_event_schedule_id = $2 AND employee_number = $3`)).
+        WithArgs("Not Attended", 5, "E002").
+        WillReturnResult(sqlmock.NewResult(0, 1))
+    mock.ExpectCommit()
+
+    mock.ExpectQuery(regexp.QuoteMeta(`SELECT "status_name" FROM "custom_event_schedules" WHERE "custom_event_schedules"."custom_event_schedule_id" = $1 ORDER BY "custom_event_schedules"."custom_event_schedule_id" LIMIT $2`)).
+        WithArgs(5, 1).
+        WillReturnRows(sqlmock.NewRows([]string{"status_name"}).AddRow("Scheduled"))
+
+    SetAttendanceHandler(c)
+    require.Equal(t, http.StatusOK, rec.Code)
+    require.NoError(t, mock.ExpectationsWereMet())
 }
