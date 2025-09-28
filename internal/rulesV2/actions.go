@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"Automated-Scheduling-Project/internal/database/gen_models"
@@ -16,6 +18,78 @@ import (
 
 	"gorm.io/gorm"
 )
+
+// RelativeDateParser handles parsing and resolving relative date expressions
+type RelativeDateParser struct {
+	baseTime time.Time
+}
+
+// NewRelativeDateParser creates a new parser with the given base time
+func NewRelativeDateParser(baseTime time.Time) *RelativeDateParser {
+	return &RelativeDateParser{baseTime: baseTime}
+}
+
+// ParseRelativeDate parses relative date expressions and returns the actual time
+// Supports formats like: "today", "tomorrow", "in 5 days", "in 2 months", "in 1 year"
+// Also supports absolute ISO date strings
+func (p *RelativeDateParser) ParseRelativeDate(dateExpr string) (time.Time, error) {
+	dateExpr = strings.TrimSpace(dateExpr)
+
+	// Handle absolute dates first (don't lowercase these)
+	if parsedTime, err := time.Parse(time.RFC3339, dateExpr); err == nil {
+		return parsedTime, nil
+	}
+	if parsedTime, err := time.Parse("2006-01-02T15:04:05", dateExpr); err == nil {
+		return parsedTime, nil
+	}
+	if parsedTime, err := time.Parse("2006-01-02 15:04:05", dateExpr); err == nil {
+		return parsedTime, nil
+	}
+	if parsedTime, err := time.Parse("2006-01-02", dateExpr); err == nil {
+		return parsedTime, nil
+	}
+
+	// Now convert to lowercase for relative expressions
+	lowerExpr := strings.ToLower(dateExpr)
+
+	// Handle relative date expressions
+	switch lowerExpr {
+	case "now", "today":
+		return p.baseTime, nil
+	case "tomorrow":
+		return p.baseTime.AddDate(0, 0, 1), nil
+	case "next week":
+		return p.baseTime.AddDate(0, 0, 7), nil
+	case "next month":
+		return p.baseTime.AddDate(0, 1, 0), nil
+	case "next year":
+		return p.baseTime.AddDate(1, 0, 0), nil
+	}
+
+	// Handle "in X unit" format
+	inRegex := regexp.MustCompile(`^in\s+(\d+)\s+(day|days|week|weeks|month|months|year|years)$`)
+	matches := inRegex.FindStringSubmatch(lowerExpr)
+	if len(matches) == 3 {
+		amount, err := strconv.Atoi(matches[1])
+		if err != nil {
+			return time.Time{}, fmt.Errorf("invalid number in relative date: %s", matches[1])
+		}
+
+		unit := matches[2]
+		switch {
+		case strings.HasPrefix(unit, "day"):
+			return p.baseTime.AddDate(0, 0, amount), nil
+		case strings.HasPrefix(unit, "week"):
+			return p.baseTime.AddDate(0, 0, amount*7), nil
+		case strings.HasPrefix(unit, "month"):
+			return p.baseTime.AddDate(0, amount, 0), nil
+		case strings.HasPrefix(unit, "year"):
+			return p.baseTime.AddDate(amount, 0, 0), nil
+		}
+	}
+
+	return time.Time{}, fmt.Errorf("unsupported date expression: %s", dateExpr)
+}
 
 // NotificationAction handles sending notifications
 type NotificationAction struct {
@@ -245,18 +319,26 @@ func (a *CreateEventAction) Execute(ctx EvalContext, params map[string]any) erro
 		return fmt.Errorf("create_event requires title, customEventID, and startTime - missing: %v", missing)
 	}
 
-	// Parse start time
-	startDateTime, err := time.Parse("2006-01-02T15:04", startTime)
+	// Create relative date parser with current time as base
+	parser := NewRelativeDateParser(time.Now())
+
+	// Parse start time (supports both relative and absolute dates)
+	startDateTime, err := parser.ParseRelativeDate(startTime)
 	if err != nil {
-		return fmt.Errorf("Couldn't parse startTime")
+		return fmt.Errorf("failed to parse startTime '%s': %w", startTime, err)
 	}
 
-	// Parse end time
-	endDateTime, err := time.Parse("2006-01-02T15:04", endTime)
-	if err != nil && endTime != "" {
-		return fmt.Errorf("Couldn't parse endTime")
+	// Parse end time (supports both relative and absolute dates)
+	var endDateTime time.Time
+	if endTime != "" {
+		endDateTime, err = parser.ParseRelativeDate(endTime)
+		if err != nil {
+			return fmt.Errorf("failed to parse endTime '%s': %w", endTime, err)
+		}
+	} else {
+		// Default to 2 hours after start time
+		endDateTime = startDateTime.Add(2 * time.Hour)
 	}
-	endDateTime = startDateTime.Add(2 * time.Hour) // Default to 2 hours later
 
 	// Set defaults
 	if color == "" {
