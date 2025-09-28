@@ -37,6 +37,11 @@ ftest:
 	@cd frontend && npm install --prefer-offline --no-fund
 	@cd frontend && npx vitest run --coverage --coverage.reporter=lcov --coverage.reportsDirectory=coverage
 
+# Run mobile tests
+mtest:
+    @cd mobile && npm install --prefer-offline --no-fund
+    @cd mobile && npm test
+
 # Run frontend linting
 flint:
 	@cd frontend && npm install --prefer-offline --no-fund && npm run lint
@@ -107,4 +112,4 @@ watch:
             fi; \
         fi
 
-.PHONY: all build run test clean watch docker-run docker-down itest flint
+.PHONY: all build run test clean watch docker-run docker-down itest flint mtest

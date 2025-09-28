@@ -27,6 +27,9 @@ jobs:
       - name: Build
         run: make build
 
+      - name: Mobile Tests
+        run: make mtest
+
       - name: GO Integration Tests
         run: make test
 
