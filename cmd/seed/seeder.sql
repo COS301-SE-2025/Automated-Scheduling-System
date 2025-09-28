@@ -628,7 +628,7 @@ WHERE r.role_name = 'Admin' ON CONFLICT DO NOTHING;
 -- User role baseline
 INSERT INTO role_permissions (role_id, page)
 SELECT r.role_id, p.page FROM roles r, (VALUES
- ('dashboard'), ('calendar'), ('events'), ('main-help')
+ ('dashboard'), ('calendar'), ('events'), ('main-help'), ('event-definitions')
 ) AS p(page)
 WHERE r.role_name = 'User' ON CONFLICT DO NOTHING;
 -- HR role permissions

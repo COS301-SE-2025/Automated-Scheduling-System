@@ -132,6 +132,13 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
         }
         
         if (options && options.length > 0) {
+            // Normalize options to { value, label } if primitives are provided
+            const normalized = options.map((opt: any) =>
+                opt && typeof opt === 'object'
+                    ? { value: String(opt.value ?? opt), label: String(opt.label ?? opt.value ?? opt) }
+                    : { value: String(opt), label: String(opt) }
+            );
+
             return (
                 <select
                     className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
@@ -140,7 +147,7 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                     {...stopAll}
                 >
                     <option value="">Select…</option>
-                    {options.map((opt) => (
+                    {normalized.map((opt) => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
                 </select>
@@ -324,7 +331,7 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                 </div>
             );
         }
-        if (type === 'positions') {
+        if (type === 'positions' || type === 'job_positions') {
             let selectedPositions: string[] = [];
             try {
                 if (value && value.trim() !== '') {
