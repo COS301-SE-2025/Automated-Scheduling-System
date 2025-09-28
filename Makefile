@@ -39,8 +39,8 @@ ftest:
 
 # Run mobile tests
 mtest:
-    @cd mobile && npm install --prefer-offline --no-fund
-    @cd mobile && npm test
+	@cd mobile && npm install --prefer-offline --no-fund
+	@cd mobile && npm test
 
 # Run frontend linting
 flint:
