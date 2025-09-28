@@ -200,10 +200,12 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
         if (type === 'employees') {
             let selectedEmployees: string[] = [];
             try {
-                if (value && value.trim() !== '') {
-                    selectedEmployees = JSON.parse(value);
+                if (value && value.trim() !== '' && value !== '[]') {
+                    const parsed = JSON.parse(value);
+                    selectedEmployees = Array.isArray(parsed) ? parsed.filter(emp => emp && emp.trim() !== '') : [];
                 }
-            } catch {
+            } catch (error) {
+                console.warn('Failed to parse employee selection:', error);
                 selectedEmployees = [];
             }
 
@@ -214,10 +216,27 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                         className="px-3 py-1 border rounded bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm"
                         onClick={(e) => {
                             e.stopPropagation();
+                            console.log('Employee selector button clicked', { selectedEmployees, value });
+                            console.log('onChange function:', onChange);
                             window.dispatchEvent(new CustomEvent('employees:open-selector', {
                                 detail: {
                                     currentValue: selectedEmployees,
-                                    onChange: (newEmployees: string[]) => onChange?.(JSON.stringify(newEmployees))
+                                    onChange: (newEmployees: string[]) => {
+                                        console.log('ActionsNode callback called with:', typeof newEmployees, newEmployees);
+                                        console.log('Is array?', Array.isArray(newEmployees));
+                                        
+                                        // Safety check - ensure it's an array
+                                        const employeeArray = Array.isArray(newEmployees) ? newEmployees : [];
+                                        console.log('Using employee array:', employeeArray);
+                                        
+                                        const filtered = employeeArray.filter(emp => emp && emp.trim() !== '');
+                                        console.log('Filtered employees, updating node parameter:', { filtered });
+                                        const jsonString = JSON.stringify(filtered);
+                                        console.log('About to call onChange with JSON string:', jsonString);
+                                        // The node's onChange prop expects a JSON string
+                                        onChange?.(jsonString);
+                                        console.log('onChange called successfully');
+                                    }
                                 }
                             }));
                         }}
