@@ -26,6 +26,18 @@ Automated Scheduling System - Uses external databases to import a companies info
 
 ---
 
+## 👨‍💻 Access the Deployed Application & Mobile App Here:
+- [Web App](https://schedulingsystem.app/)
+- [Mobile App](https://drive.google.com/file/d/1Tkx20tW2meT1Ydm2iv0s6AVLwoG9f4fF/view?usp=drive_link)
+- Login details for Admin:
+	- email : `betatesters.capstone@gmail.com`
+	- password : `Pa$$w0rd!`
+- Login details for User:
+	- email : `jane.smith@example.com`
+	- password : `Pa$$w0rd!`
+
+---
+
 ## 📚 Documentation
 | Document                               | Link                                                                                                                    |
 | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -80,24 +92,15 @@ Here’s the team behind **Automated Scheduling System**:
 
 ## 🧱 Tech Stack
 
-| Layer                               | Technology                           |                                                                                                                                                 |
-| :---------------------------------- | :----------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Frontend**                        | TypeScript, React, Vite, TailwindCSS | <img src="https://skillicons.dev/icons?i=typescript,react,vite,tailwindcss"/>                                                                   |
-| **Backend**                         | Go                                   | <img src="https://skillicons.dev/icons?i=go"/>                                                                                                  |
-| **Project Management & Deployment** | Git, GitHub Actions, npm, Docker     | <img src="https://skillicons.dev/icons?i=git,githubactions,npm,docker"/>                                                                        |
-| **Testing**                         | Vitest, Go-Test                      | <img src="https://skillicons.dev/icons?i=vitest"/><img src="https://img.shields.io/badge/Go-Testing-brightgreen?style=for-the-badge&logo=go" /> |
+| Layer                               | Technology                           |                                                                                                                                                                                               |
+| :---------------------------------- | :----------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Frontend**                        | TypeScript, React, Vite, TailwindCSS | <img src="https://skillicons.dev/icons?i=typescript,react,vite,tailwindcss"/>                                                                                                                 |
+| **Backend**                         | Go                                   | <img src="https://skillicons.dev/icons?i=go"/>                                                                                                                                                |
+| **Project Management & Deployment** | Git, GitHub Actions, npm, Docker     | <img src="https://skillicons.dev/icons?i=git,githubactions,npm,docker"/>                                                                                                                      |
+| **Testing**                         | Vitest, Go-Test                      | <img src="https://skillicons.dev/icons?i=vitest"/><img src="https://img.shields.io/badge/Go-Testing-brightgreen?style=for-the-badge&logo=go" />                                               |
 | **Mobile**                          | REACT Native, TypeScript, Expo       | <img src="https://skillicons.dev/icons?i=react,typescript"/> <img width="50" height="50" alt="image" src="https://github.com/user-attachments/assets/404dfdbe-5c0e-4c43-b2f5-1a86d0e921a5" /> |
-                                                                                   
 
 ---
-## 👨‍💻 Access the Deployed Application Here:
-- https://schedulingsystem.app/
-- Login details for Admin:
-	- email : `betatesters.capstone@gmail.com`
-	- password : `Pa$$w0rd!`
-- Login details for User:
-	- email : `jane.smith@example.com`
-	- password : `Pa$$w0rd!`
 
 ## 📋 Demo 4 Checklist (Due: 29 September 2025)
 
