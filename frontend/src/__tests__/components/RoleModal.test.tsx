@@ -77,15 +77,15 @@ describe('RoleModal', () => {
 
     // pick two permissions
     const usersPerm = screen.getByRole('checkbox', { name: /Users/i });
-    const calendarPerm = screen.getByRole('checkbox', { name: /Calendar/i });
+    const rulesPerm = screen.getByRole('checkbox', { name: /Rules/i });
     await user.click(usersPerm);
-    await user.click(calendarPerm);
+    await user.click(rulesPerm);
 
     await user.click(screen.getByRole('button', { name: /Create Role/i }));
 
     // onSave called with data
     expect(onSave).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Editor', permissions: expect.arrayContaining(['users', 'calendar']) })
+      expect.objectContaining({ name: 'Editor', permissions: expect.arrayContaining(['users', 'rules']) })
     );
   });
 
