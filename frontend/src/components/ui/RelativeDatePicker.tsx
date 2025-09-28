@@ -15,7 +15,6 @@ const RelativeDatePicker: React.FC<RelativeDatePickerProps> = ({
 }) => {
   // Determine if current value is a specific date (YYYY-MM-DD format) or datetime (YYYY-MM-DD HH:MM) or relative
   const isSpecificDate = value && (/^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(value));
-  const isRelativeWithTime = value && /^(today|tomorrow|in \d+ (day|days|week|weeks|month|months|year|years)) \d{2}:\d{2}$/.test(value);
   const [mode, setMode] = useState<'relative' | 'specific'>(isSpecificDate ? 'specific' : 'relative');
   
   // Parse datetime value for specific mode
