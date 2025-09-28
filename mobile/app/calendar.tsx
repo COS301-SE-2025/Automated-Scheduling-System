@@ -436,9 +436,11 @@ export default function CalendarScreen() {
               onPressEvent={handlePressEvent}
               onPressCell={handlePressCell}
               renderEvent={(event: EventWithMeta) => {
+                // Removed flex:1 so multiple events in the same cell stack vertically instead of overlapping
                 return (
                   <View style={{
-                    flex: 1,
+                    alignSelf: 'stretch',
+                    width: '100%',
                     margin: 2,
                     paddingVertical: 6,
                     paddingHorizontal: 8,

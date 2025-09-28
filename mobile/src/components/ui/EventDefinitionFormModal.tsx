@@ -16,6 +16,7 @@ interface EventDefinitionFormModalProps {
   visible: boolean;
   onClose: () => void;
   onSave: (data: EventDefinitionFormData) => Promise<void>;
+  // onDelete kept for backward compatibility but no longer exposed in UI
   onDelete?: () => Promise<void>;
   initialData?: {
     CustomEventID?: number;
@@ -44,7 +45,6 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({
   });
   const [errors, setErrors] = React.useState<Partial<Record<keyof EventDefinitionFormData, string>>>({});
   const [loading, setLoading] = React.useState(false);
-  const [showDeleteConfirmation, setShowDeleteConfirmation] = React.useState(false);
 
   const isEditMode = !!initialData;
 
@@ -85,7 +85,7 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({
       }
       setErrors({});
     }
-  }, [visible, initialData, onDelete]);
+  }, [visible, initialData]);
 
   const validateForm = (): boolean => {
     const newErrors: Partial<Record<keyof EventDefinitionFormData, string>> = {};
@@ -116,31 +116,7 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({
     }
   };
 
-  const handleDelete = async () => {
-    if (!onDelete) return;
-    setShowDeleteConfirmation(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!onDelete) return;
-    
-    setShowDeleteConfirmation(false);
-    setLoading(true);
-    
-    try {
-      await onDelete();
-      onClose();
-    } catch (error) {
-      console.error('Delete failed:', error);
-      Alert.alert('Error', 'Failed to delete event definition. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const cancelDelete = () => {
-    setShowDeleteConfirmation(false);
-  };
+  // Delete handlers removed (button no longer shown)
 
   const updateField = <K extends keyof EventDefinitionFormData>(
     field: K,
@@ -249,14 +225,7 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({
               onPress={onClose}
               disabled={loading}
             />
-            {isEditMode && (
-              <Button
-                title="Delete"
-                variant="danger"
-                onPress={handleDelete}
-                disabled={loading || !onDelete}
-              />
-            )}
+            {/* Delete button removed per requirement */}
             <Button
               title={loading ? 'Saving...' : isEditMode ? 'Update Definition' : 'Save Definition'}
               variant="primary"
@@ -267,37 +236,7 @@ const EventDefinitionFormModal: React.FC<EventDefinitionFormModalProps> = ({
         </View>
       </ScrollView>
 
-      {/* Custom Delete Confirmation Modal */}
-      <DetailModal
-        visible={showDeleteConfirmation}
-        onClose={cancelDelete}
-        title="Delete Event Definition"
-        presentation={presentation}
-      >
-        <View style={styles.confirmationContainer}>
-          <Text style={styles.confirmationText}>
-            Are you sure you want to delete this event definition?
-          </Text>
-          <Text style={styles.confirmationSubtext}>
-            This action cannot be undone.
-          </Text>
-          
-          <View style={styles.confirmationActions}>
-            <Button
-              title="Cancel"
-              variant="outline"
-              onPress={cancelDelete}
-              disabled={loading}
-            />
-            <Button
-              title={loading ? 'Deleting...' : 'Delete'}
-              variant="danger"
-              onPress={confirmDelete}
-              disabled={loading}
-            />
-          </View>
-        </View>
-      </DetailModal>
+      {/* Delete confirmation modal removed */}
     </DetailModal>
   );
 };
