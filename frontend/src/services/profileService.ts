@@ -38,9 +38,8 @@ export interface UpdateProfileData {
 }
 
 export const updateEmployeeProfile = async (data: UpdateProfileData): Promise<{ message: string }> => {
-  // TODO: Implement this API endpoint on the backend
   return apiClient<{ message: string }>('profile/update', { 
     method: 'POST',
-    body: JSON.stringify(data)
+    data: data
   });
 };

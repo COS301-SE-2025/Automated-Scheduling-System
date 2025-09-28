@@ -119,8 +119,21 @@ describe("EventFormModal", () => {
 
     expect(screen.getByText("Onboarding")).toBeInTheDocument();
     expect(screen.getByDisplayValue("2")).toBeInTheDocument();
-    expect(screen.getByLabelText(/Start Date & Time/i)).toHaveValue("");
-    expect(screen.getByLabelText(/End Date & Time/i)).toHaveValue("");
+    
+    // Get the formatted datetime values for comparison
+    const startDate = new Date("2025-10-15T10:00:00.000Z");
+    const endDate = new Date("2025-10-15T11:00:00.000Z");
+    const formatDateTimeLocal = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+    
+    expect(screen.getByLabelText(/Start Date & Time/i)).toHaveValue(formatDateTimeLocal(startDate));
+    expect(screen.getByLabelText(/End Date & Time/i)).toHaveValue(formatDateTimeLocal(endDate));
   });
 
   it("should call onClose when Cancel button is clicked", async () => {

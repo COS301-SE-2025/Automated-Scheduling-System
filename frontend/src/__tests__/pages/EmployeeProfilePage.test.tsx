@@ -147,7 +147,7 @@ describe("EmployeeProfilePage", () => {
 
     // Ensure inputs are empty
   const emailInput = screen.getByPlaceholderText(/your.email@company.com/i) as HTMLInputElement;
-  const phoneInput = screen.getByPlaceholderText(/\+27 00 000 0000/i) as HTMLInputElement;
+  const phoneInput = screen.getByPlaceholderText(/27123456789 or 0123456789/i) as HTMLInputElement;
     expect(emailInput.value).toBe("");
     expect(phoneInput.value).toBe("");
 
@@ -239,8 +239,8 @@ describe("EmployeeProfilePage", () => {
     );
     const settingsTab = await screen.findByText("Settings");
     await user.click(settingsTab);
-  const phoneInput = screen.getByPlaceholderText(/\+27 00 000 0000/i);
-    await user.type(phoneInput, '1234567890');
+    const phoneInput = screen.getByPlaceholderText(/27123456789 or 0123456789/i);
+    await user.type(phoneInput, '0123456789');
     await user.click(screen.getByRole('button', { name: /Save Changes/i }));
     await waitFor(() => {
       expect(screen.getByText('Profile update endpoint not implemented yet. Contact your system administrator.')).toBeInTheDocument();
@@ -256,7 +256,7 @@ describe("EmployeeProfilePage", () => {
     );
     const settingsTab = await screen.findByText("Settings");
     await user.click(settingsTab);
-  const emailInput = screen.getByPlaceholderText(/your.email@company.com/i);
+    const emailInput = screen.getByPlaceholderText(/your.email@company.com/i);
     await user.type(emailInput, 'user@example.com');
     await user.click(screen.getByRole('button', { name: /Save Changes/i }));
     await waitFor(() => {
@@ -288,7 +288,7 @@ describe("EmployeeProfilePage", () => {
     await user.click(settingsTab);
 
   const emailInput = await screen.findByPlaceholderText(/your.email@company.com/i) as HTMLInputElement;
-  const phoneInput = screen.getByPlaceholderText(/\+27 00 000 0000/i) as HTMLInputElement;
+  const phoneInput = screen.getByPlaceholderText(/27123456789 or 0123456789/i) as HTMLInputElement;
     expect(emailInput.value).toBe('prefilled@example.com');
     expect(phoneInput.value).toBe('+123456');
 
