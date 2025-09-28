@@ -484,7 +484,7 @@ func TestUpdateEventScheduleHandler_Unit(t *testing.T) {
 
 	mock.ExpectBegin()
 	// Relaxed expectation to allow GORM to update a broader set of columns
-	mock.ExpectExec(`UPDATE "custom_event_schedules" SET .* WHERE "custom_event_schedule_id" = \$[0-9]+`).
+	mock.ExpectExec(`UPDATE "custom_event_schedules" SET .* WHERE (?:"?custom_event_schedule_id"?) = \$[0-9]+`).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
@@ -829,7 +829,8 @@ func TestGetBookedEmployeesHandler_InvalidID_Unit(t *testing.T) {
 func TestGetBookedEmployeesHandler_Empty_Unit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db, mock := newMockDB(t)
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT ese.employee_number AS employee_number, CONCAT(e.firstname, ' ', e.lastname) AS name FROM "event_schedule_employees" AS ese JOIN employee e ON e.employeenumber = ese.employee_number WHERE ese.custom_event_schedule_id = $1 AND ese.role = $2`)).
+	// Loosen pattern: underlying query does not quote table names in this handler
+	mock.ExpectQuery(`SELECT ese\.employee_number AS employee_number, CONCAT\(e\.firstname, ' ', e\.lastname\) AS name FROM event_schedule_employees AS ese JOIN employee e ON e\.employeenumber = ese\.employee_number WHERE ese\.custom_event_schedule_id = \$1 AND ese\.role = \$2`).
 		WithArgs(55, "Booked").
 		WillReturnRows(sqlmock.NewRows([]string{"employee_number", "name"}))
 	c, rec := ctxWithJSON(t, db, "GET", "/event-schedules/55/booked", nil)
@@ -905,7 +906,8 @@ func TestRSVPHandler_FullyBooked_Conflict_Unit(t *testing.T) {
 		WithArgs(scheduleID, "E999").
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	mock.ExpectBegin()
-	mock.ExpectQuery(`SELECT \* FROM "custom_event_schedules" WHERE "custom_event_schedules"."custom_event_schedule_id" = \$1.*FOR UPDATE`).
+	// GORM adds ORDER BY ... LIMIT 1 FOR UPDATE; allow optional ORDER BY/LIMIT tokens
+	mock.ExpectQuery(`SELECT \* FROM "custom_event_schedules" WHERE "custom_event_schedules"."custom_event_schedule_id" = \$1(?: .*?)? FOR UPDATE`).
 		WithArgs(scheduleID).
 		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "custom_event_id", "maximum_attendees", "status_name"}).AddRow(scheduleID, 15, 1, "Scheduled"))
 	mock.ExpectQuery(`SELECT \* FROM "custom_event_definitions" WHERE "custom_event_definitions"."custom_event_id" IN \(\$1\)`).
@@ -932,7 +934,7 @@ func TestRSVPHandler_Book_Success_NewRow_Unit(t *testing.T) {
 		WithArgs(scheduleID, "E999").
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 	mock.ExpectBegin()
-	mock.ExpectQuery(`SELECT \* FROM "custom_event_schedules" WHERE "custom_event_schedules"."custom_event_schedule_id" = \$1.*FOR UPDATE`).
+	mock.ExpectQuery(`SELECT \* FROM "custom_event_schedules" WHERE "custom_event_schedules"."custom_event_schedule_id" = \$1(?: .*?)? FOR UPDATE`).
 		WithArgs(scheduleID).
 		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "custom_event_id", "maximum_attendees", "status_name"}).AddRow(scheduleID, 22, 2, "Scheduled"))
 	mock.ExpectQuery(`SELECT \* FROM "custom_event_definitions" WHERE "custom_event_definitions"."custom_event_id" IN \(\$1\)`).
@@ -967,12 +969,13 @@ func TestSetAttendanceHandler_Success_Unit(t *testing.T) {
 	c, rec := ctxWithJSON(t, db, "POST", "/attendance/5", payload)
 	c.Params = gin.Params{gin.Param{Key: "scheduleID", Value: "5"}}
 	mock.ExpectBegin()
-	mock.ExpectExec(regexp.QuoteMeta(`DELETE FROM "event_attendance" WHERE "event_attendance"."custom_event_schedule_id" = $1`)).
+	// Handler's generated SQL omits table alias quoting around where clause
+	mock.ExpectExec(`DELETE FROM "event_attendance" WHERE custom_event_schedule_id = \$1`).
 		WithArgs(5).WillReturnResult(sqlmock.NewResult(0, 2))
-	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO "event_attendance" ("custom_event_schedule_id","employee_number","attended","check_in_time") VALUES ($1,$2,$3,$4) RETURNING "event_attendance_id"`)).
+	mock.ExpectQuery(`INSERT INTO "event_attendance" \("custom_event_schedule_id","employee_number","attended","check_in_time"\) VALUES \(\$1,\$2,\$3,\$4\) RETURNING "event_attendance_id"`).
 		WithArgs(5, "E001", true, sqlmock.AnyArg()).
 		WillReturnRows(sqlmock.NewRows([]string{"event_attendance_id"}).AddRow(1))
-	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO "event_attendance" ("custom_event_schedule_id","employee_number","attended","check_in_time") VALUES ($1,$2,$3,$4) RETURNING "event_attendance_id"`)).
+	mock.ExpectQuery(`INSERT INTO "event_attendance" \("custom_event_schedule_id","employee_number","attended","check_in_time"\) VALUES \(\$1,\$2,\$3,\$4\) RETURNING "event_attendance_id"`).
 		WithArgs(5, "E002", false, nil).
 		WillReturnRows(sqlmock.NewRows([]string{"event_attendance_id"}).AddRow(2))
 	mock.ExpectExec(regexp.QuoteMeta(`UPDATE "event_schedule_employees" SET "role"=$1 WHERE custom_event_schedule_id = $2 AND employee_number = $3`)).
