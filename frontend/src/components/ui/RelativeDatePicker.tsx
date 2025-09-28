@@ -1,444 +1,184 @@
-import React, { useState, useEffect } from 'react';
-
-interface RelativeDateOption {
-  id: string;
-  label: string;
-  getValue: () => string; // Returns ISO date string
-  getDisplayValue: () => string; // Returns human-readable text
-}
+import React, { useState } from 'react';
 
 interface RelativeDatePickerProps {
   value?: string;
   onChange: (value: string) => void;
-  label?: string;
-  placeholder?: string;
   className?: string;
-  error?: string;
   disabled?: boolean;
 }
 
-export const RelativeDatePicker: React.FC<RelativeDatePickerProps> = ({
+const RelativeDatePicker: React.FC<RelativeDatePickerProps> = ({
   value,
   onChange,
-  label,
-  placeholder = "Select date",
   className = "",
-  error,
   disabled = false,
 }) => {
-  const [mode, setMode] = useState<'absolute' | 'relative'>('absolute');
-  const [selectedOption, setSelectedOption] = useState<string>('');
-  const [customDays, setCustomDays] = useState<number>(1);
-  const [customMonths, setCustomMonths] = useState<number>(1);
-  const [customYears, setCustomYears] = useState<number>(1);
-  const [absoluteDate, setAbsoluteDate] = useState<string>('');
+  // Determine if current value is a specific date (YYYY-MM-DD format) or datetime (YYYY-MM-DD HH:MM) or relative
+  const isSpecificDate = value && (/^\d{4}-\d{2}-\d{2}$/.test(value) || /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(value));
+  const isRelativeWithTime = value && /^(today|tomorrow|in \d+ (day|days|week|weeks|month|months|year|years)) \d{2}:\d{2}$/.test(value);
+  const [mode, setMode] = useState<'relative' | 'specific'>(isSpecificDate ? 'specific' : 'relative');
+  
+  // Parse datetime value for specific mode
+  const getDatePart = (dateTimeValue: string) => {
+    if (!dateTimeValue) return '';
+    return dateTimeValue.split(' ')[0] || '';
+  };
+  
+  const getTimePart = (dateTimeValue: string) => {
+    if (!dateTimeValue) return '';
+    const parts = dateTimeValue.split(' ');
+    const timePart = parts[parts.length - 1]; // Get last part which should be time
+    return /^\d{2}:\d{2}$/.test(timePart) ? timePart : '09:00'; // Default to 9 AM
+  };
 
-  // Predefined relative date options
-  const relativeOptions: RelativeDateOption[] = [
-    {
-      id: 'today',
-      label: 'Today',
-      getValue: () => new Date().toISOString(),
-      getDisplayValue: () => 'Today'
-    },
-    {
-      id: 'tomorrow',
-      label: 'Tomorrow',
-      getValue: () => {
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        return tomorrow.toISOString();
-      },
-      getDisplayValue: () => 'Tomorrow'
-    },
-    {
-      id: 'next_week',
-      label: 'Next week',
-      getValue: () => {
-        const nextWeek = new Date();
-        nextWeek.setDate(nextWeek.getDate() + 7);
-        return nextWeek.toISOString();
-      },
-      getDisplayValue: () => 'Next week'
-    },
-    {
-      id: 'next_month',
-      label: 'Next month',
-      getValue: () => {
-        const nextMonth = new Date();
-        nextMonth.setMonth(nextMonth.getMonth() + 1);
-        return nextMonth.toISOString();
-      },
-      getDisplayValue: () => 'Next month'
-    },
-    {
-      id: 'custom_days',
-      label: 'In X days',
-      getValue: () => {
-        const date = new Date();
-        date.setDate(date.getDate() + customDays);
-        return date.toISOString();
-      },
-      getDisplayValue: () => `In ${customDays} day${customDays !== 1 ? 's' : ''}`
-    },
-    {
-      id: 'custom_months',
-      label: 'In X months',
-      getValue: () => {
-        const date = new Date();
-        date.setMonth(date.getMonth() + customMonths);
-        return date.toISOString();
-      },
-      getDisplayValue: () => `In ${customMonths} month${customMonths !== 1 ? 's' : ''}`
-    },
-    {
-      id: 'custom_years',
-      label: 'In X years',
-      getValue: () => {
-        const date = new Date();
-        date.setFullYear(date.getFullYear() + customYears);
-        return date.toISOString();
-      },
-      getDisplayValue: () => `In ${customYears} year${customYears !== 1 ? 's' : ''}`
-    }
+  const getRelativePart = (dateTimeValue: string) => {
+    if (!dateTimeValue) return '';
+    const timeRegex = / \d{2}:\d{2}$/;
+    return dateTimeValue.replace(timeRegex, ''); // Remove time part to get relative date
+  };
+
+  const relativeOptions = [
+    { value: 'today', label: 'Today' },
+    { value: 'tomorrow', label: 'Tomorrow' },
+    { value: 'in 1 day', label: 'In 1 day' },
+    { value: 'in 2 days', label: 'In 2 days' },
+    { value: 'in 3 days', label: 'In 3 days' },
+    { value: 'in 1 week', label: 'In 1 week' },
+    { value: 'in 2 weeks', label: 'In 2 weeks' },
+    { value: 'in 1 month', label: 'In 1 month' },
+    { value: 'in 2 months', label: 'In 2 months' },
+    { value: 'in 3 months', label: 'In 3 months' },
+    { value: 'in 6 months', label: 'In 6 months' },
+    { value: 'in 1 year', label: 'In 1 year' },
   ];
 
-  // Initialize component based on existing value
-  useEffect(() => {
-    if (value) {
-      let isRelativeDate = false;
-      
-      // Check for exact matches first
-      if (value === 'today') {
-        setMode('relative');
-        setSelectedOption('today');
-        isRelativeDate = true;
-      } else if (value === 'tomorrow') {
-        setMode('relative');
-        setSelectedOption('tomorrow');
-        isRelativeDate = true;
-      } else if (value === 'in 1 week') {
-        setMode('relative');
-        setSelectedOption('next_week');
-        isRelativeDate = true;
-      } else if (value === 'in 1 month') {
-        setMode('relative');
-        setSelectedOption('next_month');
-        isRelativeDate = true;
-      } else {
-        // Check for custom relative dates with patterns
-        const dayMatch = value.match(/^in (\d+) days?$/i);
-        const monthMatch = value.match(/^in (\d+) months?$/i);
-        const yearMatch = value.match(/^in (\d+) years?$/i);
-        
-        if (dayMatch) {
-          const days = parseInt(dayMatch[1], 10);
-          setMode('relative');
-          setSelectedOption('custom_days');
-          setCustomDays(days);
-          isRelativeDate = true;
-        } else if (monthMatch) {
-          const months = parseInt(monthMatch[1], 10);
-          setMode('relative');
-          setSelectedOption('custom_months');
-          setCustomMonths(months);
-          isRelativeDate = true;
-        } else if (yearMatch) {
-          const years = parseInt(yearMatch[1], 10);
-          setMode('relative');
-          setSelectedOption('custom_years');
-          setCustomYears(years);
-          isRelativeDate = true;
-        }
-      }
-
-      // If it's not a relative date string, try to parse as ISO date
-      if (!isRelativeDate) {
-        try {
-          const date = new Date(value);
-          if (!isNaN(date.getTime())) {
-            setMode('absolute');
-            setAbsoluteDate(formatDateTimeLocal(date));
-          } else {
-            // If parsing fails, default to absolute mode with current time
-            setMode('absolute');
-            setAbsoluteDate(formatDateTimeLocal(new Date()));
-          }
-        } catch {
-          // If parsing fails, default to absolute mode with current time
-          setMode('absolute');
-          setAbsoluteDate(formatDateTimeLocal(new Date()));
-        }
-      }
-    } else {
-      // Default to current time in absolute mode
-      setMode('absolute');
-      setAbsoluteDate(formatDateTimeLocal(new Date()));
-    }
-  }, [value]);
-
-  // Format date for datetime-local input
-  const formatDateTimeLocal = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
-
-  const handleModeChange = (newMode: 'absolute' | 'relative') => {
+  const handleModeChange = (newMode: 'relative' | 'specific') => {
     setMode(newMode);
-    if (newMode === 'absolute') {
-      const date = absoluteDate || formatDateTimeLocal(new Date());
-      onChange(new Date(date).toISOString());
-      setAbsoluteDate(date);
-    }
-    // Clear selection when switching modes to avoid confusion
-    setSelectedOption('');
+    // Clear the value when switching modes
+    onChange('');
   };
 
-  const handleAbsoluteDateChange = (dateValue: string) => {
-    setAbsoluteDate(dateValue);
-    if (dateValue) {
-      onChange(new Date(dateValue).toISOString());
+  const handleRelativeChange = (newRelative: string) => {
+    if (!newRelative) {
+      onChange('');
+      return;
     }
+    const currentTime = getTimePart(value || '');
+    onChange(`${newRelative} ${currentTime}`);
   };
 
-  const handleRelativeOptionChange = (optionId: string) => {
-    setSelectedOption(optionId);
-    const option = relativeOptions.find(opt => opt.id === optionId);
-    if (option) {
-      // For relative dates, we pass the relative expression string to the backend
-      // The backend will parse it when the rule is executed
-      if (optionId === 'today') {
-        onChange('today');
-      } else if (optionId === 'tomorrow') {
-        onChange('tomorrow');
-      } else if (optionId === 'next_week') {
-        onChange('in 1 week');
-      } else if (optionId === 'next_month') {
-        onChange('in 1 month');
-      } else if (optionId === 'custom_days') {
-        onChange(`in ${customDays} day${customDays !== 1 ? 's' : ''}`);
-      } else if (optionId === 'custom_months') {
-        onChange(`in ${customMonths} month${customMonths !== 1 ? 's' : ''}`);
-      } else if (optionId === 'custom_years') {
-        onChange(`in ${customYears} year${customYears !== 1 ? 's' : ''}`);
-      }
-    }
+  const handleRelativeTimeChange = (newTime: string) => {
+    const currentRelative = getRelativePart(value || '');
+    if (!currentRelative) return;
+    onChange(`${currentRelative} ${newTime}`);
   };
 
-  const handleCustomValueChange = (type: 'days' | 'months' | 'years', value: number) => {
-    if (type === 'days') {
-      setCustomDays(value);
-      if (selectedOption === 'custom_days') {
-        onChange(`in ${value} day${value !== 1 ? 's' : ''}`);
-      }
-    } else if (type === 'months') {
-      setCustomMonths(value);
-      if (selectedOption === 'custom_months') {
-        onChange(`in ${value} month${value !== 1 ? 's' : ''}`);
-      }
-    } else if (type === 'years') {
-      setCustomYears(value);
-      if (selectedOption === 'custom_years') {
-        onChange(`in ${value} year${value !== 1 ? 's' : ''}`);
-      }
+  const handleDateChange = (newDate: string) => {
+    if (!newDate) {
+      onChange('');
+      return;
     }
+    const currentTime = getTimePart(value || '');
+    onChange(`${newDate} ${currentTime}`);
   };
 
-  const getCurrentDisplayValue = (): string => {
-    if (mode === 'absolute' && absoluteDate) {
-      try {
-        const date = new Date(absoluteDate);
-        return date.toLocaleString();
-      } catch {
-        return 'Invalid date';
-      }
-    } else if (mode === 'relative' && selectedOption) {
-      const option = relativeOptions.find(opt => opt.id === selectedOption);
-      if (option) {
-        return option.getDisplayValue();
-      }
-      return 'Select relative date';
-    }
-    return placeholder;
+  const handleTimeChange = (newTime: string) => {
+    const currentDate = getDatePart(value || '');
+    if (!currentDate) return;
+    onChange(`${currentDate} ${newTime}`);
   };
-
-  // Generate stable ID for accessibility
-  const componentId = `relative-date-picker-${label?.replace(/\s+/g, '-').toLowerCase() || 'input'}`;
 
   return (
-    <div className={`relative ${className}`}>
-      {label && (
-        <label 
-          htmlFor={componentId}
-          className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1"
+    <div className={`space-y-2 ${className}`}>
+      {/* Mode Selection */}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => handleModeChange('relative')}
+          disabled={disabled}
+          className={`px-3 py-2 text-sm font-semibold rounded-md shadow-sm ring-1 ring-inset transition-all duration-200 ${
+            mode === 'relative'
+              ? 'bg-custom-secondary text-white ring-custom-secondary hover:bg-custom-third focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-custom-secondary'
+              : 'bg-white dark:bg-dark-input text-custom-primary dark:text-dark-primary ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-dark-div focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300'
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         >
-          {label}
-        </label>
-      )}
-      
-      <div className="space-y-3">
-        {/* Mode selector */}
-        <div className="flex space-x-2">
-          <button
-            type="button"
-            onClick={() => handleModeChange('absolute')}
-            disabled={disabled}
-            className={`px-3 py-2 text-sm rounded-md transition-colors ${
-              mode === 'absolute'
-                ? 'bg-custom-primary text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            Specific Date
-          </button>
-          <button
-            type="button"
-            onClick={() => handleModeChange('relative')}
-            disabled={disabled}
-            className={`px-3 py-2 text-sm rounded-md transition-colors ${
-              mode === 'relative'
-                ? 'bg-custom-primary text-white'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-          >
-            Relative Date
-          </button>
-        </div>
-
-        {/* Absolute date input */}
-        {mode === 'absolute' && (
-          <input
-            id={componentId}
-            type="datetime-local"
-            value={absoluteDate}
-            onChange={(e) => handleAbsoluteDateChange(e.target.value)}
-            disabled={disabled}
-            className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-dark-input text-custom-text dark:text-dark-text focus:ring-2 focus:ring-custom-primary focus:border-custom-primary"
-          />
-        )}
-
-        {/* Relative date options */}
-        {mode === 'relative' && (
-          <div className="space-y-2">
-            {/* Hidden input for form control association */}
-            <input
-              id={componentId}
-              type="hidden"
-              value={getCurrentDisplayValue()}
-              onChange={() => {}} // Controlled by RelativeDatePicker logic
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {relativeOptions.filter(opt => !opt.id.includes('custom')).map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  onClick={() => handleRelativeOptionChange(option.id)}
-                  disabled={disabled}
-                  className={`px-3 py-2 text-sm rounded-md border transition-colors text-left ${
-                    selectedOption === option.id
-                      ? 'bg-custom-primary text-white border-custom-primary'
-                      : 'bg-white dark:bg-dark-input border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Custom relative options */}
-            <div className="space-y-3 mt-4 pt-3 border-t border-gray-200 dark:border-gray-600">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Custom Relative Dates</h4>
-              
-              {/* Custom days */}
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={() => handleRelativeOptionChange('custom_days')}
-                  disabled={disabled}
-                  className={`px-3 py-2 text-sm rounded-md border transition-colors ${
-                    selectedOption === 'custom_days'
-                      ? 'bg-custom-primary text-white border-custom-primary'
-                      : 'bg-white dark:bg-dark-input border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  In
-                </button>
-                <input
-                  type="text"
-                  value={customDays}
-                  onChange={(e) => handleCustomValueChange('days', parseInt(e.target.value) || 1)}
-                  disabled={disabled}
-                  className="w-20 px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-dark-input text-custom-text dark:text-dark-text focus:ring-2 focus:ring-custom-primary focus:border-custom-primary"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">day{customDays !== 1 ? 's' : ''}</span>
-              </div>
-
-              {/* Custom months */}
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={() => handleRelativeOptionChange('custom_months')}
-                  disabled={disabled}
-                  className={`px-3 py-2 text-sm rounded-md border transition-colors ${
-                    selectedOption === 'custom_months'
-                      ? 'bg-custom-primary text-white border-custom-primary'
-                      : 'bg-white dark:bg-dark-input border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  In
-                </button>
-                <input
-                  type="text"
-                  value={customMonths}
-                  onChange={(e) => handleCustomValueChange('months', parseInt(e.target.value) || 1)}
-                  disabled={disabled}
-                  className="w-20 px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-dark-input text-custom-text dark:text-dark-text focus:ring-2 focus:ring-custom-primary focus:border-custom-primary"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">month{customMonths !== 1 ? 's' : ''}</span>
-              </div>
-
-              {/* Custom years */}
-              <div className="flex items-center space-x-2">
-                <button
-                  type="button"
-                  onClick={() => handleRelativeOptionChange('custom_years')}
-                  disabled={disabled}
-                  className={`px-3 py-2 text-sm rounded-md border transition-colors ${
-                    selectedOption === 'custom_years'
-                      ? 'bg-custom-primary text-white border-custom-primary'
-                      : 'bg-white dark:bg-dark-input border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                  } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  In
-                </button>
-                <input
-                  type="text"
-                  value={customYears}
-                  onChange={(e) => handleCustomValueChange('years', parseInt(e.target.value) || 1)}
-                  disabled={disabled}
-                  className="w-20 px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-dark-input text-custom-text dark:text-dark-text focus:ring-2 focus:ring-custom-primary focus:border-custom-primary"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">year{customYears !== 1 ? 's' : ''}</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Display current selection */}
-        <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded-md border">
-          <div className="text-sm text-gray-600 dark:text-gray-400">Selected:</div>
-          <div className="text-sm font-medium text-custom-text dark:text-dark-text">
-            {getCurrentDisplayValue()}
-          </div>
-        </div>
+          Relative
+        </button>
+        <button
+          type="button"
+          onClick={() => handleModeChange('specific')}
+          disabled={disabled}
+          className={`px-3 py-2 text-sm font-semibold rounded-md shadow-sm ring-1 ring-inset transition-all duration-200 ${
+            mode === 'specific'
+              ? 'bg-custom-secondary text-white ring-custom-secondary hover:bg-custom-third focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-custom-secondary'
+              : 'bg-white dark:bg-dark-input text-custom-primary dark:text-dark-primary ring-gray-300 dark:ring-gray-700 hover:bg-gray-50 dark:hover:bg-dark-div focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-300'
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+        >
+          Specific Date
+        </button>
       </div>
 
-      {error && (
-        <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>
+      {/* Date Input */}
+      {mode === 'relative' ? (
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs font-medium text-custom-text dark:text-dark-text mb-1">
+              Relative Date
+            </label>
+            <select
+              value={getRelativePart(value || '')}
+              onChange={(e) => handleRelativeChange(e.target.value)}
+              disabled={disabled}
+              className="block w-full rounded-md border-0 py-2 px-3 text-custom-text dark:text-dark-text bg-custom-background dark:bg-dark-input placeholder:text-custom-placeholder dark:placeholder-dark-placeholder shadow-sm ring-1 ring-inset ring-custom-border dark:ring-dark-border focus:ring-2 focus:ring-inset focus:ring-custom-primary dark:focus:ring-dark-primary sm:text-sm sm:leading-6"
+            >
+              <option value="">Select relative date...</option>
+              {relativeOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-custom-text dark:text-dark-text mb-1">
+              Start Time
+            </label>
+            <input
+              type="time"
+              value={getTimePart(value || '')}
+              onChange={(e) => handleRelativeTimeChange(e.target.value)}
+              disabled={disabled || !getRelativePart(value || '')}
+              className="block w-full rounded-md border-0 py-2 px-3 text-custom-text dark:text-dark-text bg-custom-background dark:bg-dark-input placeholder:text-custom-placeholder dark:placeholder-dark-placeholder shadow-sm ring-1 ring-inset ring-custom-border dark:ring-dark-border focus:ring-2 focus:ring-inset focus:ring-custom-primary dark:focus:ring-dark-primary sm:text-sm sm:leading-6"
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs font-medium text-custom-text dark:text-dark-text mb-1">
+              Date
+            </label>
+            <input
+              type="date"
+              value={getDatePart(value || '')}
+              onChange={(e) => handleDateChange(e.target.value)}
+              disabled={disabled}
+              className="block w-full rounded-md border-0 py-2 px-3 text-custom-text dark:text-dark-text bg-custom-background dark:bg-dark-input placeholder:text-custom-placeholder dark:placeholder-dark-placeholder shadow-sm ring-1 ring-inset ring-custom-border dark:ring-dark-border focus:ring-2 focus:ring-inset focus:ring-custom-primary dark:focus:ring-dark-primary sm:text-sm sm:leading-6"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-custom-text dark:text-dark-text mb-1">
+              Start Time
+            </label>
+            <input
+              type="time"
+              value={getTimePart(value || '')}
+              onChange={(e) => handleTimeChange(e.target.value)}
+              disabled={disabled || !getDatePart(value || '')}
+              className="block w-full rounded-md border-0 py-2 px-3 text-custom-text dark:text-dark-text bg-custom-background dark:bg-dark-input placeholder:text-custom-placeholder dark:placeholder-dark-placeholder shadow-sm ring-1 ring-inset ring-custom-border dark:ring-dark-border focus:ring-2 focus:ring-inset focus:ring-custom-primary dark:focus:ring-dark-primary sm:text-sm sm:leading-6"
+            />
+          </div>
+        </div>
       )}
     </div>
   );

@@ -97,8 +97,31 @@ const RulesPage: React.FC = () => {
     // Listen for employee selector events from ActionsNode
     useEffect(() => {
         const handleOpenEmployeeSelector = (event: CustomEvent) => {
+            console.log('Employee selector event received in RulesPage', event.detail);
             const { currentValue, onChange } = event.detail;
-            setCurrentEmployeeSelection({ currentValue, onChange });
+            
+            // Create a bridge function that converts array to string
+            const bridgeOnChange = (jsonString: string) => {
+                console.log('BRIDGE FUNCTION CALLED with:', typeof jsonString, jsonString);
+                try {
+                    const employeeArray = JSON.parse(jsonString);
+                    console.log('Parsed employee array:', employeeArray, 'Type:', typeof employeeArray, 'IsArray:', Array.isArray(employeeArray));
+                    if (Array.isArray(employeeArray)) {
+                        console.log('About to call original onChange from ActionsNode with array:', employeeArray);
+                        onChange(employeeArray);
+                        console.log('Called original onChange successfully');
+                    } else {
+                        console.error('Parsed result is not an array:', employeeArray);
+                        onChange([]);
+                    }
+                } catch (error) {
+                    console.error('Error parsing employee JSON:', error);
+                    onChange([]);
+                }
+            };
+            
+            console.log('🔧 Setting currentEmployeeSelection with bridge function');
+            setCurrentEmployeeSelection({ currentValue, onChange: bridgeOnChange });
             setShowEmployeeSelector(true);
         };
 
@@ -117,10 +140,10 @@ const RulesPage: React.FC = () => {
             setShowJobPositionSelector(true);
         };
 
-        window.addEventListener('job-positions:open-selector', handleOpenJobPositionSelector as EventListener);
+        window.addEventListener('positions:open-selector', handleOpenJobPositionSelector as EventListener);
         
         return () => {
-            window.removeEventListener('job-positions:open-selector', handleOpenJobPositionSelector as EventListener);
+            window.removeEventListener('positions:open-selector', handleOpenJobPositionSelector as EventListener);
         };
     }, []);
 
@@ -432,8 +455,12 @@ const RulesPage: React.FC = () => {
                     setCurrentEmployeeSelection(null);
                 }}
                 onConfirm={(selectedEmployeeNumbers) => {
+                    console.log('Employee modal onConfirm called', { selectedEmployeeNumbers });
                     if (currentEmployeeSelection?.onChange) {
-                        currentEmployeeSelection.onChange(JSON.stringify(selectedEmployeeNumbers));
+                        // Pass the JSON string to ActionsNode's onChange prop
+                        const validEmployeeNumbers = selectedEmployeeNumbers.filter(emp => emp && emp.trim() !== '');
+                        console.log('Calling ActionsNode onChange prop with JSON string:', { validEmployeeNumbers });
+                        currentEmployeeSelection.onChange(JSON.stringify(validEmployeeNumbers));
                     }
                     setShowEmployeeSelector(false);
                     setCurrentEmployeeSelection(null);

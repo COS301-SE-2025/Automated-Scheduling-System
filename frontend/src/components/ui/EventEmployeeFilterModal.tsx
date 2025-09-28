@@ -125,7 +125,25 @@ const EventEmployeeFilterModal: React.FC<EventEmployeeFilterModalProps> = ({
 
   const clearAll = () => setSelected(new Set());
 
-  const confirm = () => onConfirm(Array.from(selected));
+  const confirm = () => {
+    console.log('EventEmployeeFilterModal confirm called', { 
+      selected: Array.from(selected), 
+      onConfirm: typeof onConfirm,
+      onConfirmExists: !!onConfirm 
+    });
+    
+    if (!onConfirm) {
+      console.error('onConfirm prop is not provided!');
+      return;
+    }
+    
+    try {
+      onConfirm(Array.from(selected));
+      console.log('onConfirm called successfully');
+    } catch (error) {
+      console.error('Error calling onConfirm:', error);
+    }
+  };
 
   if (!isOpen) return null;
 

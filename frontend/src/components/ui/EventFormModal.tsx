@@ -104,12 +104,20 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
     useEffect(() => {
         if (isOpen && !showNoDefinitionsMessage) {
             if (isEditMode && initialData) {
+                // Convert ISO string to local datetime format for datetime-local inputs
+                const toLocalISOString = (dateStr: string) => {
+                    const d = new Date(dateStr);
+                    const tzoffset = d.getTimezoneOffset() * 60000;
+                    const localISOTime = new Date(d.getTime() - tzoffset).toISOString().slice(0, 16);
+                    return localISOTime;
+                };
+                
                 // In edit mode, populate with existing data
                 reset({
                     title: initialData.title || '',
                     customEventId: initialData.customEventId,
-                    start: initialData.startStr,
-                    end: initialData.endStr,
+                    start: toLocalISOString(initialData.startStr),
+                    end: toLocalISOString(initialData.endStr),
                     roomName: initialData.roomName || '',
                     maximumAttendees: initialData.maximumAttendees || 0,
                     minimumAttendees: initialData.minimumAttendees || 0,
