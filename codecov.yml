@@ -23,3 +23,23 @@ ignore:
   # Routes/Types (cover common locations)
   - "frontend/src/routes/**"
   - "frontend/src/types/**"
+
+coverage:
+  status:
+    project:
+      default:
+        target: 69%
+        threshold: 0%   # allow no drop; raise if you want small fluctuation
+      go_unit:
+        flags: [go_unit]
+        target: 69%
+      go_integration:
+        flags: [go_integration]
+        target: 69%
+      frontend:
+        flags: [frontend]
+        target: 69%
+    patch:
+      default:
+        target: 69%
+        threshold: 0%
