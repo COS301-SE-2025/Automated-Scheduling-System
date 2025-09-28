@@ -47,6 +47,10 @@ func setupTestDB(t *testing.T) *gorm.DB {
 		&models.EventScheduleEmployee{},
 		&models.EventSchedulePositionTarget{},
 		&models.EventAttendance{},
+		&models.CompetencyDefinition{},
+		&models.EmployeeCompetency{},
+		&models.CompetencyPrerequisite{},
+		&models.EmploymentHistory{},
 	)
 	require.NoError(t, err)
 

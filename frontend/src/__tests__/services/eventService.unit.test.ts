@@ -98,6 +98,7 @@ describe('Event Service', () => {
                     positions: [],
                     canEdit: false,
                     canDelete: false,
+                    hasGrantedCompetencies: false,
                     creatorUserId: undefined,
                     color: '#3788d8',
                     // new booking-related props default/falsy
@@ -131,6 +132,7 @@ describe('Event Service', () => {
                     positions: [],
                     canEdit: false,
                     canDelete: false,
+                    hasGrantedCompetencies: false,
                     creatorUserId: undefined,
                     color: '#ff9f89',
                     myBooking: undefined,

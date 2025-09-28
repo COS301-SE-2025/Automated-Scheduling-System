@@ -489,6 +489,20 @@ func GetEventSchedulesHandler(c *gin.Context) {
         }
     }
 
+    // Check which schedules have granted competencies (making them non-deletable)
+    hasGrantedCompetenciesMap := map[int]bool{}
+    if len(ids) > 0 {
+        var rows []struct{ ID int }
+        DB.Table("employee_competencies").
+            Select("granted_by_schedule_id AS id").
+            Where("granted_by_schedule_id IN ?", ids).
+            Group("granted_by_schedule_id").
+            Scan(&rows)
+        for _, r := range rows {
+            hasGrantedCompetenciesMap[r.ID] = true
+        }
+    }
+
     // Current user's role entry (Booked/Rejected/Attended/Not Attended/Attendee/etc.)
     myBookingMap := map[int]string{}
     if currentEmployee != nil && len(ids) > 0 {
@@ -564,13 +578,14 @@ func GetEventSchedulesHandler(c *gin.Context) {
 
     type scheduleDTO struct {
         models.CustomEventSchedule
-        CanEdit      bool   `json:"canEdit"`
-        CanDelete    bool   `json:"canDelete"`
-        CreatorID    *int64 `json:"creatorUserId"`
-        BookedCount  int    `json:"bookedCount"`
-        SpotsLeft    *int   `json:"spotsLeft,omitempty"`
-        MyBooking    string `json:"myBooking,omitempty"`
-        CanRSVP      bool   `json:"canRSVP"`
+        CanEdit                bool   `json:"canEdit"`
+        CanDelete              bool   `json:"canDelete"`
+        HasGrantedCompetencies bool   `json:"hasGrantedCompetencies"`
+        CreatorID              *int64 `json:"creatorUserId"`
+        BookedCount            int    `json:"bookedCount"`
+        SpotsLeft              *int   `json:"spotsLeft,omitempty"`
+        MyBooking              string `json:"myBooking,omitempty"`
+        CanRSVP                bool   `json:"canRSVP"`
     }
     out := make([]scheduleDTO, 0, len(schedules))
     for _, s := range schedules {
@@ -582,8 +597,14 @@ func GetEventSchedulesHandler(c *gin.Context) {
             canManage = true
         }
 
-        // Completed events: use attended count and disable spots
+        // Check if this schedule has granted competencies (which prevents deletion)
         id := int(s.CustomEventScheduleID)
+        hasGrantedCompetencies := hasGrantedCompetenciesMap[id]
+        
+        // Can delete only if user can manage AND the event hasn't granted competencies
+        canDelete := canManage && !hasGrantedCompetencies
+
+        // Completed events: use attended count and disable spots
         var bc int
         var leftPtr *int
         if strings.EqualFold(s.StatusName, "Completed") {
@@ -602,14 +623,15 @@ func GetEventSchedulesHandler(c *gin.Context) {
         canRSVP := canRSVPMap[id]
 
         out = append(out, scheduleDTO{
-            CustomEventSchedule: s,
-            CanEdit:             canManage,
-            CanDelete:           canManage,
-            CreatorID:           creatorID,
-            BookedCount:         bc,
-            SpotsLeft:           leftPtr,
-            MyBooking:           my,
-            CanRSVP:             canRSVP,
+            CustomEventSchedule:    s,
+            CanEdit:                canManage,
+            CanDelete:              canDelete,
+            HasGrantedCompetencies: hasGrantedCompetencies,
+            CreatorID:              creatorID,
+            BookedCount:            bc,
+            SpotsLeft:              leftPtr,
+            MyBooking:              my,
+            CanRSVP:                canRSVP,
         })
     }
 
@@ -799,6 +821,22 @@ func DeleteEventScheduleHandler(c *gin.Context) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "You are not permitted to delete this event"})
 			return
 		}
+	}
+
+	// Check if this schedule has granted competencies to any employees
+	var competencyCount int64
+	if err := DB.Model(&models.EmployeeCompetency{}).
+		Where("granted_by_schedule_id = ?", scheduleID).
+		Count(&competencyCount).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check competency grants"})
+		return
+	}
+
+	if competencyCount > 0 {
+		c.JSON(http.StatusConflict, gin.H{
+			"error": "Cannot delete this event as it has granted competencies to employees. Please contact an administrator if you need to remove this event.",
+		})
+		return
 	}
 
 	result := DB.Delete(&models.CustomEventSchedule{}, scheduleID)

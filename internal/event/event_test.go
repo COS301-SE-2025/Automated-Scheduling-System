@@ -433,19 +433,23 @@ func TestGetEventSchedulesHandler_Unit(t *testing.T) {
 	mock.ExpectQuery(`SELECT custom_event_schedule_id AS id, COUNT\(\*\) AS cnt FROM "event_attendance" WHERE custom_event_schedule_id IN \(\$1,\$2\) AND attended = \$3 GROUP BY "custom_event_schedule_id"`).
 		WithArgs(1, 2, true).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "cnt"}))
-	// 3. my bookings for current user
+	// 3. granted competencies check
+	mock.ExpectQuery(`SELECT granted_by_schedule_id AS id FROM "employee_competencies" WHERE granted_by_schedule_id IN \(\$1,\$2\) GROUP BY "granted_by_schedule_id"`).
+		WithArgs(1, 2).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	// 4. my bookings for current user
 	mock.ExpectQuery(`SELECT custom_event_schedule_id AS id, role FROM "event_schedule_employees" WHERE employee_number = \$1 AND custom_event_schedule_id IN \(\$2,\$3\)`).
 		WithArgs("E001", 1, 2).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "role"}))
-	// 4. employment history positions
+	// 5. employment history positions
 	mock.ExpectQuery(`SELECT position_matrix_code AS code FROM "employment_history" WHERE employee_number = \$1 AND \(end_date IS NULL OR end_date > NOW\(\)\)`).
 		WithArgs("E001").
 		WillReturnRows(sqlmock.NewRows([]string{"code"}))
-	// 5. emp link count (open detection)
+	// 6. emp link count (open detection)
 	mock.ExpectQuery(`SELECT custom_event_schedule_id AS id, COUNT\(\*\) AS cnt FROM "event_schedule_employees" WHERE custom_event_schedule_id IN \(\$1,\$2\) GROUP BY "custom_event_schedule_id"`).
 		WithArgs(1, 2).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "cnt"}))
-	// 6. pos link count
+	// 7. pos link count
 	mock.ExpectQuery(`SELECT custom_event_schedule_id AS id, COUNT\(\*\) AS cnt FROM "event_schedule_position_targets" WHERE custom_event_schedule_id IN \(\$1,\$2\) GROUP BY "custom_event_schedule_id"`).
 		WithArgs(1, 2).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "cnt"}))
@@ -491,19 +495,23 @@ func TestGetEventSchedulesHandler_NonAdmin_Filter_Unit(t *testing.T) {
 	mock.ExpectQuery(`SELECT custom_event_schedule_id AS id, COUNT\(\*\) AS cnt FROM "event_attendance" WHERE custom_event_schedule_id IN \(\$1\) AND attended = \$2 GROUP BY "custom_event_schedule_id"`).
 		WithArgs(5, true).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "cnt"}))
-	// 3. my booking
+	// 3. granted competencies check
+	mock.ExpectQuery(`SELECT granted_by_schedule_id AS id FROM "employee_competencies" WHERE granted_by_schedule_id IN \(\$1\) GROUP BY "granted_by_schedule_id"`).
+		WithArgs(5).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	// 4. my booking
 	mock.ExpectQuery(`SELECT custom_event_schedule_id AS id, role FROM "event_schedule_employees" WHERE employee_number = \$1 AND custom_event_schedule_id IN \(\$2\)`).
 		WithArgs("E001", 5).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "role"}))
-	// 4. employment history
+	// 5. employment history
 	mock.ExpectQuery(`SELECT position_matrix_code AS code FROM "employment_history" WHERE employee_number = \$1 AND \(end_date IS NULL OR end_date > NOW\(\)\)`).
 		WithArgs("E001").
 		WillReturnRows(sqlmock.NewRows([]string{"code"}))
-	// 5. emp link count
+	// 6. emp link count
 	mock.ExpectQuery(`SELECT custom_event_schedule_id AS id, COUNT\(\*\) AS cnt FROM "event_schedule_employees" WHERE custom_event_schedule_id IN \(\$1\) GROUP BY "custom_event_schedule_id"`).
 		WithArgs(5).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "cnt"}))
-	// 6. pos link count
+	// 7. pos link count
 	mock.ExpectQuery(`SELECT custom_event_schedule_id AS id, COUNT\(\*\) AS cnt FROM "event_schedule_position_targets" WHERE custom_event_schedule_id IN \(\$1\) GROUP BY "custom_event_schedule_id"`).
 		WithArgs(5).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "cnt"}))
@@ -719,6 +727,12 @@ func TestDeleteEventScheduleHandler_Unit(t *testing.T) {
 		WithArgs(scheduleID, 1).
 		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "title"}).AddRow(scheduleID, "Unit Title"))
 
+	// Check for granted competencies
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT count(*) FROM "employee_competencies" WHERE granted_by_schedule_id = $1`)).
+		WithArgs(scheduleID).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+
 	mock.ExpectBegin()
 	mock.ExpectExec(regexp.QuoteMeta(
 		`DELETE FROM "custom_event_schedules" WHERE "custom_event_schedules"."custom_event_schedule_id" = $1`)).
@@ -860,7 +874,17 @@ func TestGetAttendanceCandidates_InvalidID_Unit(t *testing.T) {
 
 func TestGetAttendanceCandidates_Empty_Unit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	db, _ := newMockDB(t)
+	db, mock := newMockDB(t)
+
+	// Mock the queries that GetAttendanceCandidates executes
+	mock.ExpectQuery(`SELECT \* FROM "event_schedule_employees" WHERE custom_event_schedule_id = \$1`).
+		WithArgs(90).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "employee_number", "role"}))
+
+	mock.ExpectQuery(`SELECT \* FROM "event_schedule_position_targets" WHERE custom_event_schedule_id = \$1`).
+		WithArgs(90).
+		WillReturnRows(sqlmock.NewRows([]string{"custom_event_schedule_id", "position_matrix_code"}))
+
 	c, rec := ctxWithJSON(t, db, "GET", "/event-schedules/90/candidates", nil)
 	c.Params = gin.Params{gin.Param{Key: "scheduleID", Value: "90"}}
 	GetAttendanceCandidates(c)
@@ -870,6 +894,7 @@ func TestGetAttendanceCandidates_Empty_Unit(t *testing.T) {
 	if trimmed != "[]" && trimmed != "null" && trimmed != "" {
 		t.Fatalf("unexpected empty candidates payload: %s", trimmed)
 	}
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 // ================= GetBookedEmployeesHandler Tests =================

@@ -32,6 +32,7 @@ export interface BackendScheduledEvent {
     Positions?: { position_matrix_code: string }[];
     canEdit?: boolean;
     canDelete?: boolean;
+    hasGrantedCompetencies?: boolean;
     creatorUserId?: number;
     // new booking fields
     bookedCount?: number;
@@ -58,6 +59,7 @@ export interface CalendarEvent extends EventInput {
         color: string;
     canEdit?: boolean;
     canDelete?: boolean;
+    hasGrantedCompetencies?: boolean;
     creatorUserId?: number;
     // booking UI helpers
     myBooking?: 'Booked' | 'Rejected' | 'Attended' | 'Not Attended';
@@ -146,6 +148,7 @@ export const getScheduledEvents = async (): Promise<CalendarEvent[]> => {
                 color: raw.color,
                 canEdit,
                 canDelete,
+                hasGrantedCompetencies: toBool((raw as any).hasGrantedCompetencies ?? (raw as any).HasGrantedCompetencies),
                 creatorUserId: (raw as any).creatorUserId ?? (raw as any).CreatorID,
                 myBooking: (raw.myBooking as any) || undefined,
                 bookedCount: raw.bookedCount,
