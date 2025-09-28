@@ -88,8 +88,14 @@ Here’s the team behind **Automated Scheduling System**:
 | **Mobile**                          | REACT Native, TypeScript, Expo       | <img src="https://skillicons.dev/icons?i=react,typescript"/>                                                                                    |
 
 ---
-## 👨‍💻 Access the deployed application here:
+## 👨‍💻 Access the Deployed Application Here:
 - https://schedulingsystem.app/
+- Login details for Admin:
+	- email : `john.doe@example.com`
+	- password : `Pa$$w0rd!`
+- Login details for User:
+	- email : `jane.smith@example.com`
+	- password : `Pa$$w0rd!`
 
 ## 📋 Demo 4 Checklist (Due: 29 September 2025)
 
