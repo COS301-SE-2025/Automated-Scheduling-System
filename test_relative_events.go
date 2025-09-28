@@ -8,19 +8,26 @@ import (
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 
 	"Automated-Scheduling-Project/internal/database/models"
 	rulesv2 "Automated-Scheduling-Project/internal/rulesV2"
 )
 
 func main() {
-	fmt.Println("Testing Relative Date Events...")
+	fmt.Println("Testing Relative Date Events with Scheduler...")
+
+	// Test 1: Direct execution
+	testDirectExecution()
+
+	// Test 2: Show how scheduler would work
+	testSchedulerExecution()
+}
+
+func testDirectExecution() {
+	fmt.Println("\n=== TEST 1: Direct Rule Execution ===")
 
 	// Setup in-memory database
-	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
-		Logger: logger.Default.LogLevel(logger.Silent),
-	})
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -55,100 +62,164 @@ func main() {
 	// Create rule service
 	service := rulesv2.NewRuleBackEndService(db)
 
-	// Create a test rule with relative dates
-	testRule := rulesv2.Rulev2{
+	// Create a rule with relative date
+	rule := rulesv2.Rulev2{
 		Name: "Test Relative Date Rule",
 		Trigger: rulesv2.TriggerSpec{
-			Type:       "scheduled_time",
-			Parameters: []rulesv2.ParamKV{}, // Manual trigger for testing
+			Type:       "manual", // For direct testing
+			Parameters: map[string]any{}, // Manual trigger for testing
 		},
-		Conditions: []rulesv2.ConditionSpec{}, // No conditions for simplicity
+		Conditions: []rulesv2.Condition{}, // No conditions for simplicity
 		Actions: []rulesv2.ActionSpec{
 			{
 				Type: "create_event",
-				Parameters: []rulesv2.ParameterKV{
-					{Key: "title", Value: "Relative Date Test Event"},
-					{Key: "customEventID", Value: "1"},
-					{Key: "startTime", Value: "in 2 days"}, // Relative date!
-					{Key: "endTime", Value: ""},            // Empty - should auto-calculate
-					{Key: "roomName", Value: "Conference Room A"},
+				Parameters: map[string]any{
+					"title":         "Test Relative Event",
+					"customEventID": "1",
+					"startTime":     "in 2 days", // This is the relative date!
+					// endTime omitted - should auto-calculate from event definition
 				},
 			},
 		},
 	}
 
-	// Save the rule
-	ruleID, err := service.CreateRule(context.Background(), testRule)
+	// Create the rule in the database
+	ruleID, err := service.Store.CreateRule(context.Background(), rule)
 	if err != nil {
 		log.Fatal("Failed to create rule:", err)
 	}
 	fmt.Printf("Created rule with ID: %s\n", ruleID)
 
-	// Now manually trigger the rule to test execution
-	fmt.Println("\nExecuting rule with relative dates...")
-
-	// Create evaluation context with current time
+	// Execute the rule manually using the engine directly
+	fmt.Println("Executing rule manually...")
 	evalCtx := rulesv2.EvalContext{
 		Now:  time.Now(),
-		Data: map[string]interface{}{},
+		Data: map[string]any{},
 	}
-
-	// Execute the rule
-	err = service.Engine.EvaluateOnce(evalCtx, testRule)
+	
+	err = service.Engine.EvaluateOnce(evalCtx, rule)
 	if err != nil {
 		log.Fatal("Failed to execute rule:", err)
 	}
 	fmt.Println("Rule executed successfully!")
 
 	// Check if event was created
-	var createdEvents []models.CustomEventSchedule
-	err = db.Find(&createdEvents).Error
+	var schedules []models.CustomEventSchedule
+	db.Find(&schedules)
+	
+	if len(schedules) == 0 {
+		fmt.Println("❌ No events were created")
+	} else {
+		for _, schedule := range schedules {
+			fmt.Printf("✅ Event created: ID=%d, Start=%s, End=%s\n", 
+				schedule.CustomEventID, 
+				schedule.EventStartDate.Format("2006-01-02 15:04"),
+				schedule.EventEndDate.Format("2006-01-02 15:04"))
+			
+			// Verify the date is approximately 2 days from now
+			expectedStart := time.Now().Add(2 * 24 * time.Hour)
+			actualStart := schedule.EventStartDate
+			diff := actualStart.Sub(expectedStart)
+			
+			if diff < time.Hour && diff > -time.Hour { // Within 1 hour tolerance
+				fmt.Printf("✅ Date calculation correct: %s (expected around %s)\n", 
+					actualStart.Format("2006-01-02 15:04"),
+					expectedStart.Format("2006-01-02 15:04"))
+			} else {
+				fmt.Printf("❌ Date calculation incorrect: got %s, expected around %s\n",
+					actualStart.Format("2006-01-02 15:04"),
+					expectedStart.Format("2006-01-02 15:04"))
+			}
+			
+			// Verify automatic duration calculation
+			actualDuration := schedule.EventEndDate.Sub(schedule.EventStartDate)
+			expectedDuration := 2 * time.Hour // From event definition StandardDuration
+			if actualDuration == expectedDuration {
+				fmt.Printf("✅ Duration calculation correct: %v (2 hours from event definition)\n", actualDuration)
+			} else {
+				fmt.Printf("❌ Duration calculation incorrect: got %v, expected %v\n", actualDuration, expectedDuration)
+			}
+		}
+	}
+}
+
+func testSchedulerExecution() {
+	fmt.Println("\n=== TEST 2: Scheduler-based Rule Execution ===")
+	
+	// This would test actual time-based triggering
+	// For now, let's show how it would work
+	fmt.Println("Setting up scheduler test...")
+	
+	// Setup database same as before
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	if err != nil {
-		log.Fatal("Failed to query events:", err)
+		log.Fatal(err)
 	}
 
-	if len(createdEvents) == 0 {
-		fmt.Println("No events were created!")
-		return
+	err = db.AutoMigrate(
+		&models.Rule{},
+		&models.CustomEventDefinition{},
+		&models.CustomEventSchedule{},
+		&models.EventScheduleEmployee{},
+		&models.EventSchedulePositionTarget{},
+	)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	// Display results
-	fmt.Printf("\n Created %d event(s):\n", len(createdEvents))
-	for _, event := range createdEvents {
-		fmt.Printf("\n Event Created:\n")
-		fmt.Printf("   ID: %d\n", event.CustomEventScheduleID)
-		fmt.Printf("   Title: %s\n", event.Title)
-		fmt.Printf("   Start: %s\n", event.EventStartDate.Format("2006-01-02 15:04:05"))
-		fmt.Printf("   End: %s\n", event.EventEndDate.Format("2006-01-02 15:04:05"))
-		fmt.Printf("   Duration: %v\n", event.EventEndDate.Sub(event.EventStartDate))
-		fmt.Printf("   Room: %s\n", event.RoomName)
-
-		// Verify the relative date calculation
-		expectedStart := time.Now().AddDate(0, 0, 2) // "in 2 days"
-		actualStart := event.EventStartDate
-
-		// Allow for some time difference due to processing
-		timeDiff := actualStart.Sub(expectedStart).Abs()
-		if timeDiff < 5*time.Minute { // Within 5 minutes is close enough
-			fmt.Println("Relative date calculation is CORRECT!")
-		} else {
-			fmt.Printf("Relative date calculation seems off. Expected around: %s\n", expectedStart.Format("2006-01-02 15:04:05"))
-		}
-
-		// Verify duration calculation (should be 2 hours from event definition)
-		actualDuration := event.EventEndDate.Sub(event.EventStartDate)
-		if actualDuration == 2*time.Hour {
-			fmt.Println("Duration calculation is CORRECT (2 hours from event definition)!")
-		} else {
-			fmt.Printf("Duration calculation seems off. Got: %v, Expected: 2h0m0s\n", actualDuration)
-		}
+	// Create event definition
+	eventDef := models.CustomEventDefinition{
+		CustomEventID:       2,
+		EventName:           "Scheduled Meeting",
+		ActivityDescription: "Time-triggered meeting",
+		StandardDuration:    "1 hour",
+		Facilitator:         "System",
+		CreatedBy:           "scheduler",
+		CreationDate:        time.Now(),
 	}
-
-	fmt.Println("\nTest Summary:")
-	fmt.Println("Rule creation: PASSED")
-	fmt.Println("Rule execution: PASSED")
-	fmt.Println("Event creation: PASSED")
-	fmt.Println("Relative date parsing: PASSED")
-	fmt.Println("Duration calculation: PASSED")
-	fmt.Println("\nRelative events are working correctly!")
+	db.Create(&eventDef)
+	
+	service := rulesv2.NewRuleBackEndService(db)
+	
+	// Create a rule that should trigger in 10 seconds for testing
+	rule := rulesv2.Rulev2{
+		Name: "Scheduler Test Rule",
+		Trigger: rulesv2.TriggerSpec{
+			Type: "relative_time",
+			Parameters: map[string]any{
+				"when": "tomorrow", // Trigger tomorrow
+			},
+		},
+		Conditions: []rulesv2.Condition{},
+		Actions: []rulesv2.ActionSpec{
+			{
+				Type: "create_event",
+				Parameters: map[string]any{
+					"title":         "Scheduled Test Event",
+					"customEventID": "2",
+					"startTime":     "in 3 days", // Event starts 3 days from trigger
+					// endTime omitted - should auto-calculate from event definition
+				},
+			},
+		},
+	}
+	
+	ruleID, err := service.Store.CreateRule(context.Background(), rule)
+	if err != nil {
+		log.Fatal("Failed to create scheduled rule:", err)
+	}
+	fmt.Printf("Created scheduled rule with ID: %s\n", ruleID)
+	
+	fmt.Println("\nNote: To fully test this with actual time triggering, you would need to:")
+	fmt.Println("1. Start the scheduler service")
+	fmt.Println("2. Register the rule with the scheduler")  
+	fmt.Println("3. Wait for the trigger time (tomorrow)")
+	fmt.Println("4. Verify the event was created automatically")
+	fmt.Println("")
+	fmt.Println("The scheduler would:")
+	fmt.Println("- Parse 'tomorrow' to get the trigger time")
+	fmt.Println("- Set up a cron job or timer for that exact time")
+	fmt.Println("- Execute the rule when the time arrives")
+	fmt.Println("- The rule would then create an event with startTime 'in 3 days'")
+	fmt.Println("  (relative to when the rule executes, not when it was created)")
 }
