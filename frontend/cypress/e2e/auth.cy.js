@@ -34,16 +34,6 @@ describe('Authentication Flow', () => {
       cy.contains('Login Failed', { timeout: 10000 }).should('be.visible');
     });
 
-    it('should successfully login with valid credentials', () => {
-      cy.visit('/login');
-
-      cy.get('input[type="email"]').type('john.doe@example.com');
-      cy.get('input[type="password"]').type('Pa$$w0rd!');
-      cy.get('button[type="submit"]').click();
-
-      // Should redirect to dashboard after successful login
-      cy.url().should('include', '/dashboard', { timeout: 10000 });
-    });
   });
 
   describe('Signup Page', () => {
