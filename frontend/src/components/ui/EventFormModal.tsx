@@ -14,7 +14,6 @@ import { getAllJobRequirements } from '../../services/jobRequirementService';
 import type { User } from '../../types/user';
 import EventEmployeeFilterModal from './EventEmployeeFilterModal';
 import GenericSelectModal from './GenericSelectModal';
-import RelativeDatePicker from './RelativeDatePicker';
 
 const scheduleSchema = z.object({
     title: z.string().min(1, "Title is required."),
@@ -356,34 +355,14 @@ const EventFormModal: React.FC<EventFormModalProps> = ({ isOpen, onClose, onSave
                         {/* Row 3: Start + End */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <Controller
-                                    name="start"
-                                    control={control}
-                                    render={({ field }) => (
-                                        <RelativeDatePicker
-                                            label="Start Date & Time"
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                            error={errors.start?.message}
-                                            disabled={!canEditEvent}
-                                        />
-                                    )}
-                                />
+                                <label htmlFor="start" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">Start Date & Time</label>
+                                <input id="start" type="datetime-local" {...register('start')} className="w-full p-2 border rounded-md dark:bg-dark-input" />
+                                {errors.start && <p className="text-red-500 text-xs mt-1">{errors.start.message}</p>}
                             </div>
                             <div>
-                                <Controller
-                                    name="end"
-                                    control={control}
-                                    render={({ field }) => (
-                                        <RelativeDatePicker
-                                            label="End Date & Time"
-                                            value={field.value}
-                                            onChange={field.onChange}
-                                            error={errors.end?.message}
-                                            disabled={!canEditEvent}
-                                        />
-                                    )}
-                                />
+                                <label htmlFor="end" className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">End Date & Time</label>
+                                <input id="end" type="datetime-local" {...register('end')} className="w-full p-2 border rounded-md dark:bg-dark-input" />
+                                {errors.end && <p className="text-red-500 text-xs mt-1">{errors.end.message}</p>}
                             </div>
                         </div>
 

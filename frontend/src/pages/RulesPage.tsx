@@ -40,6 +40,7 @@ const RulesPage: React.FC = () => {
     const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
     const [exported, setExported] = useState<string>('');
     const [showPreview, setShowPreview] = useState<boolean>(false);
+    const [isLoadingRules, setIsLoadingRules] = useState<boolean>(true);
 
     // Employee selector modal state
     const [users, setUsers] = useState<User[]>([]);
@@ -138,20 +139,47 @@ const RulesPage: React.FC = () => {
         };
     }, []);
 
-    useEffect(() => { nodesRef.current = nodes; }, [nodes]);
-    useEffect(() => { edgesRef.current = edges; }, [edges]);
-
+    // Load rules from backend when component mounts
     useEffect(() => {
+        let isActive = true;
         (async () => {
             try {
-                const { nodes, edges } = await materializeFromBackend();
-                setNodes(nodes as any);
-                setEdges(edges as any);
-            } catch {
-                // no-op: empty canvas
+                setIsLoadingRules(true);
+                console.log('Loading rules from backend...');
+                const { nodes: loadedNodes, edges: loadedEdges } = await materializeFromBackend();
+                console.log('Loaded rules:', { nodes: loadedNodes.length, edges: loadedEdges.length });
+                if (isActive) {
+                    setNodes(loadedNodes as any);
+                    setEdges(loadedEdges as any);
+                }
+            } catch (error) {
+                console.error('Failed to load rules from backend:', error);
+                // Initialize with empty canvas on error
+                if (isActive) {
+                    setNodes([]);
+                    setEdges([]);
+                }
+            } finally {
+                if (isActive) {
+                    setIsLoadingRules(false);
+                }
             }
         })();
-    }, [setNodes, setEdges]);
+        
+        return () => {
+            isActive = false;
+        };
+    }, []); // Empty dependency array - only run on mount
+
+    // Fit view after rules are initially loaded
+    useEffect(() => {
+        if (reactFlowInstance && !isLoadingRules && nodes.length > 0) {
+            // Use setTimeout to ensure the nodes are fully rendered before fitting
+            setTimeout(() => {
+                reactFlowInstance.fitView({ padding: 50 });
+            }, 100);
+        }
+    }, [reactFlowInstance, isLoadingRules]); // Only depend on loading state, not nodes
 
     // Handle confirmed deletions centrally (remove from canvas and storage)
     useEffect(() => {
@@ -359,11 +387,19 @@ const RulesPage: React.FC = () => {
                                     onDrop={onDrop}
                                     onDragOver={onDragOver}
                                     nodeTypes={nodeTypes}
-                                    fitView
                                 >
                                     <Controls />
                                     <Background />
                                 </ReactFlow>
+
+                                {isLoadingRules && (
+                                    <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-20">
+                                        <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow-lg">
+                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                                            <span>Loading rules...</span>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <CanvasNavigator />
                                 <CanvasToast />
