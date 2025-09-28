@@ -213,10 +213,16 @@ export const RelativeDatePicker: React.FC<RelativeDatePickerProps> = ({
     return placeholder;
   };
 
+  // Generate stable ID for accessibility
+  const componentId = `relative-date-picker-${label?.replace(/\s+/g, '-').toLowerCase() || 'input'}`;
+
   return (
     <div className={`relative ${className}`}>
       {label && (
-        <label className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1">
+        <label 
+          htmlFor={componentId}
+          className="block text-sm font-medium text-custom-text dark:text-dark-text mb-1"
+        >
           {label}
         </label>
       )}
@@ -253,6 +259,7 @@ export const RelativeDatePicker: React.FC<RelativeDatePickerProps> = ({
         {/* Absolute date input */}
         {mode === 'absolute' && (
           <input
+            id={componentId}
             type="datetime-local"
             value={absoluteDate}
             onChange={(e) => handleAbsoluteDateChange(e.target.value)}
@@ -264,6 +271,13 @@ export const RelativeDatePicker: React.FC<RelativeDatePickerProps> = ({
         {/* Relative date options */}
         {mode === 'relative' && (
           <div className="space-y-2">
+            {/* Hidden input for form control association */}
+            <input
+              id={componentId}
+              type="hidden"
+              value={getCurrentDisplayValue()}
+              onChange={() => {}} // Controlled by RelativeDatePicker logic
+            />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {relativeOptions.filter(opt => !opt.id.includes('custom')).map((option) => (
                 <button

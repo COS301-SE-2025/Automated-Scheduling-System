@@ -1,29 +1,44 @@
-package main
+package rulesv2
 
 import (
 	"context"
 	"fmt"
 	"log"
+	"testing"
 	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
 	"Automated-Scheduling-Project/internal/database/models"
-	rulesv2 "Automated-Scheduling-Project/internal/rulesV2"
 )
 
-func main() {
+// TestRelativeDateEvents demonstrates and tests the relative date functionality
+func TestRelativeDateEvents(t *testing.T) {
 	fmt.Println("Testing Relative Date Events with Scheduler...")
 
 	// Test 1: Direct execution
-	testDirectExecution()
+	testDirectExecution(t)
 
 	// Test 2: Show how scheduler would work
-	testSchedulerExecution()
+	testSchedulerExecution(t)
 }
 
-func testDirectExecution() {
+// RunRelativeDateDemo can be called from main() functions for demonstration purposes
+func RunRelativeDateDemo() {
+	fmt.Println("Running Relative Date Events Demo...")
+
+	// Create a dummy testing.T for the demo functions
+	t := &testing.T{}
+
+	// Test 1: Direct execution
+	testDirectExecution(t)
+
+	// Test 2: Show how scheduler would work
+	testSchedulerExecution(t)
+}
+
+func testDirectExecution(t *testing.T) {
 	fmt.Println("\n=== TEST 1: Direct Rule Execution ===")
 
 	// Setup in-memory database
@@ -60,17 +75,17 @@ func testDirectExecution() {
 	fmt.Println("Created event definition with 2-hour duration")
 
 	// Create rule service
-	service := rulesv2.NewRuleBackEndService(db)
+	service := NewRuleBackEndService(db)
 
 	// Create a rule with relative date
-	rule := rulesv2.Rulev2{
+	rule := Rulev2{
 		Name: "Test Relative Date Rule",
-		Trigger: rulesv2.TriggerSpec{
+		Trigger: TriggerSpec{
 			Type:       "manual",         // For direct testing
 			Parameters: map[string]any{}, // Manual trigger for testing
 		},
-		Conditions: []rulesv2.Condition{}, // No conditions for simplicity
-		Actions: []rulesv2.ActionSpec{
+		Conditions: []Condition{}, // No conditions for simplicity
+		Actions: []ActionSpec{
 			{
 				Type: "create_event",
 				Parameters: map[string]any{
@@ -92,7 +107,7 @@ func testDirectExecution() {
 
 	// Execute the rule manually using the engine directly
 	fmt.Println("Executing rule manually...")
-	evalCtx := rulesv2.EvalContext{
+	evalCtx := EvalContext{
 		Now:  time.Now(),
 		Data: map[string]any{},
 	}
@@ -143,7 +158,7 @@ func testDirectExecution() {
 	}
 }
 
-func testSchedulerExecution() {
+func testSchedulerExecution(t *testing.T) {
 	fmt.Println("\n=== TEST 2: Scheduler-based Rule Execution ===")
 
 	// This would test actual time-based triggering
@@ -179,19 +194,19 @@ func testSchedulerExecution() {
 	}
 	db.Create(&eventDef)
 
-	service := rulesv2.NewRuleBackEndService(db)
+	service := NewRuleBackEndService(db)
 
 	// Create a rule that should trigger in 10 seconds for testing
-	rule := rulesv2.Rulev2{
+	rule := Rulev2{
 		Name: "Scheduler Test Rule",
-		Trigger: rulesv2.TriggerSpec{
+		Trigger: TriggerSpec{
 			Type: "relative_time",
 			Parameters: map[string]any{
 				"when": "tomorrow", // Trigger tomorrow
 			},
 		},
-		Conditions: []rulesv2.Condition{},
-		Actions: []rulesv2.ActionSpec{
+		Conditions: []Condition{},
+		Actions: []ActionSpec{
 			{
 				Type: "create_event",
 				Parameters: map[string]any{
