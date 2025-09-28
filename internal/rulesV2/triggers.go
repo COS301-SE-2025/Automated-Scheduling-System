@@ -7,158 +7,49 @@ import (
 	"gorm.io/gorm"
 )
 
-// Declare trigger types used by the registry and Fire methods
-type JobPositionTrigger struct {
-	DB *gorm.DB
+// DBTrigger is a single implementation that covers all trigger kinds.
+// Kind is one of: job_position, competency_type, competency, event_definition,
+// scheduled_event, roles, link_job_to_competency, competency_prerequisite.
+type DBTrigger struct {
+	DB   *gorm.DB
+	Kind string
 }
 
-type CompetencyTypeTrigger struct {
-	DB *gorm.DB
+// NewTrigger constructs a generic trigger for a given kind.
+func NewTrigger(db *gorm.DB, kind string) *DBTrigger {
+	return &DBTrigger{DB: db, Kind: kind}
 }
 
-type CompetencyTrigger struct {
-	DB *gorm.DB
-}
-
-type EventDefinitionTrigger struct {
-	DB *gorm.DB
-}
-
-type ScheduledEventTrigger struct {
-	DB *gorm.DB
-}
-
-type RolesTrigger struct {
-	DB *gorm.DB
-}
-
-// JobPositionTrigger: now only operation
-func (t *JobPositionTrigger) Fire(ctx context.Context, params map[string]any, emit func(EvalContext) error) error {
+// Fire emits an EvalContext with a normalized trigger payload.
+// It always includes: type and operation (if provided).
+// For scheduled_event it also includes updateField (if provided).
+// For roles it also includes updateKind (if provided).
+func (t *DBTrigger) Fire(ctx context.Context, params map[string]any, emit func(EvalContext) error) error {
 	op, _ := params["operation"].(string)
-	evalCtx := EvalContext{
-		Now: time.Now(),
-		Data: map[string]any{
-			"trigger": map[string]any{
-				"type":      "job_position",
-				"operation": op,
-			},
-		},
+	updateField, _ := params["update_field"].(string) // scheduled_event only
+	updateKind, _ := params["update_kind"].(string)   // roles only
+
+	payload := map[string]any{
+		"type":      t.Kind,
+		"operation": op,
 	}
-	return emit(evalCtx)
-}
 
-// CompetencyTypeTrigger: now only operation
-func (t *CompetencyTypeTrigger) Fire(ctx context.Context, params map[string]any, emit func(EvalContext) error) error {
-	op, _ := params["operation"].(string)
-	evalCtx := EvalContext{
-		Now: time.Now(),
-		Data: map[string]any{
-			"trigger": map[string]any{
-				"type":      "competency_type",
-				"operation": op,
-			},
-		},
+	// Add kind-specific extras
+	switch t.Kind {
+	case "scheduled_event":
+		if updateField != "" {
+			payload["updateField"] = updateField
+		}
+	case "roles":
+		if updateKind != "" {
+			payload["updateKind"] = updateKind
+		}
 	}
-	return emit(evalCtx)
-}
 
-// CompetencyTrigger: only create|update|deactivate|reactivate
-func (t *CompetencyTrigger) Fire(ctx context.Context, params map[string]any, emit func(EvalContext) error) error {
-	op, _ := params["operation"].(string)
 	evalCtx := EvalContext{
 		Now: time.Now(),
 		Data: map[string]any{
-			"trigger": map[string]any{
-				"type":      "competency",
-				"operation": op,
-			},
-		},
-	}
-	return emit(evalCtx)
-}
-
-// EventDefinitionTrigger: only operation
-func (t *EventDefinitionTrigger) Fire(ctx context.Context, params map[string]any, emit func(EvalContext) error) error {
-	op, _ := params["operation"].(string)
-	evalCtx := EvalContext{
-		Now: time.Now(),
-		Data: map[string]any{
-			"trigger": map[string]any{
-				"type":      "event_definition",
-				"operation": op,
-			},
-		},
-	}
-	return emit(evalCtx)
-}
-
-// ScheduledEventTrigger: operation + update_field
-func (t *ScheduledEventTrigger) Fire(ctx context.Context, params map[string]any, emit func(EvalContext) error) error {
-	op, _ := params["operation"].(string)
-	updateField, _ := params["update_field"].(string)
-	evalCtx := EvalContext{
-		Now: time.Now(),
-		Data: map[string]any{
-			"trigger": map[string]any{
-				"type":        "scheduled_event",
-				"operation":   op,
-				"updateField": updateField,
-			},
-		},
-	}
-	return emit(evalCtx)
-}
-
-// RolesTrigger: operation + update_kind
-func (t *RolesTrigger) Fire(ctx context.Context, params map[string]any, emit func(EvalContext) error) error {
-	op, _ := params["operation"].(string)
-	kind, _ := params["update_kind"].(string)
-	evalCtx := EvalContext{
-		Now: time.Now(),
-		Data: map[string]any{
-			"trigger": map[string]any{
-				"type":       "roles",
-				"operation":  op,
-				"updateKind": kind,
-			},
-		},
-	}
-	return emit(evalCtx)
-}
-
-// New: LinkJobToCompetencyTrigger
-type LinkJobToCompetencyTrigger struct {
-	DB *gorm.DB
-}
-
-func (t *LinkJobToCompetencyTrigger) Fire(ctx context.Context, params map[string]any, emit func(EvalContext) error) error {
-	op, _ := params["operation"].(string) // add|remove
-	evalCtx := EvalContext{
-		Now: time.Now(),
-		Data: map[string]any{
-			"trigger": map[string]any{
-				"type":      "link_job_to_competency",
-				"operation": op,
-			},
-		},
-	}
-	return emit(evalCtx)
-}
-
-// New: CompetencyPrerequisiteTrigger
-type CompetencyPrerequisiteTrigger struct {
-	DB *gorm.DB
-}
-
-func (t *CompetencyPrerequisiteTrigger) Fire(ctx context.Context, params map[string]any, emit func(EvalContext) error) error {
-	op, _ := params["operation"].(string) // add|remove
-	evalCtx := EvalContext{
-		Now: time.Now(),
-		Data: map[string]any{
-			"trigger": map[string]any{
-				"type":      "competency_prerequisite",
-				"operation": op,
-			},
+			"trigger": payload,
 		},
 	}
 	return emit(evalCtx)

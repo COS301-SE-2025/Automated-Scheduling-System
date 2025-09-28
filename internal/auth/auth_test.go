@@ -3,7 +3,9 @@
 package auth
 
 import (
+	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -12,11 +14,14 @@ import (
 	"strings"
 	"testing"
 
+	"Automated-Scheduling-Project/internal/database/gen_models"
+
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 )
@@ -36,6 +41,18 @@ func newMockDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
 
 	require.NoError(t, err)
 	return gormDB, mock
+}
+
+// newSqliteDB creates an in-memory sqlite database and auto-migrates the minimal
+// models required for the auth handlers we want to exercise. Using a real
+// in-memory DB lets us cover success paths that would otherwise require many
+// fragile sqlmock expectations (especially for UPDATE statements with dynamic
+// column ordering).
+func newSqliteDB(t *testing.T) *gorm.DB {
+	gdb, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
+	require.NoError(t, err)
+	require.NoError(t, gdb.AutoMigrate(&gen_models.Employee{}, &gen_models.User{}))
+	return gdb
 }
 
 func ctxWithForm(t *testing.T, db *gorm.DB, method string, form url.Values) (*gin.Context, *httptest.ResponseRecorder) {
@@ -91,6 +108,57 @@ func TestRegisterHandler_Success_Unit(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 	err := mock.ExpectationsWereMet()
 	require.NoError(t, err, "SQL mock expectations were not met")
+}
+
+func TestRegisterHandler_ValidationError_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	// Missing username triggers 400 before any DB usage.
+	form := url.Values{"username": {""}, "email": {testEmail}, "password": {testPassword}}
+	c, rec := ctxWithForm(t, nil, http.MethodPost, form)
+	RegisterHandler(c)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestRegisterHandler_DBError_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+	form := url.Values{"username": {testUsername}, "email": {testEmail}, "password": {testPassword}}
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
+		WithArgs(testEmail, 1).
+		WillReturnError(errors.New("boom"))
+
+	c, rec := ctxWithForm(t, db, http.MethodPost, form)
+	RegisterHandler(c)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRegisterHandler_UserCreationFails_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+	form := url.Values{"username": {testUsername}, "email": {testEmail}, "password": {testPassword}}
+
+	// Employee exists
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
+		WithArgs(testEmail, 1).
+		WillReturnRows(sqlmock.NewRows([]string{"employeenumber", "firstname", "lastname", "useraccountemail", "employeestatus", "phonenumber"}).
+			AddRow(testEmployeeNum, "Alice", "Smith", testEmail, "Active", nil))
+	// No existing user
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "users" WHERE "users"."employee_number" = $1`)).
+		WithArgs(testEmployeeNum).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}))
+	// Transaction with failing INSERT
+	mock.ExpectBegin()
+	mock.ExpectQuery(regexp.QuoteMeta(`INSERT INTO "users"`)).
+		WithArgs(testUsername, sqlmock.AnyArg(), "", "User", testEmployeeNum).
+		WillReturnError(errors.New("insert failed"))
+	mock.ExpectRollback()
+
+	c, rec := ctxWithForm(t, db, http.MethodPost, form)
+	RegisterHandler(c)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestRegisterHandler_Duplicate_Unit(t *testing.T) {
@@ -180,6 +248,28 @@ func TestLoginHandler_Success(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestLoginHandler_MissingFields_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, _ := newMockDB(t)
+	form := url.Values{"email": {""}, "password": {""}}
+	c, rec := ctxWithForm(t, db, http.MethodPost, form)
+	LoginHandler(c)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestLoginHandler_InvalidCredentials_Unit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+	form := url.Values{"email": {testEmail}, "password": {testPassword}}
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE Useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
+		WithArgs(testEmail, 1).
+		WillReturnError(gorm.ErrRecordNotFound)
+	c, rec := ctxWithForm(t, db, http.MethodPost, form)
+	LoginHandler(c)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestLoginHandler_WrongPassword(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db, mock := newMockDB(t)
@@ -266,5 +356,166 @@ func TestProfileHandler_MissingToken(t *testing.T) {
 
 	ProfileHandler(c)
 
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestProfileHandler_InvalidEmailType(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	req, _ := http.NewRequest(http.MethodGet, "/profile", nil)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	c.Set("email", 12345) // not a string
+	ProfileHandler(c)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestProfileHandler_UserNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE Useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
+		WithArgs(testEmail, 1).
+		WillReturnError(gorm.ErrRecordNotFound)
+	req, _ := http.NewRequest(http.MethodGet, "/profile", nil)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	DB = db
+	c.Set("email", testEmail)
+	ProfileHandler(c)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+/* -------------------------------------------------------------------------- */
+/*                       Reset / Forgot Password Handlers                     */
+/* -------------------------------------------------------------------------- */
+
+func TestGenerateResetLinkHandler_BindError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := newSqliteDB(t)
+	DB = db
+	body := bytes.NewBufferString(`{"notEmail":"x"}`) // missing required field
+	req, _ := http.NewRequest(http.MethodPost, "/forgot", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	generateResetLinkHandler(c)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestGenerateResetLinkHandler_EmployeeNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+	// Query returns record not found
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE Useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
+		WithArgs(testEmail, 1).
+		WillReturnError(gorm.ErrRecordNotFound)
+	body := bytes.NewBufferString(`{"email":"` + testEmail + `"}`)
+	req, _ := http.NewRequest(http.MethodPost, "/forgot", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	DB = db
+	generateResetLinkHandler(c)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestGenerateResetLinkHandler_NoUserAccount(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := newSqliteDB(t)
+	require.NoError(t, db.Create(&gen_models.Employee{Employeenumber: testEmployeeNum, Firstname: "Alice", Lastname: "Smith", Useraccountemail: testEmail, Employeestatus: "Active"}).Error)
+	DB = db
+	body := bytes.NewBufferString(`{"email":"` + testEmail + `"}`)
+	req, _ := http.NewRequest(http.MethodPost, "/forgot", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	generateResetLinkHandler(c)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestResetPasswordHandler_BindError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := newSqliteDB(t)
+	DB = db
+	body := bytes.NewBufferString(`{"email":"not-an-email"}`) // missing required fields
+	req, _ := http.NewRequest(http.MethodPost, "/reset", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	resetPasswordHandler(c)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestResetPasswordHandler_UserNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT "employee"."employeenumber","employee"."firstname","employee"."lastname","employee"."useraccountemail","employee"."employeestatus","employee"."phonenumber","employee"."terminationdate" FROM "employee" WHERE useraccountemail = $1 ORDER BY "employee"."employeenumber" LIMIT $2`)).
+		WithArgs(testEmail, 1).
+		WillReturnError(gorm.ErrRecordNotFound)
+	DB = db
+	body := bytes.NewBufferString(`{"email":"` + testEmail + `","password":"newpass","confirmPassword":"newpass"}`)
+	req, _ := http.NewRequest(http.MethodPost, "/reset", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	resetPasswordHandler(c)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestResetPasswordHandler_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := newSqliteDB(t)
+	// Insert employee and related user
+	require.NoError(t, db.Create(&gen_models.Employee{Employeenumber: testEmployeeNum, Firstname: "Alice", Lastname: "Smith", Useraccountemail: testEmail, Employeestatus: "Active"}).Error)
+	hashed, _ := bcrypt.GenerateFromPassword([]byte("oldpass"), bcrypt.DefaultCost)
+	require.NoError(t, db.Create(&gen_models.User{Username: testUsername, Password: string(hashed), Role: "User", EmployeeNumber: testEmployeeNum, ForgotPasswordLink: "abc"}).Error)
+	DB = db
+	body := bytes.NewBufferString(`{"email":"` + testEmail + `","password":"newpass","confirmPassword":"newpass"}`)
+	req, _ := http.NewRequest(http.MethodPost, "/reset", body)
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	resetPasswordHandler(c)
+	require.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestResetPasswordPageHandler_InvalidToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db, mock := newMockDB(t)
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM "users" WHERE forgot_password_link = $1 ORDER BY "users"."id" LIMIT $2`)).
+		WithArgs("badtoken", 1).
+		WillReturnError(gorm.ErrRecordNotFound)
+	DB = db
+	req, _ := http.NewRequest(http.MethodGet, "/reset/badtoken", nil)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Params = append(c.Params, gin.Param{Key: "resetToken", Value: "badtoken"})
+	c.Request = req
+	resetPasswordPageHandler(c)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestResetPasswordPageHandler_ValidToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := newSqliteDB(t)
+	require.NoError(t, db.Create(&gen_models.User{Username: testUsername, Password: "hash", Role: "User", EmployeeNumber: testEmployeeNum, ForgotPasswordLink: "validtoken"}).Error)
+	DB = db
+	req, _ := http.NewRequest(http.MethodGet, "/reset/validtoken", nil)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Params = append(c.Params, gin.Param{Key: "resetToken", Value: "validtoken"})
+	c.Request = req
+	resetPasswordPageHandler(c)
+	require.Equal(t, http.StatusOK, rec.Code)
 }

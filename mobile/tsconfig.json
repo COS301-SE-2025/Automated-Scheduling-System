@@ -1,0 +1,16 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "strict": true,
+    "types": ["jest", "node"],
+    "paths": {
+      "@/components/*": ["./src/components/*"],
+      "@/services/*": ["./src/services/*"],
+      "@/hooks/*": ["./src/hooks/*"],
+      "@/constants/*": ["./src/constants/*"],
+  "@/mock/*": ["./src/mock/*"],
+  "@/contexts/*": ["./src/contexts/*"]
+    }
+  }
+}

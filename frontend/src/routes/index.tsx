@@ -8,6 +8,7 @@ import NotFoundPage from '../pages/NotFoundPage';
 import UsersPage from '../pages/UsersPage';
 import DashboardPage from '../pages/DashboardPage';
 import EmployeeProfilePage from '../pages/EmployeeProfilePage';
+import AdminCompliancePage from '../pages/AdminCompliancePage';
 import CalendarPage from '../pages/CalendarPage';
 import CompetencyPage from '../pages/CompetencyPage';
 import EventsPage from '../pages/EventsPage';
@@ -38,9 +39,15 @@ const ProtectedRouteElement: React.FC = () => {
 
 const PublicAuthRouteElement: React.FC = () => {
     const { isAuthenticated, isLoading } = useAuth();
+    const location = useLocation();
 
     if (isLoading) {
         return <div className="flex justify-center items-center min-h-screen"><div>Loading...</div></div>;
+    }
+    
+    // Allow authenticated users to access forgot password (for password changes)
+    if (isAuthenticated && location.pathname === '/forgot-password') {
+        return <Outlet />;
     }
     
     if (isAuthenticated) {
@@ -115,6 +122,9 @@ const AppRoutes: React.FC = () => {
                 </Route>
                 <Route element={<PageGuard page="event-definitions" />}>
                     <Route path="/event-definitions" element={<EventDefinitionsPage />} />
+                </Route>
+                <Route element={<PageGuard page="compliance dashboard" />}>
+                    <Route path="/admin/compliance" element={<AdminCompliancePage />} />
                 </Route>
             </Route>
             

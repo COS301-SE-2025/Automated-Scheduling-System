@@ -803,29 +803,102 @@ func grantCompetenciesForCompletedSchedule(scheduleID int) {
 	}
 
 	// Remove grants for employees no longer marked attended for this schedule
-	// then insert grants for currently attended employees (idempotent behavior)
-	// 1) Delete rows for this schedule where employee is not in the attended set
+	// Only remove records that were specifically granted by this schedule
+	// If an employee had the competency from another source (job position, etc), 
+	// we should reset their achievement_date to NULL instead of deleting the record
 	if len(empSet) > 0 {
-		// Build slice for NOT IN clause
 		empList := make([]string, 0, len(empSet))
 		for e := range empSet {
 			empList = append(empList, e)
 		}
-		DB.Exec("DELETE FROM employee_competencies WHERE granted_by_schedule_id = ? AND employee_number NOT IN ?", scheduleID, empList)
+		
+		// First, find records that were granted by this schedule for employees no longer attending
+		var recordsToReset []models.EmployeeCompetency
+		DB.Where("granted_by_schedule_id = ? AND employee_number NOT IN ?", scheduleID, empList).
+			Find(&recordsToReset)
+		
+		// Reset achievement_date and granted_by_schedule_id for these records instead of deleting them
+		// This preserves the original competency assignment (from job position, etc.)
+		for _, record := range recordsToReset {
+			record.AchievementDate = nil
+			record.GrantedByScheduleID = nil
+			record.ExpiryDate = nil
+			record.Notes = "" // Clear the event completion note
+			DB.Save(&record)
+		}
 	} else {
-		// If no attendees, remove any existing grants from this schedule
-		DB.Exec("DELETE FROM employee_competencies WHERE granted_by_schedule_id = ?", scheduleID)
+		// No employees attended - reset all records granted by this schedule
+		var recordsToReset []models.EmployeeCompetency
+		DB.Where("granted_by_schedule_id = ?", scheduleID).Find(&recordsToReset)
+		
+		for _, record := range recordsToReset {
+			record.AchievementDate = nil
+			record.GrantedByScheduleID = nil
+			record.ExpiryDate = nil
+			record.Notes = "" // Clear the event completion note
+			DB.Save(&record)
+		}
 	}
 
-	// 2) Insert EmployeeCompetency for each attended employee if not already present for this schedule
+	// Preload competency definition for expiry calculation
+	var compDef models.CompetencyDefinition
+	_ = DB.First(&compDef, compID).Error
+
+	now := time.Now().UTC()
+	achDate := now
+
+	// Calculate expiry date based on achievement date and competency definition
+	var expiry *time.Time
+	if compDef.ExpiryPeriodMonths != nil {
+		e := achDate.AddDate(0, *compDef.ExpiryPeriodMonths, 0)
+		expiry = &e
+	}
+
+	// Grant competencies to attended employees
 	for emp := range empSet {
-		// check existing record for this competency & schedule
-		var cnt int64
-		DB.Table("employee_competencies").Where("employee_number = ? AND competency_id = ? AND (granted_by_schedule_id = ? OR granted_by_schedule_id IS NULL)", emp, compID, scheduleID).Count(&cnt)
-		// grant new record
-		if cnt == 0 {
-			ec := models.EmployeeCompetency{EmployeeNumber: emp, CompetencyID: compID, AchievementDate: time.Now(), GrantedByScheduleID: &scheduleID}
-			_ = DB.Create(&ec).Error
+		// Check if employee already has ANY record for this competency (regardless of schedule)
+		var existingCompetency models.EmployeeCompetency
+		err := DB.Where("employee_number = ? AND competency_id = ?", emp, compID).
+			Order("employee_competency_id ASC"). // Get the first/oldest record if multiple exist
+			First(&existingCompetency).Error
+
+		if err != nil && err == gorm.ErrRecordNotFound {
+			// No existing record at all, create new competency grant
+			ec := models.EmployeeCompetency{
+				EmployeeNumber:      emp,
+				CompetencyID:        compID,
+				AchievementDate:     &achDate,
+				ExpiryDate:          expiry,
+				GrantedByScheduleID: &scheduleID,
+				Notes:               fmt.Sprintf("Competency granted by completing event: %s", schedule.Title),
+			}
+			
+			// Handle potential unique constraint violations (employee_number, competency_id, achievement_date)
+			// Try to create the record, if it fails due to unique constraint, update the existing record
+			if err := DB.Create(&ec).Error; err != nil {
+				// If creation fails, it might be due to the unique constraint
+				// Check if there's already a competency for this employee/competency on the same date
+				var existingOnDate models.EmployeeCompetency
+				existingErr := DB.Where("employee_number = ? AND competency_id = ? AND achievement_date = ?", 
+					emp, compID, achDate.Format("2006-01-02")).First(&existingOnDate).Error
+				
+				if existingErr == nil {
+					// Found existing competency on same date, update it to be granted by this schedule
+					existingOnDate.GrantedByScheduleID = &scheduleID
+					existingOnDate.Notes = fmt.Sprintf("Competency granted by completing event: %s", schedule.Title)
+					if existingOnDate.ExpiryDate == nil && expiry != nil {
+						existingOnDate.ExpiryDate = expiry
+					}
+					_ = DB.Save(&existingOnDate).Error
+				}
+			}
+		} else if err == nil {
+			// Found existing record - update it to mark as completed
+			existingCompetency.AchievementDate = &achDate
+			existingCompetency.ExpiryDate = expiry
+			existingCompetency.GrantedByScheduleID = &scheduleID
+			existingCompetency.Notes = fmt.Sprintf("Competency granted by completing event: %s", schedule.Title)
+			_ = DB.Save(&existingCompetency).Error
 		}
 	}
 }
@@ -879,16 +952,22 @@ func CheckEmployeesHaveCompetency(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"result": map[string]bool{}})
 		return
 	}
+	
+	// Query for completed competencies (achievement_date IS NOT NULL)
+	// This aligns with the system's logic where NULL achievement_date means competency is required but not completed
 	rows := []struct{ EmployeeNumber string }{}
 	DB.Table("employee_competencies").
 		Select("employee_number").
-		Where("competency_id = ? AND employee_number IN ?", req.CompetencyID, req.EmployeeNumbers).
+		Where("competency_id = ? AND employee_number IN ? AND achievement_date IS NOT NULL", req.CompetencyID, req.EmployeeNumbers).
 		Group("employee_number").
 		Scan(&rows)
+	
+	// Initialize all employees as not having the competency
 	m := map[string]bool{}
 	for _, e := range req.EmployeeNumbers {
 		m[e] = false
 	}
+	// Mark employees who have completed the competency as true
 	for _, r := range rows {
 		m[r.EmployeeNumber] = true
 	}

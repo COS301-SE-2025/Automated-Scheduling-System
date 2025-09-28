@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"Automated-Scheduling-Project/internal/database/models"
+	rsched "Automated-Scheduling-Project/internal/rulesV2/scheduler"
 
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -15,26 +16,59 @@ import (
 
 // RuleBackEndService orchestrates the rules engine with job matrix operations
 type RuleBackEndService struct {
-	DB     *gorm.DB
-	Engine *Engine
-	Store  *DbRuleStore
+	DB        *gorm.DB
+	Engine    *Engine
+	Store     *DbRuleStore
+	Scheduler *rsched.Service
+}
+
+// scheduler store adapter to avoid import cycles
+type schedStoreAdapter struct{ inner *DbRuleStore }
+
+func (a *schedStoreAdapter) ListByTrigger(ctx context.Context, triggerType string) ([]rsched.Rule, error) {
+	// Query DB rows directly so we have IDs for stable scheduling keys
+	var rows []models.Rule
+	if err := a.inner.DB.WithContext(ctx).
+		Where("trigger_type = ? AND enabled = ?", triggerType, true).
+		Order("id ASC").
+		Find(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	out := make([]rsched.Rule, 0, len(rows))
+	for _, r := range rows {
+		var spec Rulev2
+		if err := json.Unmarshal(r.Spec, &spec); err != nil {
+			log.Printf("Failed to unmarshal rule id=%d: %v", r.ID, err)
+			continue
+		}
+		out = append(out, rsched.Rule{
+			ID:   strconv.FormatUint(uint64(r.ID), 10),
+			Name: r.Name,
+			Trigger: rsched.TriggerSpec{
+				Type:       spec.Trigger.Type,
+				Parameters: spec.Trigger.Parameters,
+			},
+			Obj: spec, // carry full Rulev2 for evaluation
+		})
+	}
+	return out, nil
 }
 
 // NewRuleBackEndService creates a new integration service with all components wired
 func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 	registry := NewRegistryWithDefaults().
-		UseFactResolver(EmployeeFacts{}).
-		UseFactResolver(CompetencyFacts{}).
-		UseFactResolver(EventFacts{}).
-		UseFactResolver(DomainFacts{}).
-		UseTrigger("job_position", &JobPositionTrigger{DB: db}).
-		UseTrigger("competency_type", &CompetencyTypeTrigger{DB: db}).
-		UseTrigger("competency", &CompetencyTrigger{DB: db}).
-		UseTrigger("event_definition", &EventDefinitionTrigger{DB: db}).
-		UseTrigger("scheduled_event", &ScheduledEventTrigger{DB: db}).
-		UseTrigger("roles", &RolesTrigger{DB: db}).
-		UseTrigger("link_job_to_competency", &LinkJobToCompetencyTrigger{DB: db}).
-		UseTrigger("competency_prerequisite", &CompetencyPrerequisiteTrigger{DB: db}).
+		UseFactResolver(UnifiedFacts{}). // single resolver
+		UseTrigger("job_position", NewTrigger(db, "job_position")).
+		UseTrigger("competency_type", NewTrigger(db, "competency_type")).
+		UseTrigger("competency", NewTrigger(db, "competency")).
+		UseTrigger("event_definition", NewTrigger(db, "event_definition")).
+		UseTrigger("scheduled_event", NewTrigger(db, "scheduled_event")).
+		UseTrigger("roles", NewTrigger(db, "roles")).
+		UseTrigger("link_job_to_competency", NewTrigger(db, "link_job_to_competency")).
+		UseTrigger("competency_prerequisite", NewTrigger(db, "competency_prerequisite")).
+		UseTrigger("scheduled_time", NewTrigger(db, "scheduled_time")).
+		UseTrigger("relative_time", NewTrigger(db, "relative_time")).
 		UseAction("notification", &NotificationAction{DB: db}).
 		// UseAction("schedule_training", &ScheduleTrainingAction{DB: db}).
 		UseAction("competency_assignment", &CompetencyAssignmentAction{DB: db}).
@@ -49,18 +83,38 @@ func NewRuleBackEndService(db *gorm.DB) *RuleBackEndService {
 		Debug:                   true,
 	}
 
-	// ensure rules table exists
-	if err := db.AutoMigrate(&models.Rule{}); err != nil {
-		panic(err)
-	}
-
 	store := &DbRuleStore{DB: db}
 
-	return &RuleBackEndService{
-		DB:     db,
-		Engine: engine,
-		Store:  store,
+	// evaluator adapter: convert scheduler.EvalContext to rulesv2.EvalContext and evaluate the carried rule
+	evalFn := func(ev rsched.EvalContext, rule any) error {
+		rr, ok := rule.(Rulev2)
+		if !ok {
+			return nil
+		}
+		return engine.EvaluateOnce(EvalContext{
+			Now:  ev.Now,
+			Data: ev.Data,
+		}, rr)
 	}
+
+	sched := rsched.New(db, &schedStoreAdapter{inner: store}, evalFn)
+
+	return &RuleBackEndService{
+		DB:        db,
+		Engine:    engine,
+		Store:     store,
+		Scheduler: sched,
+	}
+}
+
+// StartScheduler starts the background scheduler/poller.
+func (s *RuleBackEndService) StartScheduler(ctx context.Context) error {
+	return s.Scheduler.Start(ctx)
+}
+
+// StopScheduler stops the background scheduler/poller.
+func (s *RuleBackEndService) StopScheduler(ctx context.Context) error {
+	return s.Scheduler.Stop(ctx)
 }
 
 // DbRuleStore implements RuleStore interface for database persistence (uses models.Rule -> table "rules")
@@ -331,4 +385,61 @@ func (s *RuleBackEndService) OnCompetencyPrerequisite(ctx context.Context, opera
 		data["competency"] = competency
 	}
 	return DispatchEvent(ctx, s.Engine, s.Store, "competency_prerequisite", data)
+}
+
+// Convenience wrappers so we can (un)schedule on rule changes
+
+func (s *RuleBackEndService) CreateRule(ctx context.Context, rule Rulev2) (string, error) {
+	id, err := s.Store.CreateRule(ctx, rule)
+	if err != nil {
+		return "", err
+	}
+	// Schedule immediately if scheduled_time
+	if s.Scheduler != nil && rule.Trigger.Type == "scheduled_time" {
+		if err := s.Scheduler.ScheduleFixedRule(id, rule.Name, rule.Trigger.Parameters, rule); err != nil {
+			log.Printf("CreateRule schedule error id=%s: %v", id, err)
+		}
+	}
+	return id, nil
+}
+
+func (s *RuleBackEndService) UpdateRule(ctx context.Context, ruleID string, rule Rulev2) error {
+	if err := s.Store.UpdateRule(ctx, ruleID, rule); err != nil {
+		return err
+	}
+	if s.Scheduler != nil {
+		if rule.Trigger.Type == "scheduled_time" {
+			if err := s.Scheduler.ScheduleFixedRule(ruleID, rule.Name, rule.Trigger.Parameters, rule); err != nil {
+				log.Printf("UpdateRule schedule error id=%s: %v", ruleID, err)
+			}
+		} else {
+			s.Scheduler.UnscheduleFixedRule(ruleID)
+		}
+	}
+	return nil
+}
+
+func (s *RuleBackEndService) EnableRule(ctx context.Context, ruleID string, enabled bool) error {
+	if err := s.Store.EnableRule(ctx, ruleID, enabled); err != nil {
+		return err
+	}
+	if s.Scheduler == nil {
+		return nil
+	}
+	if enabled {
+		// Fetch the rule and schedule if it's scheduled_time
+		spec, err := s.Store.GetRuleByID(ctx, ruleID)
+		if err != nil {
+			return err
+		}
+		if spec.Trigger.Type == "scheduled_time" {
+			if err := s.Scheduler.ScheduleFixedRule(ruleID, spec.Name, spec.Trigger.Parameters, *spec); err != nil {
+				log.Printf("EnableRule schedule error id=%s: %v", ruleID, err)
+			}
+		}
+	} else {
+		// Unschedule on disable
+		s.Scheduler.UnscheduleFixedRule(ruleID)
+	}
+	return nil
 }

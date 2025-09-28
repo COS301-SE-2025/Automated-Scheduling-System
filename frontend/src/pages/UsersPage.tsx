@@ -5,11 +5,14 @@ import UserFilters from '../components/users/UserFilters';
 import MainLayout from '../layouts/MainLayout';
 import UserModal from '../components/users/UserModal';
 import * as userService from '../services/userService';
+import * as competencyService from '../services/competencyService';
 import { useAuth } from '../hooks/useAuth';
 import type { User, AddUserData, UpdateUserData } from '../types/user';
 import { ApiError } from '../services/api';
 import { getAllRoles } from '../services/roleService';
 import Button from '../components/ui/Button';
+import type { Competency } from '../types/competency';
+import { getAllJobPositions, type JobPosition } from '../services/jobPositionService';
 
 const UsersPage: React.FC = () => {
     // Page-level state
@@ -31,6 +34,9 @@ const UsersPage: React.FC = () => {
     const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
     const [modalApiError, setModalApiError] = useState<string | null>(null);
     const [allRoleNames, setAllRoleNames] = useState<string[]>([]);
+    const [allCompetencies, setAllCompetencies] = useState<Competency[]>([]);
+    const [jobPositions, setJobPositions] = useState<JobPosition[]>([]);
+    const [expandedUserPanel, setExpandedUserPanel] = useState<{ userId: number; panel: 'competencies' | 'positions' } | null>(null);
 
     // Fetch initial user data
     useEffect(() => {
@@ -43,11 +49,13 @@ const UsersPage: React.FC = () => {
             setIsLoading(true);
             setPageError(null);
             try {
-                const [apiUsers, roles] = await Promise.all([
+                const [apiUsers, roles, comps] = await Promise.all([
                     userService.getAllUsers(),
                     getAllRoles().catch(() => []),
+                    competencyService.getAllCompetencies().catch(() => [])
                 ]);
                 setUsers(apiUsers);
+                setAllCompetencies(comps);
                 if (roles && roles.length > 0) {
                     setAllRoleNames(roles.map(r => r.name).sort());
                 } else {
@@ -55,6 +63,8 @@ const UsersPage: React.FC = () => {
                     const derived = Array.from(new Set(apiUsers.map(u => u.role)));
                     setAllRoleNames(derived.sort());
                 }
+                const positions = await getAllJobPositions().catch(() => []);
+                setJobPositions(positions);
             } catch (err) {
                 if (err instanceof ApiError) {
                     setPageError(err.data?.error || err.message);
@@ -73,7 +83,7 @@ const UsersPage: React.FC = () => {
     const availableFilterOptions = useMemo(() => {
         const statuses = new Set(users.map(user => user.employeeStatus));
         return {
-        roles: allRoleNames,
+            roles: allRoleNames,
             statuses: Array.from(statuses).sort(),
         };
     }, [users, allRoleNames]);
@@ -164,7 +174,7 @@ const UsersPage: React.FC = () => {
     }
 
     return (
-        <MainLayout pageTitle="Users" helpText="Manage user accounts, view details, and update roles and access permissions for your organization.">
+        <MainLayout pageTitle="Users" helpText="Manage user accounts, view details, competencies, and update roles and access permissions for your organization.">
             <div className="px-4 sm:px-6 lg:px-8 py-8">
                 <div className="sm:flex sm:items-center">
                     <div className="sm:flex-auto">
@@ -194,6 +204,16 @@ const UsersPage: React.FC = () => {
                     isLoading={isLoading}
                     onEdit={handleOpenEditModal}
                     onDelete={(user) => alert(`Delete functionality for ${user.name} is not yet implemented.`)}
+                    allCompetencies={allCompetencies}
+                    jobPositions={jobPositions}
+                    expandedUserPanel={expandedUserPanel}
+                    onTogglePanel={(userId, panel) =>
+                        setExpandedUserPanel(prev =>
+                            prev && prev.userId === userId && prev.panel === panel
+                                ? null
+                                : { userId, panel }
+                        )
+                    }
                 />
             </div>
 
@@ -203,7 +223,6 @@ const UsersPage: React.FC = () => {
                 onSave={handleSaveUser}
                 mode={modalMode}
                 user={editingUser}
-                // 4. Pass the modalApiError state as a prop
                 apiError={modalApiError}
             />
         </MainLayout>

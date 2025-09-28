@@ -30,8 +30,8 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({ isOpen, onClose, ev
             year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
         });
     };
-    // New RBAC: use server-provided flags for edit/delete rights.
-    const canManage = !!event?.extendedProps?.canEdit;
+    // New RBAC: use server-provided flags for edit/delete rights. Require strict true.
+    const canManage = event?.extendedProps?.canEdit === true;
 
     const DetailItem: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => {
         const isElement = React.isValidElement(value);

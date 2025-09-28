@@ -4,6 +4,8 @@ import (
 	"Automated-Scheduling-Project/internal/auth"
 	"Automated-Scheduling-Project/internal/competency"
 	"Automated-Scheduling-Project/internal/competency_type"
+	"Automated-Scheduling-Project/internal/employee_competencies"
+	"Automated-Scheduling-Project/internal/employment_history"
 	"Automated-Scheduling-Project/internal/event"
 	"Automated-Scheduling-Project/internal/jobposition"
 	"Automated-Scheduling-Project/internal/matrix"
@@ -13,6 +15,7 @@ import (
 	"Automated-Scheduling-Project/internal/user"
 
 	"net/http"
+	"os"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -21,23 +24,37 @@ import (
 func (s *Server) RegisterRoutes() http.Handler {
 	r := gin.Default()
 
-	// This middleware should run first to handle OPTIONS requests and add
-	// CORS headers to all responses, even error responses from other middleware.
-	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{
-			"http://localhost:5173",
-			"http://127.0.0.1:5173",
-			"http://schedulingsystem.app", // Production
-			"https://schedulingsystem.app",
-			"http://schedulingsystem.me", // Production
-			"https://schedulingsystem.me",
-		},
-
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-	}))
+	// Apply CORS: explicit safelist in production; permissive in all other environments
+	if os.Getenv("APP_ENV") == "production" {
+		// Explicit allowed origins for production deployment
+		r.Use(cors.New(cors.Config{
+			AllowOrigins: []string{
+				"http://localhost:5173",
+				"http://127.0.0.1:5173",
+				"http://localhost:8081",
+				"http://127.0.0.1:8081",
+				"http://172.27.170.118:8081",
+				"http://schedulingsystem.app",
+				"https://schedulingsystem.app",
+				"http://schedulingsystem.me",
+				"https://schedulingsystem.me",
+				"https://trp7ate-anonymous-8081.exp.direct",
+			},
+			AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+			AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+			ExposeHeaders:    []string{"Content-Length"},
+			AllowCredentials: true,
+		}))
+	} else {
+		// Non-production: allow any origin for easier local / mobile dev
+		r.Use(cors.New(cors.Config{
+			AllowAllOrigins:  true,
+			AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+			AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
+			ExposeHeaders:    []string{"Content-Length"},
+			AllowCredentials: true,
+		}))
+	}
 
 	r.GET("/", s.HelloWorldHandler)
 	r.GET("/health", s.healthHandler)
@@ -51,6 +68,8 @@ func (s *Server) RegisterRoutes() http.Handler {
 	competency_type.RegisterCompetencyTypeRoutes(r)
 	jobposition.RegisterJobPositionRoutes(r)
 	profile.RegisterProfileRoutes(r)
+	employee_competencies.RegisterEmployeeCompetencyRoutes(r)
+	employment_history.RegisterEmploymentHistoryRoutes(r)
 	rulesv2.RegisterRulesRoutes(r, s.rulesService)
 
 	return r

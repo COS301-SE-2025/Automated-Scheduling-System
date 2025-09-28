@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 
+	"Automated-Scheduling-Project/internal/database/gen_models"
+
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/bcrypt"
@@ -18,16 +20,16 @@ import (
 	"gorm.io/gorm"
 )
 
-type Employee struct {
-	Employeenumber   string `gorm:"primaryKey"`
-	Firstname        string
-	Lastname         string
-	Useraccountemail string `gorm:"unique"`
-	Employeestatus   string
-	TerminationDate  *string `gorm:"column:TerminationDate"`
-}
+// type Employee struct {
+// 	Employeenumber   string `gorm:"primaryKey"`
+// 	Firstname        string
+// 	Lastname         string
+// 	Useraccountemail string `gorm:"unique"`
+// 	Employeestatus   string
+// 	TerminationDate  *string `gorm:"column:TerminationDate"`
+// }
 
-func (Employee) TableName() string { return "employee" }
+// func (gen_models.Employee) TableName() string { return "employee" }
 
 type User struct {
 	ID                 uint `gorm:"primaryKey"`
@@ -52,30 +54,30 @@ const (
 func setupAuthTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open("file::memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&Employee{}, &User{}))
+	require.NoError(t, db.AutoMigrate(&gen_models.Employee{}, &User{}))
 	DB = db
 	return db
 }
 
-func seedAuthTestDB(t *testing.T, db *gorm.DB) (User, Employee) {
+func seedAuthTestDB(t *testing.T, db *gorm.DB) (User, gen_models.Employee) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(testIntPassword), bcrypt.DefaultCost)
 	require.NoError(t, err)
 
-	employeeWithUser := Employee{
+	employeeWithUser := gen_models.Employee{
 		Employeenumber:   testIntEmployeeNum,
 		Firstname:        "Integration",
 		Lastname:         "User",
 		Useraccountemail: testIntEmail,
 		Employeestatus:   "Active",
 	}
-	employeeWithoutUser := Employee{
+	employeeWithoutUser := gen_models.Employee{
 		Employeenumber:   unusedEmployeeNum,
 		Firstname:        "New",
 		Lastname:         "Hire",
 		Useraccountemail: unusedEmployeeEmail,
 		Employeestatus:   "Active",
 	}
-	require.NoError(t, db.Create(&[]Employee{employeeWithUser, employeeWithoutUser}).Error)
+	require.NoError(t, db.Create(&[]gen_models.Employee{employeeWithUser, employeeWithoutUser}).Error)
 
 	user := User{
 		EmployeeNumber: testIntEmployeeNum,

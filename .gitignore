@@ -34,9 +34,15 @@ main
 
 # Nix
 shell.nix
+frontend/flake.nix
 
 #PostGres
 .pgdata
 .pgsocket
 
 temp
+
+coverage
+# No NixOS related files should ever be tracked
+**/*.nix
+flake.lock

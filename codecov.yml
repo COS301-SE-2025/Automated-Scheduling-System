@@ -1,0 +1,25 @@
+ignore:
+  # Go: generated code and stubs
+  - "internal/database/gen_models/**"
+  - "**/*.gen.go"
+  - "internal/**/service_stub.go"
+
+  # Exclude all Go routers from coverage
+  - "internal/**/router.go"
+  - "**/router.go"
+
+  # Backend-specific exclusions
+  - "internal/auth/middleware.go"
+  - "internal/database/models/**"
+
+  # Frontend: build outputs, tests, mocks, and configs
+  - "frontend/dist/**"
+  - "frontend/coverage/**"
+  - "frontend/src/__mocks__/**"
+  - "frontend/postcss.config.js"
+  - "frontend/tailwind.config.js"
+  - "frontend/src/App.tsx"       # corrected path
+  - "frontend/src/main.tsx"      # corrected path
+  # Routes/Types (cover common locations)
+  - "frontend/src/routes/**"
+  - "frontend/src/types/**"

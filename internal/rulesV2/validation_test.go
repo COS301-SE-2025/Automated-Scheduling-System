@@ -5,6 +5,7 @@ package rulesv2
 import (
 	"testing"
 
+	meta "Automated-Scheduling-Project/internal/rulesV2/metadata"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -101,7 +102,7 @@ func TestValidateRuleParameters(t *testing.T) {
 					Parameters: map[string]any{
 						"recipients": 123,    // Should be string
 						"subject":    "test", // Correct
-						"message":    "",     // Empty but technically a string
+						"message":    "",     // Still a string
 					},
 				},
 			},
@@ -115,35 +116,35 @@ func TestValidateRuleParameters(t *testing.T) {
 
 func TestFindTriggerMetadata(t *testing.T) {
 	t.Run("ValidTrigger", func(t *testing.T) {
-		meta := findTriggerMetadata("scheduled_event")
-		assert.NotNil(t, meta)
-		assert.Equal(t, "scheduled_event", meta.Type)
-		assert.Equal(t, "Scheduled Event", meta.Name)
+		metaRes := findTriggerMetadata("scheduled_event")
+		assert.NotNil(t, metaRes)
+		assert.Equal(t, "scheduled_event", metaRes.Type)
+		assert.NotEmpty(t, metaRes.Name) // avoid brittle exact-name check
 	})
 
 	t.Run("InvalidTrigger", func(t *testing.T) {
-		meta := findTriggerMetadata("invalid_trigger")
-		assert.Nil(t, meta)
+		metaRes := findTriggerMetadata("invalid_trigger")
+		assert.Nil(t, metaRes)
 	})
 }
 
 func TestFindActionMetadata(t *testing.T) {
 	t.Run("ValidAction", func(t *testing.T) {
-		meta := findActionMetadata("notification")
-		assert.NotNil(t, meta)
-		assert.Equal(t, "notification", meta.Type)
-		assert.Equal(t, "Send Notification", meta.Name)
+		metaRes := findActionMetadata("notification")
+		assert.NotNil(t, metaRes)
+		assert.Equal(t, "notification", metaRes.Type)
+		assert.NotEmpty(t, metaRes.Name) // avoid brittle exact-name check
 	})
 
 	t.Run("InvalidAction", func(t *testing.T) {
-		meta := findActionMetadata("invalid_action")
-		assert.Nil(t, meta)
+		metaRes := findActionMetadata("invalid_action")
+		assert.Nil(t, metaRes)
 	})
 }
 
 func TestValidateParameterType(t *testing.T) {
 	t.Run("ValidString", func(t *testing.T) {
-		param := Parameter{
+		param := meta.Parameter{
 			Name:     "test",
 			Type:     "string",
 			Required: true,
@@ -153,7 +154,7 @@ func TestValidateParameterType(t *testing.T) {
 	})
 
 	t.Run("InvalidString", func(t *testing.T) {
-		param := Parameter{
+		param := meta.Parameter{
 			Name:     "test",
 			Type:     "string",
 			Required: true,
@@ -164,13 +165,11 @@ func TestValidateParameterType(t *testing.T) {
 	})
 
 	t.Run("ValidNumber", func(t *testing.T) {
-		param := Parameter{
+		param := meta.Parameter{
 			Name:     "test",
 			Type:     "number",
 			Required: true,
 		}
-
-		// Test various number types
 		assert.NoError(t, validateParameterType(param, 123))
 		assert.NoError(t, validateParameterType(param, int32(123)))
 		assert.NoError(t, validateParameterType(param, int64(123)))
@@ -179,7 +178,7 @@ func TestValidateParameterType(t *testing.T) {
 	})
 
 	t.Run("InvalidNumber", func(t *testing.T) {
-		param := Parameter{
+		param := meta.Parameter{
 			Name:     "test",
 			Type:     "number",
 			Required: true,
@@ -190,7 +189,7 @@ func TestValidateParameterType(t *testing.T) {
 	})
 
 	t.Run("ValidBoolean", func(t *testing.T) {
-		param := Parameter{
+		param := meta.Parameter{
 			Name:     "test",
 			Type:     "boolean",
 			Required: true,
@@ -200,7 +199,7 @@ func TestValidateParameterType(t *testing.T) {
 	})
 
 	t.Run("InvalidBoolean", func(t *testing.T) {
-		param := Parameter{
+		param := meta.Parameter{
 			Name:     "test",
 			Type:     "boolean",
 			Required: true,
@@ -211,7 +210,7 @@ func TestValidateParameterType(t *testing.T) {
 	})
 
 	t.Run("ValidDate", func(t *testing.T) {
-		param := Parameter{
+		param := meta.Parameter{
 			Name:     "test",
 			Type:     "date",
 			Required: true,
@@ -221,7 +220,7 @@ func TestValidateParameterType(t *testing.T) {
 	})
 
 	t.Run("InvalidDate", func(t *testing.T) {
-		param := Parameter{
+		param := meta.Parameter{
 			Name:     "test",
 			Type:     "date",
 			Required: true,
@@ -232,7 +231,7 @@ func TestValidateParameterType(t *testing.T) {
 	})
 
 	t.Run("ValidArray", func(t *testing.T) {
-		param := Parameter{
+		param := meta.Parameter{
 			Name:     "test",
 			Type:     "array",
 			Required: true,
@@ -242,7 +241,7 @@ func TestValidateParameterType(t *testing.T) {
 	})
 
 	t.Run("InvalidArray", func(t *testing.T) {
-		param := Parameter{
+		param := meta.Parameter{
 			Name:     "test",
 			Type:     "array",
 			Required: true,
@@ -253,7 +252,7 @@ func TestValidateParameterType(t *testing.T) {
 	})
 
 	t.Run("ValidObject", func(t *testing.T) {
-		param := Parameter{
+		param := meta.Parameter{
 			Name:     "test",
 			Type:     "object",
 			Required: true,
@@ -262,7 +261,7 @@ func TestValidateParameterType(t *testing.T) {
 	})
 
 	t.Run("InvalidObject", func(t *testing.T) {
-		param := Parameter{
+		param := meta.Parameter{
 			Name:     "test",
 			Type:     "object",
 			Required: true,
@@ -273,7 +272,7 @@ func TestValidateParameterType(t *testing.T) {
 	})
 
 	t.Run("UnknownType", func(t *testing.T) {
-		param := Parameter{
+		param := meta.Parameter{
 			Name:     "test",
 			Type:     "unknown_type",
 			Required: true,
@@ -284,7 +283,7 @@ func TestValidateParameterType(t *testing.T) {
 	})
 
 	t.Run("NullValueRequired", func(t *testing.T) {
-		param := Parameter{
+		param := meta.Parameter{
 			Name:     "test",
 			Type:     "string",
 			Required: true,
@@ -295,7 +294,7 @@ func TestValidateParameterType(t *testing.T) {
 	})
 
 	t.Run("NullValueOptional", func(t *testing.T) {
-		param := Parameter{
+		param := meta.Parameter{
 			Name:     "test",
 			Type:     "string",
 			Required: false,

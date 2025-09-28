@@ -106,6 +106,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         'dashboard': 'dashboard',
                                         'users': 'users',
                                         'roles': 'roles',
+                                        'compliance dashboard': 'compliance dashboard', // Map to correct permission
                                         'calendar': 'calendar',
                                         'event definitions': 'event-definitions',
                                         'events': 'events',

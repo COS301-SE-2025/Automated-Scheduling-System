@@ -2,9 +2,12 @@ package rulesv2
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"time"
+
+	meta "Automated-Scheduling-Project/internal/rulesV2/metadata"
 )
 
 // ValidationError represents a parameter validation error
@@ -74,8 +77,8 @@ func ValidateRuleParameters(rule Rulev2) ValidationResult {
 }
 
 // findTriggerMetadata finds metadata for a specific trigger type
-func findTriggerMetadata(triggerType string) *TriggerMetadata {
-	triggers := getTriggerMetadata()
+func findTriggerMetadata(triggerType string) *meta.TriggerMetadata {
+	triggers := meta.GetTriggerMetadata()
 	for _, trigger := range triggers {
 		if trigger.Type == triggerType {
 			return &trigger
@@ -85,8 +88,8 @@ func findTriggerMetadata(triggerType string) *TriggerMetadata {
 }
 
 // findActionMetadata finds metadata for a specific action type
-func findActionMetadata(actionType string) *ActionMetadata {
-	actions := getActionMetadata()
+func findActionMetadata(actionType string) *meta.ActionMetadata {
+	actions := meta.GetActionMetadata()
 	for _, action := range actions {
 		if action.Type == actionType {
 			return &action
@@ -96,7 +99,7 @@ func findActionMetadata(actionType string) *ActionMetadata {
 }
 
 // validateParameter validates a single parameter against its metadata
-func validateParameter(param Parameter, params map[string]any) error {
+func validateParameter(param meta.Parameter, params map[string]any) error {
 	value, exists := params[param.Name]
 
 	// Check if required parameter is missing
@@ -133,7 +136,7 @@ func validateParameter(param Parameter, params map[string]any) error {
 }
 
 // validateParameterType validates that a parameter value matches its expected type
-func validateParameterType(param Parameter, value any) error {
+func validateParameterType(param meta.Parameter, value any) error {
 	if value == nil {
 		if param.Required {
 			return fmt.Errorf("parameter '%s' cannot be null", param.Name)
@@ -149,9 +152,23 @@ func validateParameterType(param Parameter, value any) error {
 	case "number":
 		switch value.(type) {
 		case int, int32, int64, float32, float64:
-			// Valid number types
 		default:
 			return fmt.Errorf("parameter '%s' must be a number, got %T", param.Name, value)
+		}
+	case "integer":
+		switch v := value.(type) {
+		case int, int32, int64:
+			// ok
+		case float64:
+			if v != math.Trunc(v) {
+				return fmt.Errorf("parameter '%s' must be an integer, got %v", param.Name, v)
+			}
+		case float32:
+			if float64(v) != math.Trunc(float64(v)) {
+				return fmt.Errorf("parameter '%s' must be an integer, got %v", param.Name, v)
+			}
+		default:
+			return fmt.Errorf("parameter '%s' must be an integer, got %T", param.Name, value)
 		}
 	case "boolean":
 		if _, ok := value.(bool); !ok {
@@ -167,6 +184,15 @@ func validateParameterType(param Parameter, value any) error {
 			}
 		} else if _, ok := value.(time.Time); !ok {
 			return fmt.Errorf("parameter '%s' must be a date string or time.Time, got %T", param.Name, value)
+		}
+	case "time":
+		// "HH:MM" 24h
+		if str, ok := value.(string); ok {
+			if _, err := time.Parse("15:04", str); err != nil {
+				return fmt.Errorf("parameter '%s' must be a valid time in HH:MM (24h) format", param.Name)
+			}
+		} else {
+			return fmt.Errorf("parameter '%s' must be a time string (HH:MM), got %T", param.Name, value)
 		}
 	case "array":
 		if reflect.TypeOf(value).Kind() != reflect.Slice {

@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "employeeNumber": "EMP001",
+    "username": "john.doe",
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "terminationDate": null,
+    "employeeStatus": "Active",
+    "role": "Admin"
+  },
+  {
+    "id": 2,
+    "employeeNumber": "EMP002", 
+    "username": "jane.smith",
+    "name": "Jane Smith",
+    "email": "jane.smith@example.com",
+    "terminationDate": null,
+    "employeeStatus": "Active",
+    "role": "Manager"
+  },
+  {
+    "id": 3,
+    "employeeNumber": "EMP003",
+    "username": "bob.johnson", 
+    "name": "Bob Johnson",
+    "email": "bob.johnson@example.com",
+    "terminationDate": null,
+    "employeeStatus": "Inactive",
+    "role": "Developer"
+  }
+]

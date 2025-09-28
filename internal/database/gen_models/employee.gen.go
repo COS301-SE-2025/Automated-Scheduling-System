@@ -12,13 +12,13 @@ const TableNameEmployee = "employee"
 
 // Employee mapped from table <employee>
 type Employee struct {
-	Employeenumber   string    `gorm:"column:employeenumber;primaryKey" json:"employeenumber"`
-	Firstname        string    `gorm:"column:firstname" json:"firstname"`
-	Lastname         string    `gorm:"column:lastname" json:"lastname"`
-	Useraccountemail string    `gorm:"column:useraccountemail;not null" json:"useraccountemail"`
-	Employeestatus   string    `gorm:"column:employeestatus" json:"employeestatus"`
-	PhoneNumber      string    `gorm:"column:phonenumber" json:"phonenumber"`
-	Terminationdate  time.Time `gorm:"column:terminationdate" json:"terminationdate"`
+	Employeenumber   string     `gorm:"column:employeenumber;primaryKey" json:"employeenumber"`
+	Firstname        string     `gorm:"column:firstname" json:"firstname"`
+	Lastname         string     `gorm:"column:lastname" json:"lastname"`
+	Useraccountemail string     `gorm:"column:useraccountemail;not null" json:"useraccountemail"`
+	Employeestatus   string     `gorm:"column:employeestatus" json:"employeestatus"`
+	PhoneNumber      *string    `gorm:"column:phonenumber" json:"phonenumber"`
+	Terminationdate  time.Time  `gorm:"column:terminationdate" json:"terminationdate"`
 }
 
 // TableName Employee's table name

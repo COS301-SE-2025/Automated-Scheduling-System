@@ -12,152 +12,102 @@ import (
 	"gorm.io/gorm"
 )
 
-// minimal DB setup for triggers (no schema needed as current triggers don't query DB)
 func newTestDB(t *testing.T) *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
 	return db
 }
 
-func TestJobPositionTrigger_Fire(t *testing.T) {
+func TestDBTrigger_Fire_BasicKinds(t *testing.T) {
 	db := newTestDB(t)
-	tr := &JobPositionTrigger{DB: db}
-
-	var got EvalContext
-	count := 0
-	err := tr.Fire(context.Background(), map[string]any{"operation": "create"}, func(ev EvalContext) error {
-		count++
-		got = ev
-		return nil
-	})
-	require.NoError(t, err)
-	require.Equal(t, 1, count)
-	require.False(t, got.Now.IsZero())
-	trg, ok := got.Data["trigger"].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, "job_position", trg["type"])
-	require.Equal(t, "create", trg["operation"])
-}
-
-func TestCompetencyTypeTrigger_Fire(t *testing.T) {
-	db := newTestDB(t)
-	tr := &CompetencyTypeTrigger{DB: db}
-
-	var got EvalContext
-	err := tr.Fire(context.Background(), map[string]any{"operation": "update"}, func(ev EvalContext) error {
-		got = ev
-		return nil
-	})
-	require.NoError(t, err)
-	trg := got.Data["trigger"].(map[string]any)
-	require.Equal(t, "competency_type", trg["type"])
-	require.Equal(t, "update", trg["operation"])
-}
-
-func TestCompetencyTrigger_Fire(t *testing.T) {
-	db := newTestDB(t)
-	tr := &CompetencyTrigger{DB: db}
-
-	var got EvalContext
-	err := tr.Fire(context.Background(), map[string]any{"operation": "deactivate"}, func(ev EvalContext) error {
-		got = ev
-		return nil
-	})
-	require.NoError(t, err)
-	trg := got.Data["trigger"].(map[string]any)
-	require.Equal(t, "competency", trg["type"])
-	require.Equal(t, "deactivate", trg["operation"])
-}
-
-func TestEventDefinitionTrigger_Fire(t *testing.T) {
-	db := newTestDB(t)
-	tr := &EventDefinitionTrigger{DB: db}
-
-	var got EvalContext
-	err := tr.Fire(context.Background(), map[string]any{"operation": "update"}, func(ev EvalContext) error {
-		got = ev
-		return nil
-	})
-	require.NoError(t, err)
-	trg := got.Data["trigger"].(map[string]any)
-	require.Equal(t, "event_definition", trg["type"])
-	require.Equal(t, "update", trg["operation"])
-}
-
-func TestScheduledEventTrigger_Fire(t *testing.T) {
-	db := newTestDB(t)
-	tr := &ScheduledEventTrigger{DB: db}
-
-	var got EvalContext
-	params := map[string]any{
-		"operation":    "update",
-		"update_field": "StatusName",
+	type tc struct {
+		kind   string
+		params map[string]any
+		expect map[string]any
 	}
-	err := tr.Fire(context.Background(), params, func(ev EvalContext) error {
-		got = ev
-		return nil
-	})
-	require.NoError(t, err)
-	trg := got.Data["trigger"].(map[string]any)
-	require.Equal(t, "scheduled_event", trg["type"])
-	require.Equal(t, "update", trg["operation"])
-	require.Equal(t, "StatusName", trg["updateField"])
-}
-
-func TestRolesTrigger_Fire(t *testing.T) {
-	db := newTestDB(t)
-	tr := &RolesTrigger{DB: db}
-
-	var got EvalContext
-	params := map[string]any{
-		"operation":   "update",
-		"update_kind": "permissions",
+	cases := []tc{
+		{kind: "job_position", params: map[string]any{"operation": "create"}, expect: map[string]any{"type": "job_position", "operation": "create"}},
+		{kind: "competency_type", params: map[string]any{"operation": "update"}, expect: map[string]any{"type": "competency_type", "operation": "update"}},
+		{kind: "competency", params: map[string]any{"operation": "deactivate"}, expect: map[string]any{"type": "competency", "operation": "deactivate"}},
+		{kind: "event_definition", params: map[string]any{"operation": "update"}, expect: map[string]any{"type": "event_definition", "operation": "update"}},
+		{kind: "link_job_to_competency", params: map[string]any{"operation": "add"}, expect: map[string]any{"type": "link_job_to_competency", "operation": "add"}},
+		{kind: "competency_prerequisite", params: map[string]any{"operation": "remove"}, expect: map[string]any{"type": "competency_prerequisite", "operation": "remove"}},
 	}
-	err := tr.Fire(context.Background(), params, func(ev EvalContext) error {
-		got = ev
-		return nil
-	})
-	require.NoError(t, err)
-	trg := got.Data["trigger"].(map[string]any)
-	require.Equal(t, "roles", trg["type"])
-	require.Equal(t, "update", trg["operation"])
-	require.Equal(t, "permissions", trg["updateKind"])
+	for _, c := range cases {
+		tr := NewTrigger(db, c.kind)
+		var got EvalContext
+		err := tr.Fire(context.Background(), c.params, func(ev EvalContext) error { got = ev; return nil })
+		require.NoError(t, err)
+		require.False(t, got.Now.IsZero())
+		trg, ok := got.Data["trigger"].(map[string]any)
+		require.True(t, ok, "trigger payload should be a map")
+		for k, v := range c.expect {
+			require.Equal(t, v, trg[k])
+		}
+	}
 }
 
-func TestLinkJobToCompetencyTrigger_Fire(t *testing.T) {
+func TestDBTrigger_Fire_ScheduledEvent_And_Roles(t *testing.T) {
 	db := newTestDB(t)
-	tr := &LinkJobToCompetencyTrigger{DB: db}
 
-	var got EvalContext
-	err := tr.Fire(context.Background(), map[string]any{"operation": "add"}, func(ev EvalContext) error {
-		got = ev
-		return nil
-	})
-	require.NoError(t, err)
-	trg := got.Data["trigger"].(map[string]any)
-	require.Equal(t, "link_job_to_competency", trg["type"])
-	require.Equal(t, "add", trg["operation"])
+	// scheduled_event with update_field -> updateField
+	{
+		tr := NewTrigger(db, "scheduled_event")
+		var got EvalContext
+		params := map[string]any{"operation": "update", "update_field": "StatusName"}
+		require.NoError(t, tr.Fire(context.Background(), params, func(ev EvalContext) error { got = ev; return nil }))
+		trg, ok := got.Data["trigger"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "scheduled_event", trg["type"])
+		require.Equal(t, "update", trg["operation"])
+		require.Equal(t, "StatusName", trg["updateField"])
+	}
+
+	// scheduled_event without update_field -> updateField omitted
+	{
+		tr := NewTrigger(db, "scheduled_event")
+		var got EvalContext
+		params := map[string]any{"operation": "create"}
+		require.NoError(t, tr.Fire(context.Background(), params, func(ev EvalContext) error { got = ev; return nil }))
+		trg, ok := got.Data["trigger"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "scheduled_event", trg["type"])
+		require.Equal(t, "create", trg["operation"])
+		_, has := trg["updateField"]
+		require.False(t, has, "updateField should be omitted when not provided")
+	}
+
+	// roles with update_kind -> updateKind
+	{
+		tr := NewTrigger(db, "roles")
+		var got EvalContext
+		params := map[string]any{"operation": "update", "update_kind": "permissions"}
+		require.NoError(t, tr.Fire(context.Background(), params, func(ev EvalContext) error { got = ev; return nil }))
+		trg, ok := got.Data["trigger"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "roles", trg["type"])
+		require.Equal(t, "update", trg["operation"])
+		require.Equal(t, "permissions", trg["updateKind"])
+	}
+
+	// roles without update_kind -> updateKind omitted
+	{
+		tr := NewTrigger(db, "roles")
+		var got EvalContext
+		params := map[string]any{"operation": "create"}
+		require.NoError(t, tr.Fire(context.Background(), params, func(ev EvalContext) error { got = ev; return nil }))
+		trg, ok := got.Data["trigger"].(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, "roles", trg["type"])
+		require.Equal(t, "create", trg["operation"])
+		_, has := trg["updateKind"]
+		require.False(t, has, "updateKind should be omitted when not provided")
+	}
 }
 
-func TestCompetencyPrerequisiteTrigger_Fire(t *testing.T) {
+func TestTrigger_EmitTimeIsRecent(t *testing.T) {
 	db := newTestDB(t)
-	tr := &CompetencyPrerequisiteTrigger{DB: db}
-
-	var got EvalContext
-	err := tr.Fire(context.Background(), map[string]any{"operation": "remove"}, func(ev EvalContext) error {
-		got = ev
-		return nil
-	})
-	require.NoError(t, err)
-	trg := got.Data["trigger"].(map[string]any)
-	require.Equal(t, "competency_prerequisite", trg["type"])
-	require.Equal(t, "remove", trg["operation"])
-}
-
-func TestTrigger_EmitTimeIsUTCOrValid(t *testing.T) {
-	// Sanity: Now is set; we don't enforce UTC here, but ensure it's within a sane range.
-	db := newTestDB(t)
-	tr := &ScheduledEventTrigger{DB: db}
+	tr := NewTrigger(db, "scheduled_event")
 	var got EvalContext
 	err := tr.Fire(context.Background(), map[string]any{"operation": "create"}, func(ev EvalContext) error {
 		got = ev

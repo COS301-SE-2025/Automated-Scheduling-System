@@ -2,12 +2,13 @@ package matrix
 
 import (
 	"Automated-Scheduling-Project/internal/database/models"
-	rulesv2 "Automated-Scheduling-Project/internal/rulesV2" // added
-	"context"                                               // added
+	rulesv2 "Automated-Scheduling-Project/internal/rulesV2"
+	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
-	"time" // added
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -64,27 +65,61 @@ func CreateJobMatrixEntryHandler(c *gin.Context) {
 
 	createdBy, _ := c.Get("email")
 
-	matrixEntry := models.CustomJobMatrix{
-		PositionMatrixCode: req.PositionMatrixCode,
-		CompetencyID:       req.CompetencyID,
-		RequirementStatus:  req.RequirementStatus,
-		Notes:              req.Notes,
-		CreatedBy:          createdBy.(string),
-	}
+	var matrixEntry models.CustomJobMatrix
+	if err := DB.Transaction(func(tx *gorm.DB) error {
+		matrixEntry = models.CustomJobMatrix{
+			PositionMatrixCode: req.PositionMatrixCode,
+			CompetencyID:       req.CompetencyID,
+			RequirementStatus:  req.RequirementStatus,
+			Notes:              req.Notes,
+			CreatedBy:          createdBy.(string),
+		}
+		if err := tx.Create(&matrixEntry).Error; err != nil {
+			return err
+		}
 
-	if err := DB.Create(&matrixEntry).Error; err != nil {
+		var compDef models.CompetencyDefinition
+		if err := tx.First(&compDef, "competency_id = ?", req.CompetencyID).Error; err != nil {
+			return err
+		}
+
+		note := fmt.Sprintf("Auto-assigned because position %s linked to competency %d", req.PositionMatrixCode, req.CompetencyID)
+
+		if err := tx.Exec(`
+			INSERT INTO employee_competencies
+			 (employee_number, competency_id, achievement_date, expiry_date, granted_by_schedule_id, notes)
+			SELECT
+			 eh.employee_number,
+			 ?,
+			 ?,          -- achievement_date (NULL)
+			 ?,          -- expiry_date (NULL)
+			 NULL,       -- granted_by_schedule_id
+			 ?           -- notes
+			FROM employment_history eh
+			WHERE eh.position_matrix_code = ?
+			  AND eh.start_date <= CURRENT_DATE
+			  AND (eh.end_date IS NULL OR eh.end_date >= CURRENT_DATE)
+			  AND NOT EXISTS (
+					SELECT 1 FROM employee_competencies ec
+					WHERE ec.employee_number = eh.employee_number
+					  AND ec.competency_id = ?
+			  )
+		`, req.CompetencyID, nil, nil, note, req.PositionMatrixCode, req.CompetencyID).Error; err != nil {
+			return err
+		}
+
+		var jp models.JobPosition
+		_ = tx.First(&jp, "position_matrix_code = ?", req.PositionMatrixCode).Error
+		var cd models.CompetencyDefinition
+		_ = tx.First(&cd, "competency_id = ?", req.CompetencyID).Error
+		link := map[string]any{"State": "active"}
+		fireLinkJobToCompetency(c, "add", link, jp, cd)
+
+		return nil
+	}); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create job requirement entry: " + err.Error()})
 		return
 	}
-
-	// prepare domain objects
-	var jp models.JobPosition
-	_ = DB.First(&jp, "position_matrix_code = ?", req.PositionMatrixCode).Error
-	var cd models.CompetencyDefinition
-	_ = DB.First(&cd, "competency_id = ?", req.CompetencyID).Error
-	link := map[string]any{"State": "active"}
-	// fire trigger: link_job_to_competency add
-	fireLinkJobToCompetency(c, "add", link, jp, cd)
 
 	c.JSON(http.StatusCreated, matrixEntry)
 }
@@ -167,13 +202,42 @@ func DeleteJobMatrixEntryHandler(c *gin.Context) {
 	// fire trigger: link_job_to_competency remove
 	fireLinkJobToCompetency(c, "remove", map[string]any{"State": "inactive"}, jp, cd)
 
-	result := DB.Delete(&models.CustomJobMatrix{}, idStr)
-	if result.Error != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete job requirement"})
-		return
-	}
-	if result.RowsAffected == 0 {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Job requirement entry not found"})
+	// Also remove auto-assigned competencies for employees currently in this position
+	note := fmt.Sprintf("Auto-assigned because position %s linked to competency %d", entry.PositionMatrixCode, entry.CompetencyID)
+
+	if err := DB.Transaction(func(tx *gorm.DB) error {
+		// Step 1: Find employee_numbers to delete
+		var employeeNumbers []string
+		if err := tx.Raw(`
+			SELECT ec.employee_number
+			FROM employee_competencies ec
+			JOIN employment_history eh ON ec.employee_number = eh.employee_number
+			WHERE eh.position_matrix_code = ?
+			  AND eh.start_date <= CURRENT_DATE
+			  AND (eh.end_date IS NULL OR eh.end_date >= CURRENT_DATE)
+			  AND ec.competency_id = ?
+			  AND ec.achievement_date IS NULL
+			  AND ec.granted_by_schedule_id IS NULL
+			  AND ec.notes = ?
+		`, entry.PositionMatrixCode, entry.CompetencyID, note).Scan(&employeeNumbers).Error; err != nil {
+			return err
+		}
+
+		// Step 2: Delete those employee_competencies
+		if len(employeeNumbers) > 0 {
+			if err := tx.Where("employee_number IN ? AND competency_id = ? AND achievement_date IS NULL AND granted_by_schedule_id IS NULL AND notes = ?", employeeNumbers, entry.CompetencyID, note).Delete(&models.EmployeeCompetency{}).Error; err != nil {
+				return err
+			}
+		}
+
+		// Finally delete the matrix link
+		if err := tx.Delete(&models.CustomJobMatrix{}, idStr).Error; err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		log.Printf("Detailed error: %+v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to remove job requirement: " + err.Error()})
 		return
 	}
 
