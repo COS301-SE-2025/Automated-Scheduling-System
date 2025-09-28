@@ -86,6 +86,32 @@ func main() {
 	// 	log.Fatalf("seed rule B: %v", err)
 	// }
 
+	// // Example Rule C: Recurring training schedule using relative dates
+	// // This demonstrates how time-based triggers can create events with relative dates
+	// ruleRecurringTraining := rules.Rulev2{
+	// 	Name:    "Schedule Recurring Training Every 6 Months",
+	// 	Trigger: rules.TriggerSpec{Type: "MONTHLY_RECURRING_CHECK", Parameters: map[string]any{"interval": 6}},
+	// 	Conditions: []rules.Condition{},
+	// 	Actions: []rules.ActionSpec{
+	// 		{
+	// 			Type: "create_event",
+	// 			Parameters: map[string]any{
+	// 				"title":         "Recurring Safety Training",
+	// 				"customEventID": 1, // Assuming event definition ID 1 exists
+	// 				"startTime":     "in 1 month", // Relative date - 1 month from trigger
+	// 				"endTime":       "in 1 month", // Same day, will default to +2 hours from start
+	// 				"roomName":      "Training Room A",
+	// 				"statusName":    "Scheduled",
+	// 				"color":         "#28a745",
+	// 				"positionCodes": `["SAFETY_OFFICER", "SUPERVISOR"]`, // JSON string of positions to invite
+	// 			},
+	// 		},
+	// 	},
+	// }
+	// if _, err := store.Seed(ctx, reg, ruleRecurringTraining, true); err != nil {
+	// 	log.Fatalf("seed rule C (recurring training): %v", err)
+	// }
+
 	log.Println("Rule seeding complete")
 }
 

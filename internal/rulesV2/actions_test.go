@@ -590,3 +590,210 @@ func TestCreateEventAction_Execute(t *testing.T) {
 // 		// endTime should be defaulted to startTime + 2 hours
 // 	})
 // }
+
+func TestRelativeDateParser_ParseRelativeDate(t *testing.T) {
+	// Use a fixed base time for consistent testing
+	baseTime := time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC)
+	parser := NewRelativeDateParser(baseTime)
+
+	tests := []struct {
+		name        string
+		dateExpr    string
+		expected    time.Time
+		expectError bool
+	}{
+		// Absolute dates
+		{
+			name:        "ISO date string",
+			dateExpr:    "2024-12-25T15:30:00Z",
+			expected:    time.Date(2024, 12, 25, 15, 30, 0, 0, time.UTC),
+			expectError: false,
+		},
+		{
+			name:        "Local datetime format",
+			dateExpr:    "2024-12-25T15:30:00",
+			expected:    time.Date(2024, 12, 25, 15, 30, 0, 0, time.UTC),
+			expectError: false,
+		},
+		{
+			name:        "Date only format",
+			dateExpr:    "2024-12-25",
+			expected:    time.Date(2024, 12, 25, 0, 0, 0, 0, time.UTC),
+			expectError: false,
+		},
+
+		// Simple relative dates
+		{
+			name:        "Today",
+			dateExpr:    "today",
+			expected:    baseTime,
+			expectError: false,
+		},
+		{
+			name:        "Now",
+			dateExpr:    "now",
+			expected:    baseTime,
+			expectError: false,
+		},
+		{
+			name:        "Tomorrow",
+			dateExpr:    "tomorrow",
+			expected:    baseTime.AddDate(0, 0, 1),
+			expectError: false,
+		},
+		{
+			name:        "Next week",
+			dateExpr:    "next week",
+			expected:    baseTime.AddDate(0, 0, 7),
+			expectError: false,
+		},
+		{
+			name:        "Next month",
+			dateExpr:    "next month",
+			expected:    baseTime.AddDate(0, 1, 0),
+			expectError: false,
+		},
+		{
+			name:        "Next year",
+			dateExpr:    "next year",
+			expected:    baseTime.AddDate(1, 0, 0),
+			expectError: false,
+		},
+
+		// "In X unit" format - days
+		{
+			name:        "In 1 day",
+			dateExpr:    "in 1 day",
+			expected:    baseTime.AddDate(0, 0, 1),
+			expectError: false,
+		},
+		{
+			name:        "In 5 days",
+			dateExpr:    "in 5 days",
+			expected:    baseTime.AddDate(0, 0, 5),
+			expectError: false,
+		},
+		{
+			name:        "In 1 week",
+			dateExpr:    "in 1 week",
+			expected:    baseTime.AddDate(0, 0, 7),
+			expectError: false,
+		},
+		{
+			name:        "In 2 weeks",
+			dateExpr:    "in 2 weeks",
+			expected:    baseTime.AddDate(0, 0, 14),
+			expectError: false,
+		},
+
+		// "In X unit" format - months
+		{
+			name:        "In 1 month",
+			dateExpr:    "in 1 month",
+			expected:    baseTime.AddDate(0, 1, 0),
+			expectError: false,
+		},
+		{
+			name:        "In 6 months",
+			dateExpr:    "in 6 months",
+			expected:    baseTime.AddDate(0, 6, 0),
+			expectError: false,
+		},
+
+		// "In X unit" format - years
+		{
+			name:        "In 1 year",
+			dateExpr:    "in 1 year",
+			expected:    baseTime.AddDate(1, 0, 0),
+			expectError: false,
+		},
+		{
+			name:        "In 2 years",
+			dateExpr:    "in 2 years",
+			expected:    baseTime.AddDate(2, 0, 0),
+			expectError: false,
+		},
+
+		// Case insensitive
+		{
+			name:        "TODAY (uppercase)",
+			dateExpr:    "TODAY",
+			expected:    baseTime,
+			expectError: false,
+		},
+		{
+			name:        "In 3 DAYS (mixed case)",
+			dateExpr:    "In 3 DAYS",
+			expected:    baseTime.AddDate(0, 0, 3),
+			expectError: false,
+		},
+
+		// Error cases
+		{
+			name:        "Invalid format",
+			dateExpr:    "invalid date",
+			expected:    time.Time{},
+			expectError: true,
+		},
+		{
+			name:        "Invalid number",
+			dateExpr:    "in abc days",
+			expected:    time.Time{},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parser.ParseRelativeDate(tt.dateExpr)
+
+			if tt.expectError {
+				assert.Error(t, err, "Expected error for input '%s'", tt.dateExpr)
+				return
+			}
+
+			assert.NoError(t, err, "Unexpected error for input '%s'", tt.dateExpr)
+			assert.True(t, result.Equal(tt.expected),
+				"For input '%s': expected %v, got %v", tt.dateExpr, tt.expected, result)
+		})
+	}
+}
+
+func TestRelativeDateParser_EventCreationScenarios(t *testing.T) {
+	// Test realistic scenarios for event creation using relative dates
+	baseTime := time.Date(2024, 6, 15, 9, 0, 0, 0, time.UTC)
+	parser := NewRelativeDateParser(baseTime)
+
+	scenarios := []struct {
+		name      string
+		startTime string
+		endTime   string
+	}{
+		{"Next month training", "in 1 month", "in 1 month"},
+		{"Quarterly review", "in 3 months", "in 3 months"},
+		{"Tomorrow meeting", "tomorrow", "tomorrow"},
+		{"Next week workshop", "in 1 week", "in 1 week"},
+	}
+
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			start, err := parser.ParseRelativeDate(scenario.startTime)
+			assert.NoError(t, err, "Failed to parse start time '%s'", scenario.startTime)
+
+			end, err := parser.ParseRelativeDate(scenario.endTime)
+			assert.NoError(t, err, "Failed to parse end time '%s'", scenario.endTime)
+
+			// Verify that start time is in the future
+			assert.True(t, start.After(baseTime),
+				"Start time should be after base time. Base: %v, Start: %v", baseTime, start)
+
+			// For same relative dates, end should equal start (then +2 hours will be added in business logic)
+			if scenario.startTime == scenario.endTime {
+				assert.True(t, end.Equal(start),
+					"End time should equal start time for same relative date. Start: %v, End: %v", start, end)
+			}
+
+			t.Logf("Scenario '%s': Start=%v, End=%v", scenario.name, start, end)
+		})
+	}
+}
