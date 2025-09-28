@@ -32,7 +32,7 @@ const JobLinkManager: React.FC<JobLinkManagerProps> = ({ competency, allJobPosit
         setError('');
         try {
             for (const code of codes) {
-                // eslint-disable-next-line no-await-in-loop
+                 
                 await onAddLink(competency.competencyID, code, 'Required');
             }
         } catch (err: any) {
