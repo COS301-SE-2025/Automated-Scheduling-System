@@ -44,6 +44,20 @@ jobs:
       - name: Lint frontend with ESLint
         run: make flint
 
+      - name: Cypress E2E Tests (Electron Headless)
+        uses: cypress-io/github-action@v6
+        with:
+          working-directory: frontend
+          install-command: npm install --prefer-offline --no-fund
+          start: npm run dev
+          wait-on: 'http://localhost:5173'
+          wait-on-timeout: 120
+          browser: electron
+          headless: true
+          spec: cypress/e2e/**/*.cy.{js,jsx,ts,tsx}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
         with:
