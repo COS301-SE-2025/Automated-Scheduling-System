@@ -106,20 +106,73 @@ export const RelativeDatePicker: React.FC<RelativeDatePickerProps> = ({
   // Initialize component based on existing value
   useEffect(() => {
     if (value) {
-      // Try to parse the value - if it's a valid ISO date, use absolute mode
-      try {
-        const date = new Date(value);
-        if (!isNaN(date.getTime())) {
-          setMode('absolute');
-          setAbsoluteDate(formatDateTimeLocal(date));
+      let isRelativeDate = false;
+      
+      // Check for exact matches first
+      if (value === 'today') {
+        setMode('relative');
+        setSelectedOption('today');
+        isRelativeDate = true;
+      } else if (value === 'tomorrow') {
+        setMode('relative');
+        setSelectedOption('tomorrow');
+        isRelativeDate = true;
+      } else if (value === 'in 1 week') {
+        setMode('relative');
+        setSelectedOption('next_week');
+        isRelativeDate = true;
+      } else if (value === 'in 1 month') {
+        setMode('relative');
+        setSelectedOption('next_month');
+        isRelativeDate = true;
+      } else {
+        // Check for custom relative dates with patterns
+        const dayMatch = value.match(/^in (\d+) days?$/i);
+        const monthMatch = value.match(/^in (\d+) months?$/i);
+        const yearMatch = value.match(/^in (\d+) years?$/i);
+        
+        if (dayMatch) {
+          const days = parseInt(dayMatch[1], 10);
+          setMode('relative');
+          setSelectedOption('custom_days');
+          setCustomDays(days);
+          isRelativeDate = true;
+        } else if (monthMatch) {
+          const months = parseInt(monthMatch[1], 10);
+          setMode('relative');
+          setSelectedOption('custom_months');
+          setCustomMonths(months);
+          isRelativeDate = true;
+        } else if (yearMatch) {
+          const years = parseInt(yearMatch[1], 10);
+          setMode('relative');
+          setSelectedOption('custom_years');
+          setCustomYears(years);
+          isRelativeDate = true;
         }
-      } catch {
-        // If parsing fails, default to absolute mode with current time
-        setMode('absolute');
-        setAbsoluteDate(formatDateTimeLocal(new Date()));
+      }
+
+      // If it's not a relative date string, try to parse as ISO date
+      if (!isRelativeDate) {
+        try {
+          const date = new Date(value);
+          if (!isNaN(date.getTime())) {
+            setMode('absolute');
+            setAbsoluteDate(formatDateTimeLocal(date));
+          } else {
+            // If parsing fails, default to absolute mode with current time
+            setMode('absolute');
+            setAbsoluteDate(formatDateTimeLocal(new Date()));
+          }
+        } catch {
+          // If parsing fails, default to absolute mode with current time
+          setMode('absolute');
+          setAbsoluteDate(formatDateTimeLocal(new Date()));
+        }
       }
     } else {
-      // Default to current time
+      // Default to current time in absolute mode
+      setMode('absolute');
       setAbsoluteDate(formatDateTimeLocal(new Date()));
     }
   }, [value]);

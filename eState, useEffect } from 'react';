@@ -1,0 +1,247 @@
+[33mcommit 497c9933e5adfb9b9d225eb79fc5981a072533d5[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdev[m[33m, [m[1;31morigin/dev[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: ethanwilke23 <ethanwilke69@gmail.com>
+Date:   Sun Sep 28 17:09:58 2025 +0200
+
+    removed problematic testing lines
+
+[33mcommit 7f6fad389e205bd562ec4830c3b0d771013ed15f[m
+Author: ethanwilke23 <ethanwilke69@gmail.com>
+Date:   Sun Sep 28 16:42:50 2025 +0200
+
+    updated testing for AuthContext and increased time for timeouts
+
+[33mcommit 105b2bc8725fd665981e1783c60dd0f2b2a0efe9[m
+Author: ethanwilke23 <ethanwilke69@gmail.com>
+Date:   Sun Sep 28 16:35:44 2025 +0200
+
+    fixed spacing issue in makefile
+
+[33mcommit 743bae02b64b0147da5cc5528871db6f2d24b1fb[m
+Author: ethanwilke23 <ethanwilke69@gmail.com>
+Date:   Sun Sep 28 16:33:52 2025 +0200
+
+    updated makefile and yaml file for mobile tests
+
+[33mcommit a508a0b726bfed3fff7f8cae6712b3f10e136499[m
+Merge: e5ef724 a6ee9ba
+Author: ethanwilke23 <ethanwilke69@gmail.com>
+Date:   Sun Sep 28 16:22:45 2025 +0200
+
+    Merge branch 'dev' of https://github.com/COS301-SE-2025/Automated-Scheduling-System into dev
+
+[33mcommit a6ee9ba8ec118c31f2645001365b16cfe8e76ea4[m
+Author: marcopaxman <marcopaxman@gmail.com>
+Date:   Sun Sep 28 16:12:15 2025 +0200
+
+    Fixed tests and small delete error with scheduled events
+
+[33mcommit eb5a104243fcabde17c0a9c64d30dd2d8cef91da[m
+Author: ethanwilke23 <ethanwilke69@gmail.com>
+Date:   Sun Sep 28 15:44:54 2025 +0200
+
+    fixed frontend tests
+
+[33mcommit 9d653b332a1c198011f41c0b5c248d459204ea0c[m
+Author: ethanwilke23 <ethanwilke69@gmail.com>
+Date:   Sun Sep 28 15:30:40 2025 +0200
+
+    added some extra frontend testing
+
+[33mcommit 5661fab7787f85aed31f3c9dd560091af66a1d76[m
+Author: James Neale <jamesneale2004@gmail.com>
+Date:   Sun Sep 28 15:23:17 2025 +0200
+
+    Fixed some errors with bookings
+
+[33mcommit 9ef4935c4e84f99e33fe570e8501a43a56dd99b1[m
+Author: James Neale <jamesneale2004@gmail.com>
+Date:   Sun Sep 28 13:55:32 2025 +0200
+
+    Fixed tests
+
+[33mcommit 2346117e86c5fe3d006948b6972a29607dc9a3c6[m
+Author: ethanwilke23 <ethanwilke69@gmail.com>
+Date:   Sun Sep 28 13:40:12 2025 +0200
+
+    updated unit testing for events
+
+[33mcommit 1ce490792eff249c867eee867e6359b595bb8315[m
+Author: ethanwilke23 <ethanwilke69@gmail.com>
+Date:   Sun Sep 28 13:33:43 2025 +0200
+
+    updated unit testing for event
+
+[33mcommit 3afea922467c0252a660985f717e66182edfabd5[m
+Author: ethanwilke23 <ethanwilke69@gmail.com>
+Date:   Sun Sep 28 13:25:08 2025 +0200
+
+    updated unit tests for events
+
+[33mcommit f2c807a999830153b6884ecc14859f36db35f86e[m
+Author: ethanwilke23 <ethanwilke69@gmail.com>
+Date:   Sun Sep 28 13:19:39 2025 +0200
+
+    updated testing for events
+
+[33mcommit 009e5dccd9b459f8a3e92b3ed1b74326c31cec5b[m
+Author: ethanwilke23 <ethanwilke69@gmail.com>
+Date:   Sun Sep 28 13:00:36 2025 +0200
+
+    updated some minor issues with roles
+
+[33mcommit ffccc8acce22782f5113ef707aa12268c9c6d1a5[m
+Author: James Neale <jamesneale2004@gmail.com>
+Date:   Sun Sep 28 12:43:01 2025 +0200
+
+    Fixed booking breaking and changed attendance
+    
+    - Attendance is now recorded on event completion
+    - Fixed an error with users updating events
+    - Shows when attended
+
+[33mcommit 90cb8c97614d56bbc5b82b814d9dc861e39b8ac8[m
+Author: James Neale <jamesneale2004@gmail.com>
+Date:   Sat Sep 27 22:32:29 2025 +0200
+
+    Bookings
+    
+    - Users can book events
+    - Users can reject events
+    - Events show how many users are booked
+    - Updated the users view
+    - Did not add testing for any of it
+
+[33mcommit e5ef72486207be729d679f7aff34dfddda0f45f1[m
+Merge: 0f24c29 6e6670e
+Author: ethanwilke23 <ethanwilke69@gmail.com>
+Date:   Sun Sep 28 12:40:20 2025 +0200
+
+    Merge branch 'dev' of https://github.com/COS301-SE-2025/Automated-Scheduling-System into dev
+
+[33mcommit 6e6670edc2b7287417c61a1dc49372558a514d68[m[33m ([m[1;31morigin/main[m[33m)[m
+Author: johnpeterprogramming <u23533529@tuks.co.za>
+Date:   Sun Sep 28 09:53:54 2025 +0200
+
+    Removed login successful e2e test, because that requires excessive stubbing or extra overhead of backend running.
+
+[33mcommit 7dfae5811377011af54ff00b9ffff86d550f23df[m
+Author: johnpeterprogramming <u23533529@tuks.co.za>
+Date:   Sun Sep 28 09:33:00 2025 +0200
+
+    Added a new layer in the github testing workflow. Runs Cypress tests.
+
+[33mcommit 0f24c2955a7ee8b24512a4fb1fed01dfe36bdd09[m
+Merge: b15c604 7e02e2c
+Author: ethanwilke23 <ethanwilke69@gmail.com>
+Date:   Sun Sep 28 09:36:44 2025 +0200
+
+    Merge branch 'dev' of https://github.com/COS301-SE-2025/Automated-Scheduling-System into dev
+
+[33mcommit 7e02e2c9e5858569d6c12ad53ee706f3efeaf237[m
+Author: johnpeterprogramming <u23533529@tuks.co.za>
+Date:   Sun Sep 28 09:26:19 2025 +0200
+
+    Fixed linting errors.
+
+[33mcommit 96bb5adb3c7930be83ad7d8010dd91f192861175[m
+Author: muller <mullerdannhauser1@gmail.com>
+Date:   Sat Sep 27 21:42:20 2025 +0200
+
+    Fixed user testing
+
+[33mcommit 1893e009e2a7fb65a5616b010b5c19ea9148918d[m
+Author: johnpeterprogramming <u23533529@tuks.co.za>
+Date:   Sat Sep 27 18:37:25 2025 +0200
+
+    Removed nix related files from git history and added them to gitignore. Also updated package-lock file.
+
+[33mcommit 5240d31beb821fe42a0b1579f4e2813aa435e1cb[m
+Author: muller <mullerdannhauser1@gmail.com>
+Date:   Fri Sep 26 13:22:37 2025 +0200
+
+    Finished auth e2e testing
+
+[33mcommit c8d7a0f1aa66a00f6845f7d5319ccf31a5838133[m
+Author: muller <mullerdannhauser1@gmail.com>
+Date:   Fri Sep 19 12:44:44 2025 +0200
+
+    Finished auth e2e testing
+
+[33mcommit 2fd2bea3d758891dccbe061a56b4f00f97c9cec3[m
+Author: muller <mullerdannhauser1@gmail.com>
+Date:   Fri Sep 19 12:31:53 2025 +0200
+
+    Added cypress e2e testing framework
+
+[33mcommit a5ddc8d9cdb5c59bf2fb0373895bb94a7ca9afa0[m
+Merge: 07822a3 041a5a5
+Author: PJM <48357092+MullerPietPompies@users.noreply.github.com>
+Date:   Sat Sep 27 23:25:33 2025 +0200
+
+    Merge pull request #309 from COS301-SE-2025/muller/add-change-password-profile
+    
+    Muller/add change password profile
+
+[33mcommit 041a5a53e777a759444c38734607eadae53a5942[m[33m ([m[1;31morigin/muller/add-change-password-profile[m[33m, [m[1;32mmuller/add-change-password-profile[m[33m)[m
+Author: James Neale <jamesneale2004@gmail.com>
+Date:   Sat Sep 27 23:21:12 2025 +0200
+
+    removed duplicate code
+
+[33mcommit f2af69b88c1b5ba519580cb9eb93a342e629e6bf[m[33m ([m[1;32mmuller/e2e-testing-webpack-fix[m[33m)[m
+Author: James Neale <jamesneale2004@gmail.com>
+Date:   Sat Sep 27 22:57:52 2025 +0200
+
+    Fixed conflicts
+
+[33mcommit 76b39e58905101e6e9b68965661ae50b4c4c6e64[m
+Author: johnpeterprogramming <u23533529@tuks.co.za>
+Date:   Sat Sep 27 20:49:20 2025 +0200
+
+    Saving an empty phone number will set to nil in database.
+
+[33mcommit c727e91b9b5b4191cc0f67f2be0a65ac41b2b6ac[m
+Author: johnpeterprogramming <u23533529@tuks.co.za>
+Date:   Sat Sep 27 20:46:53 2025 +0200
+
+    Prefilled the profile settings view with email and phone number.
+
+[33mcommit 1bb168551053d4a330205240953bc8d6b2d2dbac[m
+Author: muller <mullerdannhauser1@gmail.com>
+Date:   Sat Sep 27 19:54:08 2025 +0200
+
+    fixed change phone number issue
+
+[33mcommit b809601cdc60caab8a747c370a285ff99dfcafe2[m
+Author: muller <mullerdannhauser1@gmail.com>
+Date:   Sat Sep 27 19:51:58 2025 +0200
+
+    fixed change phone number issue
+
+[33mcommit 171fddbf93f40c223fe7e824956915985edf4043[m
+Author: muller <mullerdannhauser1@gmail.com>
+Date:   Sat Sep 27 19:43:00 2025 +0200
+
+    Added settings page
+
+[33mcommit aa660529fe4db49b1fe51559c7dbb56afa201cf4[m
+Author: muller <mullerdannhauser1@gmail.com>
+Date:   Sat Sep 27 14:05:58 2025 +0200
+
+    Minor style change
+
+[33mcommit 617c9b9b299da478fa93808db707f61a15ad74e7[m
+Author: muller <mullerdannhauser1@gmail.com>
+Date:   Sat Sep 27 14:03:42 2025 +0200
+
+    Added reset password link to the profile page
+
+[33mcommit 07822a3a08d182c7d97722292ef9a5a20c9bbe4d[m
+Author: ethanwilke23 <ethanwilke69@gmail.com>
+Date:   Sat Sep 27 21:50:45 2025 +0200
+
+    added testing to CalendarPage
+
+[33mcommit 57f13c9333bde7c2e28ce3ffc698bf781bc78e80[m
+Author: ethanwilke23 <ethanwilke69@gmail.com>
+Date:
