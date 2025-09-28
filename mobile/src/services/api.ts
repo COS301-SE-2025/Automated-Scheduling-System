@@ -4,7 +4,7 @@ import { getToken } from './session';
 
 // Replace with your development machine's actual IP address
 // To find your IP: Windows: ipconfig | macOS/Linux: ifconfig or ip addr
-const defaultBase = 'http://YOUR_MACHINE_IP:8080/api'; // e.g., 'http://192.168.1.100:8080/api'
+const defaultBase = 'https://schedulingsystem.app/api'; // e.g., 'http://192.168.1.100:8080/api'
 // Ensure we always have a trailing slash so relative resource paths like
 // "event-schedules" become ".../api/event-schedules" instead of ".../apievent-schedules".
 const rawBase = process.env.EXPO_PUBLIC_API_URL || defaultBase;
