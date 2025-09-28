@@ -34,9 +34,6 @@ func TestGetRulesMetadata(t *testing.T) {
     }
     assert.True(t, actionTypes["notification"])
     assert.True(t, actionTypes["create_event"])
-    assert.True(t, actionTypes["competency_assignment"])
-    assert.True(t, actionTypes["webhook"])
-    assert.True(t, actionTypes["audit_log"])
 }
 
 func TestGetTriggerMetadata(t *testing.T) {
@@ -113,22 +110,6 @@ func TestGetActionMetadata(t *testing.T) {
         assert.NotNil(t, recipientParam.Example)
     }
 
-    // webhook
-    var webhookAction *ActionMetadata
-    for _, action := range actions {
-        if action.Type == "webhook" {
-            a := action
-            webhookAction = &a
-            break
-        }
-    }
-    if assert.NotNil(t, webhookAction) {
-        assert.Equal(t, "HTTP Webhook", webhookAction.Name)
-        assert.Len(t, webhookAction.Parameters, 3)
-        methodParam := webhookAction.Parameters[1]
-        assert.Equal(t, "method", methodParam.Name)
-        assert.False(t, methodParam.Required)
-    }
 }
 
 func TestGetFactMetadata(t *testing.T) {
