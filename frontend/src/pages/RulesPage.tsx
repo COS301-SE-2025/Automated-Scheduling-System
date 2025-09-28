@@ -266,7 +266,21 @@ const RulesPage: React.FC = () => {
     const createNodeData = (type: string) => {
         switch (type) {
             case 'rule':
-                return { label: 'Rule name', name: 'rule1 name', saved: false };
+                // Generate unique rule name by checking existing rules
+                const existingRuleNames = new Set(
+                    nodes.filter(n => n.type === 'rule')
+                         .map(n => (n.data as any).name || '')
+                         .filter(name => name.startsWith('Rule '))
+                );
+                
+                let ruleNumber = 1;
+                let ruleName = `Rule ${ruleNumber}`;
+                while (existingRuleNames.has(ruleName)) {
+                    ruleNumber++;
+                    ruleName = `Rule ${ruleNumber}`;
+                }
+                
+                return { label: 'Rule', name: ruleName, saved: false };
             case 'trigger':
                 return { label: 'Trigger', triggerType: '', parameters: [] as any[] };
             case 'conditions':

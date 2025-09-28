@@ -3,6 +3,7 @@ import { Handle, Position, type NodeProps, useReactFlow, type Connection } from 
 import { PlusCircle, Trash2 } from 'lucide-react';
 import type { ActionsNodeData, ActionRow, ParamKV } from '../../types/rule.types';
 import { useRulesMetadata } from '../../contexts/RulesMetadataContext';
+import RelativeDatePicker from '../ui/RelativeDatePicker';
 
 const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
     const rf = useReactFlow();
@@ -51,6 +52,18 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
         const next = data.actions.map((a, i) => {
             if (i !== aIdx) return a;
             const params = a.parameters.map((p, j) => (j === pIdx ? { ...p, ...patch } : p));
+            
+            // Auto-update endTime when startTime value is changed for create_event actions
+            if (a.type === 'create_event' && params[pIdx].key === 'startTime' && patch.value !== undefined) {
+                // Find endTime parameter
+                const endTimeIdx = params.findIndex(p => p.key === 'endTime');
+                if (endTimeIdx !== -1 && !params[endTimeIdx].value) {
+                    // Only auto-set endTime if it's currently empty (don't override user's choice)
+                    // Leave endTime empty so backend can calculate it based on event definition duration
+                    params[endTimeIdx].value = '';
+                }
+            }
+            
             return { ...a, parameters: params };
         });
         update({ actions: next });
@@ -104,47 +117,41 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
         return true;
     };
 
-    const valueInput = (metaParamType?: string, value = '', onChange?: (v: string) => void, options?: any[]) => {
-        const type = metaParamType || 'string';
-        const stopAll = {
-            onPointerDown: (e: React.PointerEvent) => e.stopPropagation(),
-            onMouseDown: (e: React.MouseEvent) => e.stopPropagation(),
-            onWheel: (e: React.WheelEvent) => {
-                e.preventDefault();
-                e.stopPropagation();
-            },
-            onKeyDown: (e: React.KeyboardEvent) => {
-                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                    e.preventDefault();
-                    e.stopPropagation();
-                }
-            },
-        };
-
-        // Handle options dropdown (similar to TriggerNode)
+    const valueInput = (type: string | undefined, value: string, onChange: (v: string) => void, options?: any[]) => {
+        const stopAll = { onMouseDown: (e: React.MouseEvent) => e.stopPropagation() };
+        if (!type) {
+            return (
+                <input
+                    className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
+                    placeholder="value"
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    {...stopAll}
+                />
+            );
+        }
+        
         if (options && options.length > 0) {
             return (
                 <select
                     className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
                     value={value}
-                    onChange={(e) => onChange?.(e.target.value)}
+                    onChange={(e) => onChange(e.target.value)}
                     {...stopAll}
                 >
                     <option value="">Select…</option>
-                    {options.map((opt, i) => {
-                        const val = String(opt);
-                        return <option key={`opt-${i}`} value={val}>{val}</option>;
-                    })}
+                    {options.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                 </select>
             );
         }
-
         if (type === 'boolean') {
             return (
                 <select
                     className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
                     value={value}
-                    onChange={(e) => onChange?.(e.target.value)}
+                    onChange={(e) => onChange(e.target.value)}
                     {...stopAll}
                 >
                     <option value="">Select…</option>
@@ -154,7 +161,6 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
             );
         }
         if (type === 'number') {
-            // Fallback to text input to avoid auto-increment issues
             return (
                 <input
                     className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
@@ -169,13 +175,14 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
         }
         if (type === 'date') {
             return (
-                <input
-                    className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
-                    type="datetime-local"
-                    value={value}
-                    onChange={(e) => onChange?.(e.target.value)}
-                    {...stopAll}
-                />
+                <div className="w-1/2" {...stopAll}>
+                    <RelativeDatePicker
+                        value={value}
+                        onChange={(dateValue) => onChange?.(dateValue)}
+                        placeholder="Select date..."
+                        className="text-xs"
+                    />
+                </div>
             );
         }
         if (type === 'text_area') {
@@ -191,7 +198,6 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
             );
         }
         if (type === 'employees') {
-            // Parse the value as JSON array of employee numbers if possible, otherwise treat as empty
             let selectedEmployees: string[] = [];
             try {
                 if (value && value.trim() !== '') {
@@ -208,21 +214,10 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                         className="px-3 py-1 border rounded bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm"
                         onClick={(e) => {
                             e.stopPropagation();
-                            // Open employee selector modal with current value
-                            let currentEmployeeNumbers: string[] = [];
-                            try {
-                                if (value && value.trim() !== '') {
-                                    currentEmployeeNumbers = JSON.parse(value);
-                                }
-                            } catch {
-                                currentEmployeeNumbers = [];
-                            }
-                            
-                            // Dispatch custom event to open modal at page level
                             window.dispatchEvent(new CustomEvent('employees:open-selector', {
                                 detail: {
-                                    currentValue: currentEmployeeNumbers,
-                                    onChange: onChange || (() => {})
+                                    currentValue: selectedEmployees,
+                                    onChange: (newEmployees: string[]) => onChange?.(JSON.stringify(newEmployees))
                                 }
                             }));
                         }}
@@ -231,20 +226,19 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                         Select Employees
                     </button>
                     <span className="text-sm text-gray-600 cursor-pointer hover:underline">
-                        {selectedEmployees.length > 0
-                            ? `${selectedEmployees.length} employee${selectedEmployees.length === 1 ? '' : 's'} selected`
-                            : 'No employees selected'}
+                        {selectedEmployees.length > 0 
+                            ? `${selectedEmployees.length} employee${selectedEmployees.length !== 1 ? 's' : ''} selected`
+                            : 'No employees selected'
+                        }
                     </span>
                     {selectedEmployees.length > 0 && (
                         <button
                             type="button"
-                            aria-label="Clear employee selections"
-                            title="Clear selections"
+                            className="text-red-600 hover:text-red-800 text-sm"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onChange?.('[]');
                             }}
-                            className="text-gray-400 hover:text-red-600"
                             {...stopAll}
                         >
                             ×
@@ -254,7 +248,6 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
             );
         }
         if (type === 'event_type') {
-            // Parse the value as a single event ID if possible, otherwise treat as empty
             let selectedEventId: string = '';
             try {
                 if (value && value.trim() !== '') {
@@ -271,7 +264,6 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                         className="px-3 py-1 border rounded bg-green-50 hover:bg-green-100 text-green-700 text-sm"
                         onClick={(e) => {
                             e.stopPropagation();
-                            // Open event type selector modal with current value
                             let currentEventId: string = '';
                             try {
                                 if (value && value.trim() !== '') {
@@ -281,7 +273,6 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                                 currentEventId = '';
                             }
                             
-                            // Dispatch custom event to open modal at page level
                             window.dispatchEvent(new CustomEvent('event-type:open-selector', {
                                 detail: {
                                     currentValue: currentEventId,
@@ -296,18 +287,17 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                     <span className="text-sm text-gray-600 cursor-pointer hover:underline">
                         {selectedEventId
                             ? `Event ID: ${selectedEventId}`
-                            : 'No event type selected'}
+                            : 'No event type selected'
+                        }
                     </span>
                     {selectedEventId && (
                         <button
                             type="button"
-                            aria-label="Clear event type selection"
-                            title="Clear selection"
+                            className="text-red-600 hover:text-red-800 text-sm"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onChange?.('');
                             }}
-                            className="text-gray-400 hover:text-red-600"
                             {...stopAll}
                         >
                             ×
@@ -316,8 +306,7 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                 </div>
             );
         }
-        if (type === 'job_positions') {
-            // Parse the value as JSON array of position codes if possible, otherwise treat as empty
+        if (type === 'positions') {
             let selectedPositions: string[] = [];
             try {
                 if (value && value.trim() !== '') {
@@ -334,21 +323,10 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                         className="px-3 py-1 border rounded bg-purple-50 hover:bg-purple-100 text-purple-700 text-sm"
                         onClick={(e) => {
                             e.stopPropagation();
-                            // Open job position selector modal with current value
-                            let currentPositionCodes: string[] = [];
-                            try {
-                                if (value && value.trim() !== '') {
-                                    currentPositionCodes = JSON.parse(value);
-                                }
-                            } catch {
-                                currentPositionCodes = [];
-                            }
-                            
-                            // Dispatch custom event to open modal at page level
-                            window.dispatchEvent(new CustomEvent('job-positions:open-selector', {
+                            window.dispatchEvent(new CustomEvent('positions:open-selector', {
                                 detail: {
-                                    currentValue: currentPositionCodes,
-                                    onChange: onChange || (() => {})
+                                    currentValue: selectedPositions,
+                                    onChange: (newPositions: string[]) => onChange?.(JSON.stringify(newPositions))
                                 }
                             }));
                         }}
@@ -357,20 +335,19 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                         Select Job Positions
                     </button>
                     <span className="text-sm text-gray-600 cursor-pointer hover:underline">
-                        {selectedPositions.length > 0
-                            ? `${selectedPositions.length} position${selectedPositions.length === 1 ? '' : 's'} selected`
-                            : 'No positions selected'}
+                        {selectedPositions.length > 0 
+                            ? `${selectedPositions.length} position${selectedPositions.length !== 1 ? 's' : ''} selected`
+                            : 'No positions selected'
+                        }
                     </span>
                     {selectedPositions.length > 0 && (
                         <button
                             type="button"
-                            aria-label="Clear position selections"
-                            title="Clear selections"
+                            className="text-red-600 hover:text-red-800 text-sm"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onChange?.('[]');
                             }}
-                            className="text-gray-400 hover:text-red-600"
                             {...stopAll}
                         >
                             ×
@@ -379,11 +356,13 @@ const ActionsNode: React.FC<NodeProps<ActionsNodeData>> = ({ id, data }) => {
                 </div>
             );
         }
+        
         return (
             <input
                 className="w-1/2 border rounded px-2 py-1 bg-white text-gray-800"
+                placeholder="value"
                 value={value}
-                onChange={(e) => onChange?.(e.target.value)}
+                onChange={(e) => onChange(e.target.value)}
                 {...stopAll}
             />
         );

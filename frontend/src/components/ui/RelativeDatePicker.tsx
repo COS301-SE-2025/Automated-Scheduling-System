@@ -140,9 +140,9 @@ export const RelativeDatePicker: React.FC<RelativeDatePickerProps> = ({
       const date = absoluteDate || formatDateTimeLocal(new Date());
       onChange(new Date(date).toISOString());
       setAbsoluteDate(date);
-    } else if (selectedOption) {
-      handleRelativeOptionChange(selectedOption);
     }
+    // Clear selection when switching modes to avoid confusion
+    setSelectedOption('');
   };
 
   const handleAbsoluteDateChange = (dateValue: string) => {
@@ -156,7 +156,23 @@ export const RelativeDatePicker: React.FC<RelativeDatePickerProps> = ({
     setSelectedOption(optionId);
     const option = relativeOptions.find(opt => opt.id === optionId);
     if (option) {
-      onChange(option.getValue());
+      // For relative dates, we pass the relative expression string to the backend
+      // The backend will parse it when the rule is executed
+      if (optionId === 'today') {
+        onChange('today');
+      } else if (optionId === 'tomorrow') {
+        onChange('tomorrow');
+      } else if (optionId === 'next_week') {
+        onChange('in 1 week');
+      } else if (optionId === 'next_month') {
+        onChange('in 1 month');
+      } else if (optionId === 'custom_days') {
+        onChange(`in ${customDays} day${customDays !== 1 ? 's' : ''}`);
+      } else if (optionId === 'custom_months') {
+        onChange(`in ${customMonths} month${customMonths !== 1 ? 's' : ''}`);
+      } else if (optionId === 'custom_years') {
+        onChange(`in ${customYears} year${customYears !== 1 ? 's' : ''}`);
+      }
     }
   };
 
@@ -164,20 +180,17 @@ export const RelativeDatePicker: React.FC<RelativeDatePickerProps> = ({
     if (type === 'days') {
       setCustomDays(value);
       if (selectedOption === 'custom_days') {
-        const option = relativeOptions.find(opt => opt.id === 'custom_days');
-        if (option) onChange(option.getValue());
+        onChange(`in ${value} day${value !== 1 ? 's' : ''}`);
       }
     } else if (type === 'months') {
       setCustomMonths(value);
       if (selectedOption === 'custom_months') {
-        const option = relativeOptions.find(opt => opt.id === 'custom_months');
-        if (option) onChange(option.getValue());
+        onChange(`in ${value} month${value !== 1 ? 's' : ''}`);
       }
     } else if (type === 'years') {
       setCustomYears(value);
       if (selectedOption === 'custom_years') {
-        const option = relativeOptions.find(opt => opt.id === 'custom_years');
-        if (option) onChange(option.getValue());
+        onChange(`in ${value} year${value !== 1 ? 's' : ''}`);
       }
     }
   };
@@ -192,7 +205,10 @@ export const RelativeDatePicker: React.FC<RelativeDatePickerProps> = ({
       }
     } else if (mode === 'relative' && selectedOption) {
       const option = relativeOptions.find(opt => opt.id === selectedOption);
-      return option ? option.getDisplayValue() : 'Select relative date';
+      if (option) {
+        return option.getDisplayValue();
+      }
+      return 'Select relative date';
     }
     return placeholder;
   };
@@ -285,8 +301,7 @@ export const RelativeDatePicker: React.FC<RelativeDatePickerProps> = ({
                   In
                 </button>
                 <input
-                  type="number"
-                  min="1"
+                  type="text"
                   value={customDays}
                   onChange={(e) => handleCustomValueChange('days', parseInt(e.target.value) || 1)}
                   disabled={disabled}
@@ -310,8 +325,7 @@ export const RelativeDatePicker: React.FC<RelativeDatePickerProps> = ({
                   In
                 </button>
                 <input
-                  type="number"
-                  min="1"
+                  type="text"
                   value={customMonths}
                   onChange={(e) => handleCustomValueChange('months', parseInt(e.target.value) || 1)}
                   disabled={disabled}
@@ -335,8 +349,7 @@ export const RelativeDatePicker: React.FC<RelativeDatePickerProps> = ({
                   In
                 </button>
                 <input
-                  type="number"
-                  min="1"
+                  type="text"
                   value={customYears}
                   onChange={(e) => handleCustomValueChange('years', parseInt(e.target.value) || 1)}
                   disabled={disabled}
