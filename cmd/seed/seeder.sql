@@ -450,7 +450,7 @@ ON CONFLICT DO NOTHING;
 INSERT INTO custom_event_schedules (custom_event_id, title, event_start_date, event_end_date, room_name, maximum_attendees, minimum_attendees, status_name, color, created_by_user_id)
 SELECT ced.custom_event_id, v.title, v.ev_start, v.ev_end, v.room, v.max, v.min, v.status, v.color, u.id FROM (
  VALUES
- ('Electrical Safety - May', 'Electrical Safety Course', NOW() + INTERVAL '10 days', NOW() + INTERVAL '10 days' + INTERVAL '8 hours', 'Room A', 20, 5, 'Scheduled', '#FF8A65'),
+ ('Electrical Safety', 'Electrical Safety Course', NOW() + INTERVAL '10 days', NOW() + INTERVAL '10 days' + INTERVAL '8 hours', 'Room A', 20, 5, 'Scheduled', '#FF8A65'),
  ('Hazmat - June', 'Hazmat Handling', NOW() + INTERVAL '25 days', NOW() + INTERVAL '27 days', 'Room B', 15, 5, 'Scheduled', '#FF7043'),
  ('Customer Service - Online', 'Customer Service Excellence', NOW() + INTERVAL '5 days', NOW() + INTERVAL '5 days' + INTERVAL '8 hours', 'Virtual', 100, 10, 'Scheduled', '#42A5F5'),
  ('QA Bootcamp - Past', 'Quality Inspection Bootcamp', NOW() - INTERVAL '60 days', NOW() - INTERVAL '58 days', 'Workshop Hall', 12, 4, 'Completed', '#66BB6A'),
@@ -463,8 +463,8 @@ ON CONFLICT DO NOTHING;
 -- Map some employees directly to schedules
 INSERT INTO event_schedule_employees (custom_event_schedule_id, employee_number)
 VALUES
-((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Electrical Safety - May' LIMIT 1),'E011'),
-((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Electrical Safety - May' LIMIT 1),'E012'),
+((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Electrical Safety' LIMIT 1),'E011'),
+((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Electrical Safety' LIMIT 1),'E012'),
 ((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Hazmat - June' LIMIT 1),'E013'),
 ((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'Customer Service - Online' LIMIT 1),'E014'),
 ((SELECT custom_event_schedule_id FROM custom_event_schedules WHERE title LIKE 'QA Bootcamp - Past' LIMIT 1),'E004')
@@ -690,7 +690,6 @@ INSERT INTO employee_competencies (employee_number, competency_id, achievement_d
 -- Historical competencies
 ('E001', 5, '2020-01-15', NULL, NULL, 'Previous experience'),
 ('E001', 6, '2021-06-20', NULL, NULL, 'Previous experience'),
-('E002', 1, '2023-08-01', '2026-08-01', NULL, 'External training'),
 ('E002', 5, '2022-03-10', NULL, NULL, 'On-the-job training'),
 ('E006', 5, '2022-03-10', NULL, NULL, 'Trained with Jane'),
 -- Competencies from the completed event (schedule_id=1)
