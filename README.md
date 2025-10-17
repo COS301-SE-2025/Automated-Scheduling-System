@@ -51,13 +51,15 @@ Automated Scheduling System - Uses external databases to import a companies info
 ## 👨‍💻 Meet the Team
 Here’s the team behind **Automated Scheduling System**:
 
-| Profile | Name | Student Number | Description | GitHub & LinkedIn |
-| :--- | :--- | :--- | :--- | :--- |
-| <img src="https://github.com/johnpeterprogramming.png" width="80"> | Mr. John-Peter Krause | u23533529 | **Team lead** | <a href="https://github.com/johnpeterprogramming">@johnpeterprogramming</a><br><a href="https://www.linkedin.com/in/johna-krause-584b351a9/">LinkedIn</a> |
-| <img src="https://github.com/MullerPietPompies.png" width="80"> | Mr. Muller Dannhauser | u23542765 | **Developer** | <a href="https://github.com/MullerPietPompies">@MullerPietPompies</a><br><a href="https://www.linkedin.com/in/muller-dannhauser-02923424b?utm_source=share&utm_campaign=share_via&utm_content=profile&utm_medium=android_app">LinkedIn</a> |
-| <img src="https://github.com/ethanwilke23.png" width="80"> | Mr. Ethan Wilke | u23577674 | **Developer** | <a href="https://github.com/ethanwilke23">@ethanwilke23</a><br><a href="https://www.linkedin.com/in/ethan-wilke-80b15b343/">LinkedIn</a> |
-| <img src="https://github.com/James-178.png" width="80"> | Mr. James Neal | u23656175 | **Developer** | <a href="https://github.com/James-178">@James-178</a><br><a href="https://www.linkedin.com/in/james-neale-babbb626a/">LinkedIn</a> |
-| <img src="https://github.com/marcopaxman.png" width="80"> | Mr. Marco Paximadis | u23590883 | **Developer** | <a href="https://github.com/marcopaxman">@marcopaxman</a><br><a href="https://za.linkedin.com/in/marco-paximadis-b64503356">LinkedIn</a> |
+You can view our profiles and LinkedIn links [here](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Our-team)
+
+| Profile | Name | Student Number | Description |
+| :--- | :--- | :--- | :--- |
+| <img src="https://github.com/johnpeterprogramming.png" width="80"> | Mr. John-Peter Krause | u23533529 | **Team lead** |
+| <img src="https://github.com/MullerPietPompies.png" width="80"> | Mr. Muller Dannhauser | u23542765 | **Developer** |
+| <img src="https://github.com/ethanwilke23.png" width="80"> | Mr. Ethan Wilke | u23577674 | **Developer** |
+| <img src="https://github.com/James-178.png" width="80"> | Mr. James Neal | u23656175 | **Developer** |
+| <img src="https://github.com/marcopaxman.png" width="80"> | Mr. Marco Paximadis | u23590883 | **Developer** |
 
 ---
 
