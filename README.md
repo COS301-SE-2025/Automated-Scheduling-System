@@ -39,18 +39,7 @@ Automated Scheduling System - Uses external databases to import a companies info
 ---
 
 ## 📚 Documentation
-| Document                               | Link                                                                                                                    |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| 📄 Architectural Requirements Document | [Architectural](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Architectural-Requirements-Document) |
-| 📄 SRS Document                        | [Requirements](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Software-Requirements-Specification)  |
-| 📄 Coding Standards Document           | [Coding standards](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Coding-Standards-Document)        |
-| 📄 User Manual                         | [User Manual](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/User-Manual)                           |
-| 📄 Deployment Model                    | [Deployment](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Deployment-Model)                       |
-| 📄 CI/CD Workflow                      | [CI/CD](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/CI-CD-Workflow)                              |
-| 📄 Domain Model                        | [Domain Model](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Domain-Model)                         |
-| 📄 Technical Installation Manual       | [Technical](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Technical-Installation-Manual)           |
-| 📄 Testing Policy                      | [Testing Policy](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki/Testing-Policy)                     |
-| 📄 Previous Documentation              | [Previous Docs (Google Drive)](https://drive.google.com/drive/folders/1qHXDQRyW6HW9QMX4W1FLxzJk8N2bGqz8)                |
+[View Our Wiki](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki)
 
 ---
 
