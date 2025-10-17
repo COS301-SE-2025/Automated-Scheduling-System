@@ -109,7 +109,7 @@ func GetEventDefinitionsHandler(c *gin.Context) {
 	var definitions []models.CustomEventDefinition
 
 	// Determine caller role; non-admin/HR users should only see their own definitions
-	_, _, isAdmin, isHR, err := currentUserContextFn(c)
+	currentUser, _, isAdmin, isHR, err := currentUserContextFn(c)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
@@ -132,7 +132,64 @@ func GetEventDefinitionsHandler(c *gin.Context) {
 			return
 		}
 	}
-	c.JSON(http.StatusOK, definitions)
+
+	// Check which definitions have linked scheduled events that grant competencies
+	definitionIds := make([]int, 0, len(definitions))
+	for _, def := range definitions {
+		definitionIds = append(definitionIds, def.CustomEventID)
+	}
+
+	hasLinkedSchedulesMap := map[int]bool{}
+	if len(definitionIds) > 0 {
+		// Check if any definition has scheduled events that have granted competencies
+		var rows []struct{ ID int }
+		DB.Raw(`
+			SELECT DISTINCT ces.custom_event_id AS id
+			FROM custom_event_schedules ces
+			INNER JOIN employee_competencies ec ON ec.granted_by_schedule_id = ces.custom_event_schedule_id
+			WHERE ces.custom_event_id IN ?
+		`, definitionIds).Scan(&rows)
+		for _, r := range rows {
+			hasLinkedSchedulesMap[r.ID] = true
+		}
+	}
+
+	// Build response DTOs with permission flags
+	type definitionDTO struct {
+		models.CustomEventDefinition
+		CanDelete           bool `json:"canDelete"`
+		HasLinkedSchedules  bool `json:"hasLinkedSchedules"`
+	}
+
+	out := make([]definitionDTO, 0, len(definitions))
+	for _, def := range definitions {
+		canManage := false
+		if isAdmin || isHR {
+			canManage = true
+		} else if currentUser != nil {
+			// Check if current user created this definition
+			emailVal, _ := c.Get("email")
+			email := ""
+			if emailVal != nil {
+				email = emailVal.(string)
+			}
+			canManage = def.CreatedBy == email
+		}
+
+		// Check if this definition has linked schedules that granted competencies
+		hasLinkedSchedules := hasLinkedSchedulesMap[def.CustomEventID]
+		
+		// Can delete only if user can manage AND the definition hasn't granted competencies through scheduled events
+		canDelete := canManage && !hasLinkedSchedules
+
+		out = append(out, definitionDTO{
+			CustomEventDefinition: def,
+			CanDelete:             canDelete,
+			HasLinkedSchedules:    hasLinkedSchedules,
+		})
+	}
+
+	c.JSON(http.StatusOK, out)
 }
 
 // UpdateEventDefinitionHandler updates an existing event definition.
@@ -230,6 +287,25 @@ func DeleteEventDefinitionHandler(c *gin.Context) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "You are not permitted to delete this event definition"})
 			return
 		}
+	}
+
+	// Check if this definition has scheduled events that have granted competencies to any employees
+	var competencyCount int64
+	if err := DB.Raw(`
+		SELECT COUNT(*)
+		FROM custom_event_schedules ces
+		INNER JOIN employee_competencies ec ON ec.granted_by_schedule_id = ces.custom_event_schedule_id
+		WHERE ces.custom_event_id = ?
+	`, definitionID).Scan(&competencyCount).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check competency grants"})
+		return
+	}
+
+	if competencyCount > 0 {
+		c.JSON(http.StatusConflict, gin.H{
+			"error": "Cannot delete this event definition as it has scheduled events that granted competencies to employees. Please contact an administrator if you need to remove this definition.",
+		})
+		return
 	}
 
 	result := DB.Delete(&models.CustomEventDefinition{}, definitionID)

@@ -230,7 +230,21 @@ const CalendarPage: React.FC = () => {
     const handleDeletionSuccess = () => {
         if (!eventToDelete) return;
         const calendarApi = calendarRef.current?.getApi();
-        calendarApi?.getEventById(eventToDelete.id)?.remove();
+        
+        // For multi-day events, we need to remove all instances with the same seriesId
+        const seriesId = eventToDelete.extendedProps.seriesId;
+        if (seriesId) {
+            // Remove all instances of this multi-day event
+            const allEvents = calendarApi?.getEvents() || [];
+            allEvents.forEach(event => {
+                if (event.extendedProps.seriesId === seriesId) {
+                    event.remove();
+                }
+            });
+        } else {
+            // Single day event, just remove the specific event
+            calendarApi?.getEventById(eventToDelete.id)?.remove();
+        }
         
         setIsDeleteModalOpen(false);
         setEventToDelete(null);
@@ -530,7 +544,7 @@ const CalendarPage: React.FC = () => {
                         setEventToDelete(null);
                     }}
                     onDeleteSuccess={handleDeletionSuccess}
-                    eventId={Number((eventToDelete as any).extendedProps?.scheduleId)}
+                    eventId={Number(eventToDelete.extendedProps?.scheduleId)}
                     eventName={eventToDelete.title}
                 />
             )}

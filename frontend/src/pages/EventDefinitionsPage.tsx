@@ -176,7 +176,24 @@ const EventDefinitionsPage: React.FC = () => {
                                             <td className="relative whitespace-nowrap py-4 pl-3 pr-4 text-right text-sm font-medium sm:pr-6">
                                                 <div className="flex items-center justify-end space-x-4">
                                                     <button onClick={() => handleEditClick(def)} className="text-custom-secondary hover:text-custom-third dark:text-dark-third dark:hover:text-dark-secondary"><Edit size={16} /></button>
-                                                    <button onClick={() => handleDeleteRequest(def)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"><Trash2 size={16} /></button>
+                                                    {def.canDelete !== false ? (
+                                                        <button onClick={() => handleDeleteRequest(def)} className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"><Trash2 size={16} /></button>
+                                                    ) : (
+                                                        <div className="relative group">
+                                                            <button 
+                                                                disabled 
+                                                                className="text-gray-400 cursor-not-allowed dark:text-gray-600"
+                                                                title={def.hasLinkedSchedules ? 'Cannot delete: this event definition has scheduled events that granted competencies to employees' : 'Cannot delete this event definition'}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                            {def.hasLinkedSchedules && (
+                                                                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 pointer-events-none">
+                                                                    Cannot delete: has scheduled events that granted competencies
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
