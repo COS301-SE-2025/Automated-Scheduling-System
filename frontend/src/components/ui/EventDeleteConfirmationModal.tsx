@@ -39,8 +39,12 @@ const EventDeleteConfirmationModal: React.FC<EventDeleteConfirmationModalProps> 
             
             if (isDefinition && err instanceof ApiError) {
                 const msg = String(err.data?.error || err.message || '').toLowerCase();
-                if ([400, 409, 423].includes(err.status) || msg.includes('in use') || msg.includes('linked') || msg.includes('foreign key')) {
-                    setError('This event definition is linked to one or more scheduled events and cannot be deleted at this time. Remove or update those schedules first.');
+                if ([400, 409, 423].includes(err.status) || msg.includes('in use') || msg.includes('linked') || msg.includes('foreign key') || msg.includes('granted competencies')) {
+                    if (msg.includes('granted competencies')) {
+                        setError('This event definition has scheduled events that granted competencies to employees and cannot be deleted. Please contact an administrator if you need to remove this definition.');
+                    } else {
+                        setError('This event definition is linked to one or more scheduled events and cannot be deleted at this time. Remove or update those schedules first.');
+                    }
                     return;
                 }
             }

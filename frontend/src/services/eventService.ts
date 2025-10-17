@@ -9,7 +9,9 @@ export interface EventDefinition {
     GrantsCertificateID?: number;
     Facilitator: string;
     CreatedBy: string;
-    CreationDate: string; 
+    CreationDate: string;
+    canDelete?: boolean;
+    hasLinkedSchedules?: boolean;
 }
 
 export type CreateEventDefinitionPayload = Omit<EventDefinition, 'CustomEventID' | 'CreatedBy' | 'CreationDate'>;

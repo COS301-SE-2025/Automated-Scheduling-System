@@ -9,6 +9,8 @@ export type EventDefinition = {
   Facilitator: string;
   CreatedBy: string;
   CreationDate: string;
+  canDelete?: boolean;
+  hasLinkedSchedules?: boolean;
 };
 
 export type CreateEventDefinitionPayload = {
