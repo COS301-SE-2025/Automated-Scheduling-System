@@ -214,7 +214,7 @@ func generateResetLinkHandler(c *gin.Context) {
 
 	// Determine base URL based on environment
 	baseURL := "http://localhost:5173"
-	if os.Getenv("ENVIRONMENT") == "production" {
+	if os.Getenv("APP_ENV") == "production" {
 		baseURL = "https://schedulingsystem.app"
 	}
 	fullURL := fmt.Sprintf("%s/reset-password/%s", baseURL, resetToken)
