@@ -117,6 +117,12 @@ func TestGetEventDefinitionsHandler_Unit(t *testing.T) {
 			AddRow(1, "Event 1").
 			AddRow(2, "Event 2"))
 
+	// Expect competency checking query
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT DISTINCT ces.custom_event_id AS id FROM custom_event_schedules ces INNER JOIN employee_competencies ec ON ec.granted_by_schedule_id = ces.custom_event_schedule_id WHERE ces.custom_event_id IN ($1,$2)`)).
+		WithArgs(1, 2).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}))
+
 	c, rec := ctxWithJSON(t, db, "GET", "/event-definitions", nil)
 	GetEventDefinitionsHandler(c)
 
@@ -141,6 +147,12 @@ func TestGetEventDefinitionsHandler_NonAdmin_FilteredByCreator_Unit(t *testing.T
 		WithArgs(testUserEmail).
 		WillReturnRows(sqlmock.NewRows([]string{"custom_event_id", "event_name", "created_by"}).
 			AddRow(7, "Mine", testUserEmail))
+
+	// Expect competency checking query
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT DISTINCT ces.custom_event_id AS id FROM custom_event_schedules ces INNER JOIN employee_competencies ec ON ec.granted_by_schedule_id = ces.custom_event_schedule_id WHERE ces.custom_event_id IN ($1)`)).
+		WithArgs(7).
+		WillReturnRows(sqlmock.NewRows([]string{"id"}))
 
 	GetEventDefinitionsHandler(c)
 
@@ -235,6 +247,12 @@ func TestDeleteEventDefinitionHandler_Unit(t *testing.T) {
 		`SELECT * FROM "custom_event_definitions" WHERE "custom_event_definitions"."custom_event_id" = $1 ORDER BY "custom_event_definitions"."custom_event_id" LIMIT $2`)).
 		WithArgs(defID, 1).
 		WillReturnRows(sqlmock.NewRows([]string{"custom_event_id"}).AddRow(defID))
+
+	// Expect competency check query
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT COUNT(*) FROM custom_event_schedules ces INNER JOIN employee_competencies ec ON ec.granted_by_schedule_id = ces.custom_event_schedule_id WHERE ces.custom_event_id = $1`)).
+		WithArgs(defID).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 
 	mock.ExpectBegin()
 	mock.ExpectExec(regexp.QuoteMeta(
