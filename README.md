@@ -1,4 +1,4 @@
-# 🚀 Automated Scheduling System
+ # 🚀 Automated Scheduling System
 
 <p align="center">
   <img width="240" height="240" alt="project_logo" src="https://github.com/user-attachments/assets/c015407d-a308-48f9-9132-07e2740d9324" />
@@ -39,11 +39,15 @@ Automated Scheduling System - Uses external databases to import a companies info
 ---
 
 ## 📚 Documentation
+
 [View Our Wiki](https://github.com/COS301-SE-2025/Automated-Scheduling-System/wiki)
+
+[Previous Documentation](https://drive.google.com/drive/folders/1qHXDQRyW6HW9QMX4W1FLxzJk8N2bGqz8)
 
 ---
 
 ## 🎥 Demo Resources
+
 [Demo Videos](https://drive.google.com/drive/folders/1-AIj8M8HnddjAj53q7_RJ0r-N1jQw4Xd?usp=drive_link)
 
 ---
@@ -86,15 +90,6 @@ You can view our profiles and LinkedIn links [here](https://github.com/COS301-SE
 | **Mobile**                          | REACT Native, TypeScript, Expo       | <img src="https://skillicons.dev/icons?i=react,typescript"/> <img width="50" height="50" alt="image" src="https://github.com/user-attachments/assets/404dfdbe-5c0e-4c43-b2f5-1a86d0e921a5" /> |
 
 ---
-
-## 📋 Demo 4 Checklist (Due: 29 September 2025)
-
--   [x] **Live Demo**
-    -   [x] 100% completed project with link to access your App
-    -   [x] Non-functional requirements testing (e.g., performance, availability & usability)
-    -   [x] Extra feature (Wow factors)
--   [x] **Required Documents**
-    -   [x] Deployment Model
 
 # 👨‍💻 Team name: 
 
